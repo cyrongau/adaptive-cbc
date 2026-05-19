@@ -32,7 +32,8 @@ import {
   Building2,
   Shield,
   ShoppingBag,
-  Users
+  Users,
+  Wallet,
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from '@/components/NotificationBell';
@@ -79,6 +80,7 @@ const SIDEBAR_ITEMS_TUTOR = [
   { label: 'Students', icon: GraduationCap, href: '/students' },
   { label: 'Sessions', icon: BookOpen, href: '/sessions' },
   { label: 'KYC Verification', icon: Shield, href: '/kyc' },
+  { label: 'Financial Hub', icon: Wallet, href: '/financial-hub' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Progress', icon: BarChart2, href: '/progress' },
   { label: 'Materials', icon: FileText, href: '/materials' },
@@ -95,6 +97,7 @@ const SIDEBAR_ITEMS_TEACHER = [
   { label: 'Assignments', icon: PenTool, href: '/assignments' },
   { label: 'School', icon: Building2, href: '/school' },
   { label: 'Schedule', icon: Calendar, href: '/schedule' },
+  { label: 'Financial Hub', icon: Wallet, href: '/financial-hub' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Materials', icon: FileText, href: '/materials' },

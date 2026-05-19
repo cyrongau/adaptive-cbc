@@ -9,6 +9,7 @@ import {
   CreateProductDto, UpdateProductDto, AddToCartDto, UpdateCartItemDto, CreateOrderDto, UpdateOrderStatusDto,
 } from './dto/store.dto';
 import { UserRole } from '../users/entities/user.entity';
+import { FinancialService } from '../financial/financial.service';
 
 @Injectable()
 export class StoreService {
@@ -23,6 +24,7 @@ export class StoreService {
     private orderRepo: Repository<Order>,
     @InjectRepository(OrderItem)
     private orderItemRepo: Repository<OrderItem>,
+    private financialService: FinancialService,
   ) {}
 
   async createProduct(dto: CreateProductDto, userId: string): Promise<Product> {
@@ -248,6 +250,15 @@ export class StoreService {
         if (product) {
           product.salesCount += item.quantity;
           await this.productRepo.save(product);
+
+          if (product.createdBy) {
+            await this.financialService.recordSale({
+              sellerId: product.createdBy,
+              amount: Number(item.unitPrice) * item.quantity,
+              orderId: order.id,
+              productTitle: product.title,
+            });
+          }
         }
       }
     }

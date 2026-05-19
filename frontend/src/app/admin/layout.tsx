@@ -29,6 +29,7 @@ import {
   UserCircle,
   Crown,
   UserPlus,
+  Wallet,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -38,6 +39,7 @@ const SUPER_ADMIN_SIDEBAR = [
   { label: 'KYC Applications', icon: UserCheck, href: '/admin/kyc-applications' },
   { label: 'KYC Verification', icon: Shield, href: '/admin/verification' },
   { label: 'Institutions', icon: Building2, href: '/admin/institutions' },
+  { label: 'Financial Oversight', icon: Wallet, href: '/admin/financial' },
   { label: 'Content Moderation', icon: BookOpen, href: '/admin/content' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
