@@ -15,13 +15,34 @@ export class InstitutionApplicationDto {
   @IsString()
   county: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  address: string;
+  address?: string;
 
   @ApiProperty()
   @IsString()
   phone: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  registrationCertificateUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  tscAppointmentUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  adminIdNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  additionalNotes?: string;
 }
 
 export class CreateUserDto {
@@ -185,4 +206,10 @@ export class DemoteUserDto {
   @ApiProperty({ enum: UserRole })
   @IsEnum(UserRole)
   newRole: UserRole;
+}
+
+export class ResubmitKycDto {
+  @ApiProperty({ type: InstitutionApplicationDto })
+  @IsObject()
+  institutionApplication: InstitutionApplicationDto;
 }

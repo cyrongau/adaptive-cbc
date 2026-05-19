@@ -15,7 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsEmail, IsOptional, IsArray, MinLength } from 'class-validator';
 import { UsersService } from './users.service';
-import { UpdateUserDto, CompleteOnboardingDto, SuspendUserDto, DemoteUserDto } from './dto/user.dto';
+import { UpdateUserDto, CompleteOnboardingDto, SuspendUserDto, DemoteUserDto, ResubmitKycDto } from './dto/user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -226,6 +226,14 @@ export class UsersController {
   @ApiOperation({ summary: 'Reject KYC application (super admin only)' })
   async rejectKyc(@Param('id') id: string, @Body() dto: ApproveKycDto) {
     return this.usersService.rejectKycApplication(id, dto.reason || 'Application rejected');
+  }
+
+  @Post('kyc/resubmit')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Resubmit KYC application (institution admin)' })
+  async resubmitKyc(@Request() req, @Body() dto: ResubmitKycDto) {
+    return this.usersService.resubmitKycApplication(req.user.id, dto.institutionApplication);
   }
 
   @Post('teachers/create')

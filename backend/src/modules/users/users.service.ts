@@ -4,8 +4,9 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, OnboardingStatus, KycStatus } from './entities/user.entity';
-import { CreateUserDto, UpdateUserDto, CompleteOnboardingDto } from './dto/user.dto';
+import { CreateUserDto, UpdateUserDto, CompleteOnboardingDto, InstitutionApplicationDto } from './dto/user.dto';
 import { InstitutionsService } from '../institutions/institutions.service';
+import { EmailService } from '../../common/email.service';
 
 @Injectable()
 export class UsersService {
@@ -15,6 +16,7 @@ export class UsersService {
     private configService: ConfigService,
     @Inject(forwardRef(() => InstitutionsService))
     private institutionsService: InstitutionsService,
+    private emailService: EmailService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -208,6 +210,16 @@ export class UsersService {
       await this.institutionsService.addAdmin(institution.id, userId, 'admin');
     }
 
+    try {
+      await this.emailService.sendEmail(
+        user.email,
+        'Your Institution Application Has Been Approved! 🎉',
+        `Dear ${user.firstName} ${user.lastName},\n\nGreat news! Your institution application has been approved. You now have full access to the admin dashboard.\n\nYou can now manage your institution, register students, and invite teachers.\n\nBest regards,\nAdaptive CBC Learning Platform`,
+      );
+    } catch (err) {
+      console.error('Failed to send approval email:', err);
+    }
+
     return savedUser;
   }
 
@@ -218,6 +230,37 @@ export class UsersService {
     }
     user.kycStatus = KycStatus.REJECTED;
     user.rejectionReason = reason;
+    const savedUser = await this.usersRepository.save(user);
+
+    try {
+      await this.emailService.sendEmail(
+        user.email,
+        'Institution Application Update',
+        `Dear ${user.firstName} ${user.lastName},\n\nYour institution application has been reviewed. Unfortunately, it was not approved at this time.\n\nReason: ${reason}\n\nYou can resubmit your application with the required corrections from your dashboard.\n\nBest regards,\nAdaptive CBC Learning Platform`,
+      );
+    } catch (err) {
+      console.error('Failed to send rejection email:', err);
+    }
+
+    return savedUser;
+  }
+
+  async resubmitKycApplication(userId: string, applicationData: InstitutionApplicationDto): Promise<User> {
+    const user = await this.findOne(userId);
+    if (user.role !== UserRole.INSTITUTION_ADMIN) {
+      throw new BadRequestException('Only institution admins can resubmit applications');
+    }
+    if (user.kycStatus !== KycStatus.REJECTED) {
+      throw new BadRequestException('Only rejected applications can be resubmitted');
+    }
+
+    user.institutionApplication = {
+      ...applicationData,
+      submittedAt: new Date().toISOString(),
+    } as any;
+    user.kycStatus = KycStatus.PENDING;
+    user.rejectionReason = null;
+
     return this.usersRepository.save(user);
   }
 

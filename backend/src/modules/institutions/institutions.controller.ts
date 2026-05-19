@@ -522,4 +522,51 @@ export class InstitutionsController {
   ) {
     return this.institutionsService.acceptPlacement(id, data.studentId, data.admissionNumber, data.stream || null, req.user.id);
   }
+
+  @Post('upload-document')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadDir = join(process.cwd(), 'uploads', 'kyc-documents');
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          cb(null, uploadDir);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = `${req.user.id}-${Date.now()}${extname(file.originalname)}`;
+          cb(null, uniqueSuffix);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.originalname.match(/\.(pdf|jpg|jpeg|png)$/i)) {
+          return cb(new Error('Only PDF, JPG, and PNG files are allowed!'), false);
+        }
+        cb(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Upload KYC document (certificate, TSC letter)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadKycDocument(@UploadedFile() file: Express.Multer.File) {
+    const url = `/uploads/kyc-documents/${file.filename}`;
+    return { url, message: 'Document uploaded successfully' };
+  }
 }
