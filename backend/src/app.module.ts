@@ -25,6 +25,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { LessonsModule } from './modules/lessons/lessons.module';
+import { StoreModule } from './modules/store/store.module';
 import { DatabaseSeeder } from './common/database.seeder';
 import { PromotionTaskService } from './common/promotion-task.service';
 import { User } from './modules/users/entities/user.entity';
@@ -84,6 +85,7 @@ import { User } from './modules/users/entities/user.entity';
     EnrollmentModule,
     CoursesModule,
     LessonsModule,
+    StoreModule,
     TypeOrmModule.forFeature([User]),
   ],
   controllers: [],
