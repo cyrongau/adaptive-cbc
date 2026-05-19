@@ -1,0 +1,31 @@
+{
+  "name": "adaptive-cbc-ocr-service",
+  "version": "1.0.0",
+  "description": "OCR Service for Adaptive CBC Learning Platform",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.1",
+    "axios": "^1.6.5",
+    "pdf2pic": "^2.1.4",
+    "tesseract.js": "^5.0.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/multer": "^1.4.11",
+    "@types/uuid": "^9.0.7",
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}
