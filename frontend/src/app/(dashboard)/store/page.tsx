@@ -106,6 +106,15 @@ export default function StorePage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<string>('m_pesa');
 
+  const isSeller = ['teacher', 'tutor', 'institution_admin', 'super_admin'].includes(user?.role || '');
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [productForm, setProductForm] = useState({
+    title: '', description: '', productType: 'e_book', category: 'textbooks',
+    price: 0, originalPrice: 0, stock: 100, grade: 0, subject: '', publisher: '',
+    tags: '', thumbnailUrl: '',
+  });
+  const [creatingProduct, setCreatingProduct] = useState(false);
+
   useEffect(() => { setIsMounted(true); }, []);
   useEffect(() => {
     if (isMounted) {
@@ -198,6 +207,33 @@ export default function StorePage() {
     }
   };
 
+  const createProduct = async () => {
+    if (!productForm.title || !productForm.price) {
+      toast.error('Title and price are required');
+      return;
+    }
+    setCreatingProduct(true);
+    try {
+      await api.post('/store/products', {
+        ...productForm,
+        price: Number(productForm.price),
+        originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
+        stock: Number(productForm.stock),
+        grade: productForm.grade || undefined,
+        tags: productForm.tags ? productForm.tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+        status: 'published',
+      });
+      toast.success('Product published successfully');
+      setShowAddProduct(false);
+      setProductForm({ title: '', description: '', productType: 'e_book', category: 'textbooks', price: 0, originalPrice: 0, stock: 100, grade: 0, subject: '', publisher: '', tags: '', thumbnailUrl: '' });
+      loadProducts();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to create product');
+    } finally {
+      setCreatingProduct(false);
+    }
+  };
+
   const getProductTypeIcon = (type: string) => {
     switch (type) {
       case 'e_book': return Download;
@@ -236,18 +272,29 @@ export default function StorePage() {
           <h1 className="text-3xl font-bold text-slate-900">Learning Store</h1>
           <p className={`${theme.mutedText} mt-1`}>E-books, textbooks, revision kits, and learning tools</p>
         </div>
-        <button
-          onClick={() => setActiveTab('cart')}
-          className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all ${theme.cardBg} border ${theme.cardBorder} hover:shadow-md`}
-        >
-          <ShoppingCart className="w-5 h-5" />
-          <span className="font-medium">Cart</span>
-          {cartItemCount > 0 && (
-            <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-              {cartItemCount}
-            </span>
+        <div className="flex items-center gap-3">
+          {isSeller && (
+            <button
+              onClick={() => setShowAddProduct(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#47a263] text-white rounded-lg font-medium hover:bg-[#3d8c54] transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Add Product
+            </button>
           )}
-        </button>
+          <button
+            onClick={() => setActiveTab('cart')}
+            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all ${theme.cardBg} border ${theme.cardBorder} hover:shadow-md`}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            <span className="font-medium">Cart</span>
+            {cartItemCount > 0 && (
+              <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                {cartItemCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 border-b border-slate-200">
@@ -718,6 +765,47 @@ export default function StorePage() {
                   >
                     Close
                   </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showAddProduct && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAddProduct(false)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-slate-900">Add Product</h2>
+                  <button onClick={() => setShowAddProduct(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="space-y-4">
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Title *</label><input type="text" value={productForm.title} onChange={(e) => setProductForm({ ...productForm, title: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="Grade 4 Mathematics Textbook" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Description</label><textarea value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} rows={3} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="Detailed description..." /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Product Type *</label><select value={productForm.productType} onChange={(e) => setProductForm({ ...productForm, productType: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30">{PRODUCT_TYPES.filter((t) => t.value !== 'all').map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Category *</label><select value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30">{CATEGORIES.filter((c) => c.value !== 'all').map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Price (KES) *</label><input type="number" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: Number(e.target.value) })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="499.99" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Original Price (optional)</label><input type="number" value={productForm.originalPrice || ''} onChange={(e) => setProductForm({ ...productForm, originalPrice: Number(e.target.value) || 0 })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="699.99" /></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Stock</label><input type="number" value={productForm.stock} onChange={(e) => setProductForm({ ...productForm, stock: Number(e.target.value) })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Grade</label><select value={productForm.grade} onChange={(e) => setProductForm({ ...productForm, grade: Number(e.target.value) })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30"><option value={0}>All Grades</option>{GRADES.map((g) => <option key={g} value={g}>Grade {g}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Subject</label><input type="text" value={productForm.subject} onChange={(e) => setProductForm({ ...productForm, subject: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="Mathematics" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Publisher</label><input type="text" value={productForm.publisher} onChange={(e) => setProductForm({ ...productForm, publisher: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="KLB Publishers" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Tags (comma-separated)</label><input type="text" value={productForm.tags} onChange={(e) => setProductForm({ ...productForm, tags: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="math, grade4, cbc" /></div>
+                  </div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Thumbnail URL</label><input type="text" value={productForm.thumbnailUrl} onChange={(e) => setProductForm({ ...productForm, thumbnailUrl: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="https://example.com/image.jpg" /></div>
+                  <div className="flex gap-3 pt-4 border-t border-slate-200">
+                    <button onClick={createProduct} disabled={creatingProduct} className="flex-1 py-3 bg-[#47a263] text-white rounded-xl font-bold hover:bg-[#3d8c54] disabled:opacity-50 flex items-center justify-center gap-2">{creatingProduct ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}Publish Product</button>
+                    <button onClick={() => setShowAddProduct(false)} className="px-6 py-3 border border-slate-200 rounded-xl font-medium hover:bg-slate-50">Cancel</button>
+                  </div>
                 </div>
               </div>
             </motion.div>
