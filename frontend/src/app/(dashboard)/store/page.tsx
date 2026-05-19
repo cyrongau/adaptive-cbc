@@ -85,7 +85,8 @@ const GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 export default function StorePage() {
   const { user } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
-  const theme = getTheme(user?.role || 'student');
+  const isCandidate = user?.role === 'student' && (Number(user?.grade) === 6 || Number(user?.grade) === 9);
+  const theme = getTheme(user?.role || 'student', isCandidate);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Cart | null>(null);
