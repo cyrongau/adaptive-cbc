@@ -133,6 +133,15 @@ export class DigitalLibraryController {
     return this.digitalLibraryService.findAllPapersForModeration(params);
   }
 
+  @Get('admin/papers/:id/questions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all questions for a paper (admin moderation)' })
+  async getModerationQuestions(@Param('id') id: string) {
+    return this.digitalLibraryService.getQuestionsForModeration(id);
+  }
+
   @Post('papers/:id/download')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')

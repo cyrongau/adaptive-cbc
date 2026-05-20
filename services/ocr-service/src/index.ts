@@ -4,6 +4,7 @@ import multer from 'multer';
 import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { createWorker } from 'tesseract.js';
+import { fromPath } from 'pdf2pic';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -52,6 +53,7 @@ interface OCRJob {
   fileName: string;
   mimeType: string;
   filePath: string;
+  progress: number;
   createdAt: Date;
   startedAt?: Date;
   completedAt?: Date;
@@ -70,7 +72,7 @@ interface ExtractedQuestion {
   text: string;
   options: { id: string; text: string; isCorrect: boolean }[];
   correctAnswer?: string;
-  topic?: string;
+  questionType: 'mcq' | 'structured' | 'true_false' | 'fill_blank';
   confidence: number;
 }
 
@@ -92,64 +94,130 @@ async function performOCR(imagePath: string): Promise<{ text: string; confidence
   }
 }
 
+async function convertPdfToImages(pdfPath: string, outputDir: string): Promise<string[]> {
+  const options = {
+    density: 300,
+    saveFilename: 'page',
+    savePath: outputDir,
+    format: 'png',
+    width: 2480,
+    height: 3508,
+  };
+
+  const storeAsImage = fromPath(pdfPath, options);
+  const pages: string[] = [];
+
+  try {
+    const pageCount = (await storeAsImage.bulk(-1)).length;
+    for (let i = 1; i <= Math.min(pageCount, 20); i++) {
+      const result = await storeAsImage(i);
+      if (result.path) {
+        pages.push(result.path);
+      }
+    }
+  } catch (err) {
+    console.error('PDF conversion error:', err);
+  }
+
+  return pages;
+}
+
 function extractQuestionsFromText(text: string): ExtractedQuestion[] {
   const questions: ExtractedQuestion[] = [];
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const paragraphs = text.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 10);
 
-  let currentQuestion: ExtractedQuestion | null = null;
   let questionIndex = 0;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const questionMatch = line.match(/^(\d+)[\.\)\-]\s+(.+)/);
-    const optionMatch = line.match(/^([a-dA-D])[\.\)\s]+(.+)/);
-    const answerMatch = line.match(/^(answer|key|correct)[\s:]+([a-dA-D])/i);
+  for (const paragraph of paragraphs) {
+    const lines = paragraph.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-    if (questionMatch) {
-      if (currentQuestion) {
-        questions.push(currentQuestion);
+    for (const line of lines) {
+      const numberedQuestion = line.match(/^(\d+)[\.\)\-]\s+(.+)/);
+      const letteredQuestion = line.match(/^([A-Z])[\.\)\-]\s+(.+)/);
+
+      if (numberedQuestion || letteredQuestion) {
+        questionIndex++;
+        const questionText = numberedQuestion ? numberedQuestion[2] : letteredQuestion![2];
+        const q: ExtractedQuestion = {
+          id: `q_${questionIndex}`,
+          text: questionText,
+          options: [],
+          questionType: 'structured',
+          confidence: 0.65,
+        };
+
+        const paraLines = paragraph.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const lineIdx = paraLines.indexOf(line);
+
+        for (let j = lineIdx + 1; j < paraLines.length; j++) {
+          const nextLine = paraLines[j];
+          const optionMatch = nextLine.match(/^([a-dA-D])[\.\)\s]+\s*(.+)/);
+          const answerMatch = nextLine.match(/^(answer|key|correct|solution)[\s:]+([a-dA-D])/i);
+          const trueFalseMatch = nextLine.match(/^(true|false|t|f)[\s\.)]/i);
+
+          if (optionMatch) {
+            if (q.options.length === 0) {
+              q.questionType = 'mcq';
+              q.confidence = 0.75;
+            }
+            q.options.push({
+              id: optionMatch[1].toLowerCase(),
+              text: optionMatch[2],
+              isCorrect: false,
+            });
+          } else if (answerMatch) {
+            const correctId = answerMatch[2].toLowerCase();
+            q.correctAnswer = correctId;
+            q.options = q.options.map(o => ({ ...o, isCorrect: o.id === correctId }));
+            q.confidence = 0.85;
+          } else if (trueFalseMatch && q.options.length === 0) {
+            q.questionType = 'true_false';
+            q.options = [
+              { id: 'a', text: 'True', isCorrect: trueFalseMatch[1].toLowerCase().startsWith('t') },
+              { id: 'b', text: 'False', isCorrect: !trueFalseMatch[1].toLowerCase().startsWith('t') },
+            ];
+            q.confidence = 0.7;
+          } else if (nextLine.match(/^(\d+)[\.\)\-]/) || nextLine.match(/^([A-Z])[\.\)\-]/)) {
+            break;
+          }
+        }
+
+        if (q.options.length === 0 && q.text.length > 10) {
+          const fillBlankMatch = q.text.match(/_____|blank|\(\s*\)/i);
+          if (fillBlankMatch) {
+            q.questionType = 'fill_blank';
+          }
+        }
+
+        questions.push(q);
       }
-      questionIndex++;
-      currentQuestion = {
-        id: `q_${questionIndex}`,
-        text: questionMatch[2],
-        options: [],
-        confidence: 0.7,
-      };
-    } else if (optionMatch && currentQuestion) {
-      const id = optionMatch[1].toLowerCase();
-      const text = optionMatch[2];
-      currentQuestion.options.push({ id, text, isCorrect: false });
-    } else if (answerMatch && currentQuestion) {
-      const correctId = answerMatch[2].toLowerCase();
-      currentQuestion.correctAnswer = correctId;
-      currentQuestion.options = currentQuestion.options.map(o => ({
-        ...o,
-        isCorrect: o.id === correctId,
-      }));
-      currentQuestion.confidence = 0.85;
     }
   }
 
-  if (currentQuestion) {
-    questions.push(currentQuestion);
+  if (questions.length === 0) {
+    questions.push(...generateFallbackQuestions(text));
   }
 
   return questions;
 }
 
 function generateFallbackQuestions(text: string): ExtractedQuestion[] {
-  const sentences = text.split(/[.\n]+/).map(s => s.trim()).filter(s => s.length > 20);
+  const sentences = text.split(/[.\n]+/).map(s => s.trim()).filter(s => s.length > 25 && s.length < 200);
   const questions: ExtractedQuestion[] = [];
 
-  for (let i = 0; i < Math.min(sentences.length, 10); i++) {
+  const keyTerms = text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
+  const uniqueTerms = [...new Set(keyTerms)].filter(t => t.length > 3).slice(0, 10);
+
+  for (let i = 0; i < Math.min(sentences.length, 8); i++) {
     const sentence = sentences[i];
     const words = sentence.split(' ');
-    if (words.length < 4) continue;
+    if (words.length < 5) continue;
 
-    const blankIndex = Math.floor(words.length * 0.6);
-    const missingWord = words[blankIndex];
-    const distractors = words.filter((w, idx) => idx !== blankIndex && w.length > 3 && w !== missingWord).slice(0, 3);
+    const blankIndex = Math.floor(words.length * 0.5);
+    const missingWord = words[blankIndex].replace(/[^a-zA-Z]/g, '');
+    if (missingWord.length < 3) continue;
+
+    const distractors = uniqueTerms.filter(t => t !== missingWord && t.length > 3).slice(0, 3);
 
     const options = [
       { id: 'a', text: missingWord, isCorrect: true },
@@ -160,10 +228,11 @@ function generateFallbackQuestions(text: string): ExtractedQuestion[] {
 
     questions.push({
       id: `q_${i + 1}`,
-      text: `Complete: "${words.slice(0, blankIndex).join(' ')} _____ ${words.slice(blankIndex + 1).join(' ')}"`,
+      text: `Fill in the blank: "${words.slice(0, blankIndex).join(' ')} _____ ${words.slice(blankIndex + 1).join(' ')}"`,
       options,
       correctAnswer: options.find(o => o.isCorrect)?.id,
-      confidence: 0.5,
+      questionType: 'fill_blank',
+      confidence: 0.45,
     });
   }
 
@@ -176,6 +245,7 @@ async function processJob(jobId: string): Promise<void> {
 
   job.status = 'processing';
   job.startedAt = new Date();
+  job.progress = 5;
   jobs.set(jobId, job);
 
   try {
@@ -183,31 +253,71 @@ async function processJob(jobId: string): Promise<void> {
     let fullText = '';
     let totalConfidence = 0;
     let pageCount = 0;
+    const imagePaths: string[] = [];
 
     if (job.mimeType === 'application/pdf') {
-      fullText = 'PDF content detected. Please convert PDF pages to images first for OCR processing.';
-      pageCount = 1;
-      totalConfidence = 0.6;
+      const pdfImageDir = path.join(TEMP_DIR, `pdf-${jobId}`);
+      if (!fs.existsSync(pdfImageDir)) {
+        fs.mkdirSync(pdfImageDir, { recursive: true });
+      }
+
+      job.progress = 10;
+      jobs.set(jobId, job);
+
+      const pdfImages = await convertPdfToImages(job.filePath, pdfImageDir);
+      pageCount = pdfImages.length;
+
+      if (pageCount === 0) {
+        throw new Error('Failed to convert PDF to images. Ensure GraphicsMagick is installed.');
+      }
+
+      job.progress = 20;
+      jobs.set(jobId, job);
+
+      for (let i = 0; i < pdfImages.length; i++) {
+        const { text, confidence } = await performOCR(pdfImages[i]);
+        fullText += `\n--- Page ${i + 1} ---\n${text}`;
+        totalConfidence += confidence;
+        imagePaths.push(pdfImages[i]);
+
+        job.progress = 20 + Math.round((i + 1) / pdfImages.length * 60);
+        jobs.set(jobId, job);
+      }
+
+      for (const imgPath of imagePaths) {
+        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+      }
+      if (fs.existsSync(pdfImageDir)) fs.rmSync(pdfImageDir, { recursive: true });
     } else {
+      job.progress = 30;
+      jobs.set(jobId, job);
+
       const { text, confidence } = await performOCR(job.filePath);
       fullText = text;
       totalConfidence = confidence;
       pageCount = 1;
+
+      job.progress = 80;
+      jobs.set(jobId, job);
     }
 
+    job.progress = 85;
+    jobs.set(jobId, job);
+
     let questions = extractQuestionsFromText(fullText);
-    if (questions.length === 0) {
-      questions = generateFallbackQuestions(fullText);
-    }
+
+    job.progress = 95;
+    jobs.set(jobId, job);
 
     const processingTime = Math.round((Date.now() - startTime) / 1000);
 
     job.status = 'completed';
+    job.progress = 100;
     job.completedAt = new Date();
     job.result = {
       text: fullText,
       pages: pageCount,
-      confidence: Math.round(totalConfidence) / 100,
+      confidence: pageCount > 0 ? Math.round(totalConfidence / pageCount) / 100 : 0,
       questions,
       processingTime,
     };
@@ -215,6 +325,7 @@ async function processJob(jobId: string): Promise<void> {
     jobs.set(jobId, job);
   } catch (error: any) {
     job.status = 'failed';
+    job.progress = 0;
     job.error = error.message || 'OCR processing failed';
     job.completedAt = new Date();
     jobs.set(jobId, job);
@@ -237,6 +348,7 @@ app.post('/upload', upload.single('file'), async (req: Request, res: Response) =
     fileName: req.file.originalname,
     mimeType: req.file.mimetype,
     filePath: req.file.path,
+    progress: 0,
     createdAt: new Date(),
   };
 
@@ -261,6 +373,7 @@ app.get('/status/:jobId', (req: Request, res: Response) => {
   const response: any = {
     jobId: job.id,
     status: job.status,
+    progress: job.progress,
     fileName: job.fileName,
     createdAt: job.createdAt,
   };
@@ -272,8 +385,8 @@ app.get('/status/:jobId', (req: Request, res: Response) => {
       confidence: job.result.confidence,
       questionCount: job.result.questions.length,
       processingTime: job.result.processingTime,
+      questions: job.result.questions,
     };
-    response.questions = job.result.questions;
   }
 
   if (job.status === 'failed') {
@@ -287,6 +400,7 @@ app.get('/jobs', (req: Request, res: Response) => {
   const allJobs = Array.from(jobs.values()).map(j => ({
     id: j.id,
     status: j.status,
+    progress: j.progress,
     fileName: j.fileName,
     createdAt: j.createdAt,
     completedAt: j.completedAt,
@@ -297,7 +411,7 @@ app.get('/jobs', (req: Request, res: Response) => {
 app.delete('/jobs/:jobId', (req: Request, res: Response) => {
   const job = jobs.get(req.params.jobId);
   if (!job) {
-    return res.status(404).json({ error: 'Job not found' });
+    return res.status(400).json({ error: 'Job not found' });
   }
   if (job.filePath && fs.existsSync(job.filePath)) {
     fs.unlinkSync(job.filePath);
@@ -312,8 +426,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🔍 OCR Service running on port ${PORT}`);
-  console.log(`📁 Temp directory: ${TEMP_DIR}`);
+  console.log(`OCR Service running on port ${PORT}`);
+  console.log(`Temp directory: ${TEMP_DIR}`);
 });
 
 export default app;

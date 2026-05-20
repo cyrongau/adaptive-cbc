@@ -146,7 +146,7 @@ export default function LibraryPage() {
 
   const pollOcrStatus = async (jobId: string) => {
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 60;
     const poll = async () => {
       try {
         const response = await api.get(`/digital-library/ocr/status/${jobId}`);
@@ -155,7 +155,11 @@ export default function LibraryPage() {
         if (status === 'completed') {
           setOcrStatus('completed');
           setOcrExtractedQuestions(result?.questions || []);
-          toast.success('OCR processing complete!');
+          if (result?.questions?.length > 0) {
+            toast.success(`Extracted ${result.questions.length} question(s)!`);
+          } else {
+            toast.success('OCR complete. No questions detected — you can add them manually.');
+          }
           return;
         }
         if (status === 'failed') {
@@ -169,7 +173,7 @@ export default function LibraryPage() {
           setTimeout(poll, 5000);
         } else {
           setOcrStatus('error');
-          setOcrErrorMessage('OCR processing timed out after 2.5 minutes');
+          setOcrErrorMessage('OCR processing timed out after 5 minutes');
           toast.error('OCR processing timed out');
         }
       } catch (error: any) {
@@ -661,16 +665,21 @@ export default function LibraryPage() {
               <div className="space-y-4 py-8 text-center">
                 <Loader2 className="w-12 h-12 text-emerald-600 mx-auto animate-spin" />
                 <h3 className="text-lg font-semibold text-slate-900">
-                  {ocrStatus === 'uploading' ? 'Uploading document...' : 'Processing with AI...'}
+                  {ocrStatus === 'uploading' ? 'Uploading document...' : 'Scanning & extracting questions...'}
                 </h3>
-                <p className="text-sm text-slate-500">Extracting questions from your document</p>
+                <p className="text-sm text-slate-500">
+                  {ocrProgress < 30 ? 'Reading document text...' :
+                   ocrProgress < 60 ? 'Identifying questions and options...' :
+                   ocrProgress < 90 ? 'Classifying question types...' :
+                   'Finalizing results...'}
+                </p>
                 <div className="w-full bg-slate-200 rounded-full h-3 max-w-md mx-auto">
                   <div
                     className="bg-emerald-600 h-3 rounded-full transition-all duration-500"
                     style={{ width: `${ocrProgress}%` }}
                   />
                 </div>
-                <p className="text-xs text-slate-400">{ocrProgress}% complete</p>
+                <p className="text-sm font-medium text-slate-600">{ocrProgress}% complete</p>
               </div>
             )}
 
@@ -681,24 +690,55 @@ export default function LibraryPage() {
                   <CheckCircle className="w-5 h-5" />
                   <h3 className="font-semibold">OCR Complete</h3>
                 </div>
-                <p className="text-sm text-slate-500">Found {ocrExtractedQuestions.length} question(s). Review before saving.</p>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {ocrExtractedQuestions.map((q, idx) => (
-                    <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-sm font-medium text-slate-900 mb-2">Q{idx + 1}: {q.text || q.question || 'No text extracted'}</p>
-                      {q.options && q.options.length > 0 && (
-                        <div className="space-y-1 ml-4">
-                          {q.options.map((opt: string, i: number) => (
-                            <p key={i} className="text-xs text-slate-600">{String.fromCharCode(65 + i)}. {opt}</p>
-                          ))}
+                <p className="text-sm text-slate-500">
+                  Found {ocrExtractedQuestions.length} question(s) from the document. Review and edit before saving to the question bank.
+                </p>
+                {ocrExtractedQuestions.length > 0 ? (
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {ocrExtractedQuestions.map((q, idx) => {
+                      const hasOptions = q.options && q.options.length > 0;
+                      const questionType = hasOptions ? 'MCQ' : 'Structured';
+                      return (
+                        <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{questionType}</span>
+                            {q.confidence && (
+                              <span className="text-xs text-slate-400">{Math.round(q.confidence * 100)}% confidence</span>
+                            )}
+                          </div>
+                          <p className="text-sm font-medium text-slate-900 mb-2">Q{idx + 1}: {q.text || q.question || 'No text extracted'}</p>
+                          {hasOptions && (
+                            <div className="space-y-1 ml-2">
+                              {q.options.map((opt: any, i: number) => {
+                                const optText = typeof opt === 'string' ? opt : opt.text;
+                                const optId = typeof opt === 'string' ? String.fromCharCode(65 + i) : opt.id;
+                                const isCorrect = typeof opt === 'object' && opt.isCorrect;
+                                const correctAnswer = q.correctAnswer || q.answer;
+                                const isThisCorrect = isCorrect ||
+                                  (correctAnswer && (optId.toLowerCase() === correctAnswer.toLowerCase() || optText.toLowerCase().startsWith(correctAnswer.toLowerCase())));
+                                return (
+                                  <div key={i} className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${isThisCorrect ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600'}`}>
+                                    <span className="font-bold w-4">{String.fromCharCode(65 + i)}.</span>
+                                    <span>{optText}</span>
+                                    {isThisCorrect && <CheckCircle className="w-3 h-3 ml-auto text-emerald-600" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {!hasOptions && q.correctAnswer && (
+                            <p className="text-xs text-emerald-600 mt-2 font-medium">Answer: {q.correctAnswer}</p>
+                          )}
                         </div>
-                      )}
-                      {q.answer && (
-                        <p className="text-xs text-emerald-600 mt-2 font-medium">Answer: {q.answer}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                    <p className="text-sm text-amber-700 font-medium">No questions were automatically detected</p>
+                    <p className="text-xs text-amber-600 mt-1">The document may need manual question entry. You can still save it to the library.</p>
+                  </div>
+                )}
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
@@ -712,7 +752,7 @@ export default function LibraryPage() {
                     className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 flex items-center justify-center gap-2"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Save Questions
+                    Save to Question Bank
                   </button>
                 </div>
               </div>

@@ -167,6 +167,13 @@ export class DigitalLibraryService {
     return { papers, total, page, limit };
   }
 
+  async getQuestionsForModeration(pastPaperId: string): Promise<PaperQuestion[]> {
+    return this.questionRepository.find({
+      where: { pastPaperId },
+      order: { pageNumber: 'ASC', questionNumber: 'ASC' },
+    });
+  }
+
   async incrementDownloadCount(id: string): Promise<void> {
     const paper = await this.findOnePastPaper(id);
     paper.downloadCount += 1;
@@ -394,12 +401,34 @@ export class DigitalLibraryService {
     }
   }
 
-  async getOcrJobStatus(jobId: string): Promise<OcrJob> {
+  async getOcrJobStatus(jobId: string): Promise<any> {
     const job = await this.ocrJobRepository.findOne({ where: { id: jobId } });
     if (!job) {
       throw new NotFoundException('OCR job not found');
     }
-    return job;
+
+    let status = 'processing';
+    let progress = 0;
+    let result: any = null;
+
+    if (job.status === PastPaperStatus.PROCESSING) {
+      status = 'processing';
+      progress = job.processingResult ? Math.min(90, (job.processingResult as any).progress || 30) : 30;
+    } else if (job.status === PastPaperStatus.PENDING_REVIEW) {
+      status = 'completed';
+      progress = 100;
+      result = job.extractedData || {};
+    } else if (job.status === PastPaperStatus.REJECTED) {
+      status = 'failed';
+      progress = 0;
+      result = { error: (job.errors || []).join(', ') || 'OCR processing failed' };
+    } else if (job.status === PastPaperStatus.PUBLISHED) {
+      status = 'completed';
+      progress = 100;
+      result = job.extractedData || {};
+    }
+
+    return { status, progress, result };
   }
 
   async saveOcrQuestions(jobId: string, questions: any[], userId: string): Promise<any> {
