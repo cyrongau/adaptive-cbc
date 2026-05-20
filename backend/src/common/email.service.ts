@@ -130,4 +130,95 @@ export class EmailService {
       </div>
     `;
   }
+
+  generateContentRejectionEmail(
+    name: string,
+    contentTitle: string,
+    reasonsText: string,
+    additionalComments: string | undefined,
+    recommendations: string,
+  ): string {
+    const reasonsHtml = reasonsText
+      .split('\n')
+      .map(line => `<li style="margin-bottom: 8px;">${line.replace(/^\d+\.\s*/, '')}</li>`)
+      .join('');
+
+    const commentsHtml = additionalComments
+      ? `
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+          <p style="color: #334155; font-size: 13px; font-weight: 700; margin: 0 0 8px;">Reviewer Comments</p>
+          <p style="color: #475569; font-size: 13px; line-height: 1.6; margin: 0;">${additionalComments}</p>
+        </div>
+      `
+      : '';
+
+    const recommendationsHtml = recommendations
+      ? `
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #22c55e; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+          <p style="color: #166534; font-size: 13px; font-weight: 700; margin: 0 0 12px;">Recommendations for Improvement</p>
+          <div style="color: #15803d; font-size: 13px; line-height: 1.7; white-space: pre-line;">${recommendations}</div>
+        </div>
+      `
+      : '';
+
+    return `
+      <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #f0f2f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                <!-- Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%); padding: 40px; text-align: center;">
+                    <img src="https://adaptivecbc.co.ke/logo.png" alt="Adaptive CBC" style="height: 56px; margin-bottom: 16px;" onerror="this.style.display='none'" />
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">Content Review Update</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; font-weight: 500;">Your submission requires revision</p>
+                  </td>
+                </tr>
+                <!-- Body -->
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Hello ${name},</p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">Thank you for contributing to the Adaptive CBC Digital Library. After review, your submission <strong>"${contentTitle}"</strong> requires revision before it can be published. This is part of our commitment to maintaining high-quality, curriculum-aligned learning materials for all users.</p>
+
+                    <!-- Content Title -->
+                    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                      <p style="color: #991b1b; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 4px;">Submission</p>
+                      <p style="color: #7f1d1d; font-size: 15px; font-weight: 600; margin: 0;">${contentTitle}</p>
+                    </div>
+
+                    <!-- Rejection Reasons -->
+                    <div style="margin-bottom: 24px;">
+                      <p style="color: #334155; font-size: 13px; font-weight: 700; margin: 0 0 12px;">Reasons for Revision</p>
+                      <ul style="color: #475569; font-size: 13px; line-height: 1.6; margin: 0; padding-left: 20px;">
+                        ${reasonsHtml}
+                      </ul>
+                    </div>
+
+                    ${commentsHtml}
+                    ${recommendationsHtml}
+
+                    <!-- Next Steps -->
+                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                      <p style="color: #1e40af; font-size: 13px; font-weight: 700; margin: 0 0 8px;">Next Steps</p>
+                      <p style="color: #1e3a8a; font-size: 13px; line-height: 1.6; margin: 0;">You can revise your content and resubmit it through your Digital Library dashboard. Address each of the points listed above to improve the chances of approval. If you have questions, contact our support team.</p>
+                    </div>
+
+                    <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0;">Need help? Contact us at <a href="mailto:support@adaptivecbc.co.ke" style="color: #006a34; font-weight: 600;">support@adaptivecbc.co.ke</a></p>
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>
+                    <p style="color: #cbd5e1; font-size: 11px; margin: 0;">Empowering Kenyan Education &bull; This is an automated email. Please do not reply.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
 }

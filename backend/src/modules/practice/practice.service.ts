@@ -6,6 +6,9 @@ import { QuestionsService } from '../questions/questions.service';
 import { UsersService } from '../users/users.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { QuotaEnforcerService } from '../governance/services/quota-enforcer.service';
+import { UsageTrackerService } from '../governance/services/usage-tracker.service';
+import { GovernanceTier } from '../governance/entities/usage-log.entity';
 
 @Injectable()
 export class PracticeService {
@@ -18,6 +21,8 @@ export class PracticeService {
     private usersService: UsersService,
     private httpService: HttpService,
     private configService: ConfigService,
+    private quotaEnforcer: QuotaEnforcerService,
+    private usageTracker: UsageTrackerService,
   ) {}
 
   async createSession(userId: string, data: {
@@ -138,7 +143,7 @@ export class PracticeService {
     return savedAnswer;
   }
 
-  async getExplanation(sessionId: string, questionId: string): Promise<{ explanation: string }> {
+  async getExplanation(sessionId: string, questionId: string, userTier: GovernanceTier = GovernanceTier.FREE, userId?: string): Promise<{ explanation: string }> {
     const answer = await this.answerRepository.findOne({
       where: { sessionId, questionId },
     });
@@ -155,6 +160,14 @@ export class PracticeService {
 
     if (answer.explanation) {
       return { explanation: answer.explanation };
+    }
+
+    if (userId) {
+      const quotaResult = await this.quotaEnforcer.checkAiQuota(userId, userTier);
+      if (!quotaResult.allowed) {
+        return { explanation: `The correct answer is: ${question.correctAnswer}. AI explanation quota exceeded. ${answer.isCorrect ? 'Great job!' : 'Review this topic to improve your understanding.'}` };
+      }
+      await this.usageTracker.incrementUsage(userId, 'ai_explanation' as any);
     }
 
     const generatedExplanation = await this.generateAIExplanation(question.content, question.correctAnswer || '', answer.isCorrect);

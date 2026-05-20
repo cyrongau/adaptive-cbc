@@ -4,6 +4,7 @@ import { PracticeService } from './practice.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { GovernanceTier } from '../governance/entities/usage-log.entity';
 
 @ApiTags('practice')
 @Controller('practice')
@@ -52,10 +53,20 @@ export class PracticeController {
   @Get('explanation/:sessionId/:questionId')
   @ApiOperation({ summary: 'Get AI explanation for a question' })
   async getExplanation(
+    @Request() req,
     @Param('sessionId') sessionId: string,
     @Param('questionId') questionId: string,
   ) {
-    return this.practiceService.getExplanation(sessionId, questionId);
+    const tierMap: Record<string, GovernanceTier> = {
+      'super_admin': GovernanceTier.ENTERPRISE,
+      'institution_admin': GovernanceTier.SCHOOL,
+      'teacher': GovernanceTier.TUTOR,
+      'tutor': GovernanceTier.TUTOR,
+      'student': GovernanceTier.FREE,
+      'parent': GovernanceTier.FREE,
+    };
+    const userTier = tierMap[req.user.role] || GovernanceTier.FREE;
+    return this.practiceService.getExplanation(sessionId, questionId, userTier, req.user.id);
   }
 
   @Post('session/:sessionId/complete')

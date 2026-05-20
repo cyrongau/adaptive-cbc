@@ -6,7 +6,7 @@ import {
   BookOpen, CheckCircle, X, Eye, AlertTriangle, Search,
   XCircle, Clock, FileText, Download, Loader2, User, Calendar,
   Shield, ChevronLeft, ChevronRight, ExternalLink, MessageSquare,
-  ListChecks, Image as ImageIcon, ChevronDown, ChevronUp
+  ListChecks, Image as ImageIcon, ChevronDown, ChevronUp, Trash2
 } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -22,6 +22,24 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   archived: { label: 'Archived', color: 'text-gray-400', bg: 'bg-gray-400/10' },
 };
 
+const REJECTION_REASONS = [
+  { value: 'curriculum_misalignment', label: 'Not aligned with CBC curriculum' },
+  { value: 'inaccurate_content', label: 'Contains factual errors or inaccuracies' },
+  { value: 'inappropriate_language', label: 'Contains inappropriate or unprofessional language' },
+  { value: 'poor_formatting', label: 'Poor formatting or layout' },
+  { value: 'duplicate_content', label: 'Duplicate of existing content' },
+  { value: 'outdated_material', label: 'Content is outdated or no longer relevant' },
+  { value: 'missing_learning_objectives', label: 'Missing clear learning objectives' },
+  { value: 'insufficient_depth', label: 'Insufficient depth or coverage' },
+  { value: 'copyright_concern', label: 'Potential copyright concern' },
+  { value: 'age_inappropriate', label: 'Not suitable for target grade level' },
+  { value: 'low_quality_scan', label: 'Low quality scan or OCR errors' },
+  { value: 'incomplete_content', label: 'Content is incomplete or cut off' },
+  { value: 'wrong_grade_level', label: 'Assigned to incorrect grade level' },
+  { value: 'exam_integrity_violation', label: 'Violates exam integrity guidelines' },
+  { value: 'cultural_sensitivity', label: 'Contains culturally insensitive content' },
+];
+
 export default function AdminContentPage() {
   const [papers, setPapers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,8 +53,12 @@ export default function AdminContentPage() {
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [showQuestions, setShowQuestions] = useState(true);
-  const [rejectModal, setRejectModal] = useState<{ open: boolean; paperId: string }>({ open: false, paperId: '' });
-  const [rejectReason, setRejectReason] = useState('');
+  const [rejectModal, setRejectModal] = useState<{ open: boolean; paperId: string; paperTitle: string }>({ open: false, paperId: '', paperTitle: '' });
+  const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
+  const [additionalComments, setAdditionalComments] = useState('');
+  const [showReasonDropdown, setShowReasonDropdown] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; paperId: string; paperTitle: string }>({ open: false, paperId: '', paperTitle: '' });
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const limit = 15;
 
@@ -85,12 +107,21 @@ export default function AdminContentPage() {
 
   const handleReject = async () => {
     if (!rejectModal.paperId) return;
+    if (selectedReasons.length === 0) {
+      toast.error('Please select at least one reason for rejection');
+      return;
+    }
     setActionLoading(rejectModal.paperId);
     try {
-      await api.post(`/digital-library/papers/${rejectModal.paperId}/reject`, { reason: rejectReason || undefined });
-      toast.success('Paper rejected');
-      setRejectModal({ open: false, paperId: '' });
-      setRejectReason('');
+      await api.post(`/digital-library/papers/${rejectModal.paperId}/reject`, {
+        reasons: selectedReasons,
+        additionalComments: additionalComments || undefined,
+      });
+      toast.success('Paper rejected. Author has been notified.');
+      setRejectModal({ open: false, paperId: '', paperTitle: '' });
+      setSelectedReasons([]);
+      setAdditionalComments('');
+      setShowReasonDropdown(false);
       if (selectedPaper?.id === rejectModal.paperId) setShowViewModal(false);
       fetchPapers();
     } catch (err: any) {
@@ -98,6 +129,28 @@ export default function AdminContentPage() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteModal.paperId) return;
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/digital-library/papers/${deleteModal.paperId}`);
+      toast.success('Content deleted permanently');
+      setDeleteModal({ open: false, paperId: '', paperTitle: '' });
+      if (selectedPaper?.id === deleteModal.paperId) setShowViewModal(false);
+      fetchPapers();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete content');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const toggleReason = (value: string) => {
+    setSelectedReasons(prev =>
+      prev.includes(value) ? prev.filter(r => r !== value) : [...prev, value]
+    );
   };
 
   const openView = async (paper: any) => {
@@ -242,7 +295,7 @@ export default function AdminContentPage() {
                               {actionLoading === paper.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                             </button>
                             <button
-                              onClick={() => setRejectModal({ open: true, paperId: paper.id })}
+                              onClick={() => setRejectModal({ open: true, paperId: paper.id, paperTitle: paper.title })}
                               disabled={actionLoading === paper.id}
                               className="p-1.5 rounded-lg hover:bg-[#2d3449] text-[#ffb4ab] transition-all disabled:opacity-50"
                               title="Reject"
@@ -251,6 +304,14 @@ export default function AdminContentPage() {
                             </button>
                           </>
                         ) : null}
+                        <button
+                          onClick={() => setDeleteModal({ open: true, paperId: paper.id, paperTitle: paper.title })}
+                          disabled={deleteLoading === paper.id}
+                          className="p-1.5 rounded-lg hover:bg-[#2d3449] text-[#89ceff] hover:text-red-400 transition-all disabled:opacity-50"
+                          title="Delete permanently"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -447,7 +508,7 @@ export default function AdminContentPage() {
               <button onClick={() => setShowViewModal(false)} className="px-4 py-2 border border-[#3f4940] text-[#becabd] text-xs font-semibold rounded-lg hover:bg-[#2d3449] transition-all">Close</button>
               {(selectedPaper.status === 'pending_review' || selectedPaper.status === 'draft') && (
                 <>
-                  <button onClick={() => { setShowViewModal(false); setRejectModal({ open: true, paperId: selectedPaper.id }); }} disabled={actionLoading === selectedPaper.id} className="px-4 py-2 bg-[#ffb4ab]/10 text-[#ffb4ab] border border-[#ffb4ab]/30 text-xs font-semibold rounded-lg flex items-center gap-2 hover:bg-[#ffb4ab]/20 transition-all disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button>
+                  <button onClick={() => { setShowViewModal(false); setRejectModal({ open: true, paperId: selectedPaper.id, paperTitle: selectedPaper.title }); }} disabled={actionLoading === selectedPaper.id} className="px-4 py-2 bg-[#ffb4ab]/10 text-[#ffb4ab] border border-[#ffb4ab]/30 text-xs font-semibold rounded-lg flex items-center gap-2 hover:bg-[#ffb4ab]/20 transition-all disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button>
                   <button onClick={() => { setShowViewModal(false); handleApprove(selectedPaper.id); }} disabled={actionLoading === selectedPaper.id} className="px-4 py-2 bg-[#7eda95] text-[#003919] text-xs font-semibold rounded-lg flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50">{actionLoading === selectedPaper.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}Approve & Publish</button>
                 </>
               )}
@@ -456,21 +517,100 @@ export default function AdminContentPage() {
         </motion.div>
       )}
 
-      {/* Reject Modal */}
+      {/* Reject Modal with Checklist */}
       {rejectModal.open && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setRejectModal({ open: false, paperId: '' })}>
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#171f33] border border-[#3f4940] rounded-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => { setRejectModal({ open: false, paperId: '', paperTitle: '' }); setShowReasonDropdown(false); }}>
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#171f33] border border-[#3f4940] rounded-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-[#ffb4ab]/10 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-[#ffb4ab]" /></div>
               <div>
                 <h3 className="text-lg font-bold text-[#dae2fd]">Reject Paper</h3>
-                <p className="text-sm text-[#becabd]">Provide a reason for rejection (optional).</p>
+                <p className="text-sm text-[#becabd]">Select one or more reasons for rejection.</p>
               </div>
             </div>
-            <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="e.g., Inappropriate content, low quality, duplicates..." rows={3} className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2.5 text-[#dae2fd] text-sm focus:border-[#ffb4ab] outline-none resize-none" />
+
+            {/* Selected Reasons Tags */}
+            {selectedReasons.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {selectedReasons.map(r => {
+                  const reason = REJECTION_REASONS.find(rr => rr.value === r);
+                  return (
+                    <span key={r} className="inline-flex items-center gap-1 px-2 py-1 bg-[#ffb4ab]/10 text-[#ffb4ab] text-xs font-medium rounded-full">
+                      {reason?.label}
+                      <button onClick={() => toggleReason(r)} className="ml-1 hover:text-red-300"><X className="w-3 h-3" /></button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Dropdown Button */}
+            <div className="relative mb-4">
+              <button
+                onClick={() => setShowReasonDropdown(!showReasonDropdown)}
+                className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2.5 text-[#dae2fd] text-sm text-left flex items-center justify-between hover:border-[#ffb4ab]/50 transition-colors"
+              >
+                <span className={selectedReasons.length > 0 ? 'text-[#dae2fd]' : 'text-[#6b7a99]'}>
+                  {selectedReasons.length > 0 ? `${selectedReasons.length} reason(s) selected` : 'Select rejection reasons...'}
+                </span>
+                {showReasonDropdown ? <ChevronUp className="w-4 h-4 text-[#becabd]" /> : <ChevronDown className="w-4 h-4 text-[#becabd]" />}
+              </button>
+
+              {showReasonDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-[#0a1224] border border-[#3f4940] rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                  {REJECTION_REASONS.map(reason => (
+                    <label
+                      key={reason.value}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#171f33] cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedReasons.includes(reason.value)}
+                        onChange={() => toggleReason(reason.value)}
+                        className="w-4 h-4 rounded border-[#3f4940] bg-[#060e20] text-[#ffb4ab] focus:ring-[#ffb4ab] focus:ring-offset-0"
+                      />
+                      <span className="text-sm text-[#dae2fd]">{reason.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Additional Comments */}
+            <textarea
+              value={additionalComments}
+              onChange={(e) => setAdditionalComments(e.target.value)}
+              placeholder="Additional comments for the author (optional)..."
+              rows={3}
+              className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2.5 text-[#dae2fd] text-sm focus:border-[#ffb4ab] outline-none resize-none"
+            />
+
             <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => setRejectModal({ open: false, paperId: '' })} className="px-4 py-2 border border-[#3f4940] text-[#becabd] text-xs font-semibold rounded-lg hover:bg-[#2d3449] transition-all">Cancel</button>
-              <button onClick={handleReject} disabled={actionLoading === rejectModal.paperId} className="px-4 py-2 bg-[#ffb4ab]/10 text-[#ffb4ab] border border-[#ffb4ab]/30 text-xs font-semibold rounded-lg flex items-center gap-2 hover:bg-[#ffb4ab]/20 transition-all disabled:opacity-50">{actionLoading === rejectModal.paperId ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}Reject</button>
+              <button onClick={() => { setRejectModal({ open: false, paperId: '', paperTitle: '' }); setShowReasonDropdown(false); setSelectedReasons([]); setAdditionalComments(''); }} className="px-4 py-2 border border-[#3f4940] text-[#becabd] text-xs font-semibold rounded-lg hover:bg-[#2d3449] transition-all">Cancel</button>
+              <button onClick={handleReject} disabled={actionLoading === rejectModal.paperId || selectedReasons.length === 0} className="px-4 py-2 bg-[#ffb4ab]/10 text-[#ffb4ab] border border-[#ffb4ab]/30 text-xs font-semibold rounded-lg flex items-center gap-2 hover:bg-[#ffb4ab]/20 transition-all disabled:opacity-50">{actionLoading === rejectModal.paperId ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}Reject & Notify</button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.open && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setDeleteModal({ open: false, paperId: '', paperTitle: '' })}>
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#171f33] border border-[#3f4940] rounded-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center"><Trash2 className="w-5 h-5 text-red-400" /></div>
+              <div>
+                <h3 className="text-lg font-bold text-[#dae2fd]">Delete Permanently</h3>
+                <p className="text-sm text-[#becabd]">This action cannot be undone.</p>
+              </div>
+            </div>
+            <div className="bg-[#060e20] border border-[#3f4940] rounded-lg p-4 mb-4">
+              <p className="text-sm font-medium text-[#dae2fd]">{deleteModal.paperTitle}</p>
+              <p className="text-xs text-[#6b7a99] mt-1">All associated questions, reviews, and data will be permanently removed.</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setDeleteModal({ open: false, paperId: '', paperTitle: '' })} disabled={deleteLoading} className="px-4 py-2 border border-[#3f4940] text-[#becabd] text-xs font-semibold rounded-lg hover:bg-[#2d3449] transition-all disabled:opacity-50">Cancel</button>
+              <button onClick={handleDelete} disabled={deleteLoading} className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/30 text-xs font-semibold rounded-lg flex items-center gap-2 hover:bg-red-500/20 transition-all disabled:opacity-50">{deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}Delete</button>
             </div>
           </motion.div>
         </motion.div>

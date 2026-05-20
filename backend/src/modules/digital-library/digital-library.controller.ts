@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, Put, Del
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { DigitalLibraryService } from './digital-library.service';
-import { CreatePastPaperDto, UpdatePastPaperDto, PastPaperSearchParams, UploadOcrDto, ReviewQuestionDto, CreateReviewDto } from './dto/digital-library.dto';
+import { CreatePastPaperDto, UpdatePastPaperDto, PastPaperSearchParams, UploadOcrDto, ReviewQuestionDto, CreateReviewDto, RejectPaperDto } from './dto/digital-library.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -10,6 +10,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
+import { GovernanceTier } from '../governance/entities/usage-log.entity';
 
 @ApiTags('digital-library')
 @Controller('digital-library')
@@ -120,11 +121,21 @@ export class DigitalLibraryController {
 
   @Post('papers/:id/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Reject past paper' })
-  async rejectPaper(@Request() req, @Param('id') id: string, @Body() body: { reason?: string }) {
-    return this.digitalLibraryService.rejectPastPaper(id, req.user.id, body.reason);
+  @ApiOperation({ summary: 'Reject past paper with structured reasons' })
+  @ApiBody({ type: RejectPaperDto })
+  async rejectPaper(@Request() req, @Param('id') id: string, @Body() rejectDto: RejectPaperDto) {
+    return this.digitalLibraryService.rejectPastPaper(id, req.user.id, rejectDto);
+  }
+
+  @Delete('papers/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Delete a past paper (owner or admin only)' })
+  async deletePaper(@Request() req, @Param('id') id: string) {
+    return this.digitalLibraryService.deletePastPaper(id, req.user.id, req.user.role, req.user.institutionId);
   }
 
   @Get('admin/papers')
@@ -220,13 +231,22 @@ export class DigitalLibraryController {
       size: file.size,
       mimeType: file.mimetype,
     };
-    return this.digitalLibraryService.createOcrJob(uploadDto, req.user.id, fileData, file.originalname);
+    const tierMap: Record<string, GovernanceTier> = {
+      'super_admin': GovernanceTier.ENTERPRISE,
+      'institution_admin': GovernanceTier.SCHOOL,
+      'teacher': GovernanceTier.TUTOR,
+      'tutor': GovernanceTier.TUTOR,
+      'student': GovernanceTier.FREE,
+      'parent': GovernanceTier.FREE,
+    };
+    const userTier = tierMap[req.user.role] || GovernanceTier.FREE;
+    return this.digitalLibraryService.createOcrJob(uploadDto, req.user.id, fileData, file.originalname, userTier, req.user.role);
   }
 
   @Get('ocr/status/:jobId')
   @ApiOperation({ summary: 'Get OCR processing status' })
   async getOcrStatus(@Param('jobId') jobId: string) {
-    return this.digitalLibraryService.getOcrJobStatus(jobId);
+    return this.digitalLibraryService.proxyOcrStatus(jobId);
   }
 
   @Post('ocr/save')

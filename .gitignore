@@ -88,3 +88,12 @@ tmp/
 
 # MinIO data
 minio_data/
+
+# Credentials
+credentials/
+*.json
+!/tsconfig.json
+!/package.json
+!/package-lock.json
+/backend/credentials/
+/backend/credentials/*.json

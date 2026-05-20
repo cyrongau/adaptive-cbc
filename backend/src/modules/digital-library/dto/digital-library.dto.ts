@@ -1,7 +1,7 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean, IsArray, IsDateString, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean, IsArray, IsDateString, Min, Max, IsUUID } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PaperType, PastPaperStatus, ReviewStatus, ContentVisibility } from '../entities/digital-library.entity';
+import { PaperType, PastPaperStatus, ReviewStatus, ContentVisibility, RejectionReason } from '../entities/digital-library.entity';
 
 export class CreatePastPaperDto {
   @ApiProperty({ example: 'Mathematics Grade 7 Term 1 Exam 2023' })
@@ -251,4 +251,16 @@ export class CreateReviewDto {
   @IsOptional()
   @IsString()
   comment?: string;
+}
+
+export class RejectPaperDto {
+  @ApiProperty({ enum: RejectionReason, isArray: true, description: 'List of rejection reasons' })
+  @IsArray()
+  @IsEnum(RejectionReason, { each: true })
+  reasons: RejectionReason[];
+
+  @ApiPropertyOptional({ description: 'Additional comments from the reviewer' })
+  @IsOptional()
+  @IsString()
+  additionalComments?: string;
 }

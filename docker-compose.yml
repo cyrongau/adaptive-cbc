@@ -127,7 +127,7 @@ services:
     networks:
       - adaptive-network
 
-  # OCR Service - Port 8003
+  # OCR Service - Port 8003 (Python FastAPI + Celery)
   ocr-service:
     build:
       context: ./services/ocr-service
@@ -135,25 +135,24 @@ services:
     container_name: adaptive-learning-ocr-service
     environment:
       - PORT=8003
+      - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=ocr-documents
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_USER=cbc_user
-      - DATABASE_PASSWORD=cbc_secure_pass_2024
-      - DATABASE_NAME=adaptive_cbc
+      - MINIO_SECURE=false
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_MODEL=google/gemini-2.0-flash-001
+      - AI_SERVICE_URL=http://ai-service:8002
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/adaptive-cbc-ocr-vision-service-key-8cfdf75b4653.json
+      - MAX_PAGES=30
+      - OCR_DPI=300
     ports:
       - "8003:8003"
-    depends_on:
-      - postgres
-      - minio
     volumes:
       - ./services/ocr-service:/app
-      - /app/node_modules
-      - ocr_temp:/tmp/ocr
+      - ./backend/credentials:/app/credentials:ro
     networks:
       - adaptive-network
 

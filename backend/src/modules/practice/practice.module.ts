@@ -7,6 +7,7 @@ import { PracticeController } from './practice.controller';
 import { PracticeSession, PracticeAnswer } from './entities/practice.entity';
 import { QuestionsModule } from '../questions/questions.module';
 import { UsersModule } from '../users/users.module';
+import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { UsersModule } from '../users/users.module';
     ConfigModule,
     QuestionsModule,
     UsersModule,
+    GovernanceModule,
   ],
   controllers: [PracticeController],
   providers: [PracticeService],

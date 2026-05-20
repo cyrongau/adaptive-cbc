@@ -5,12 +5,20 @@ import { ConfigModule } from '@nestjs/config';
 import { DigitalLibraryService } from './digital-library.service';
 import { DigitalLibraryController } from './digital-library.controller';
 import { PastPaper, PaperQuestion, PaperCategory, PaperReview, OcrJob } from './entities/digital-library.entity';
+import { EmailModule } from '../../common/email.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { UsersModule } from '../users/users.module';
+import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PastPaper, PaperQuestion, PaperCategory, PaperReview, OcrJob]),
     HttpModule,
     ConfigModule,
+    EmailModule,
+    NotificationsModule,
+    UsersModule,
+    GovernanceModule,
   ],
   controllers: [DigitalLibraryController],
   providers: [DigitalLibraryService],

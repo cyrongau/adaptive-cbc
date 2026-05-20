@@ -3,8 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { PastPaper, PaperQuestion, PaperCategory, PaperReview, OcrJob, PastPaperStatus, ReviewStatus, PaperType, ContentVisibility } from './entities/digital-library.entity';
-import { CreatePastPaperDto, UpdatePastPaperDto, PastPaperSearchParams, UploadOcrDto, ReviewQuestionDto, CreateReviewDto } from './dto/digital-library.dto';
+import { join } from 'path';
+import { PastPaper, PaperQuestion, PaperCategory, PaperReview, OcrJob, PastPaperStatus, ReviewStatus, PaperType, ContentVisibility, RejectionReason, REJECTION_REASON_LABELS, REJECTION_REASON_RECOMMENDATIONS } from './entities/digital-library.entity';
+import { CreatePastPaperDto, UpdatePastPaperDto, PastPaperSearchParams, UploadOcrDto, ReviewQuestionDto, CreateReviewDto, RejectPaperDto } from './dto/digital-library.dto';
+import { EmailService } from '../../common/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType, NotificationPriority } from '../notifications/entities/notification.entity';
+import { UsersService } from '../users/users.service';
+import { QuotaEnforcerService } from '../governance/services/quota-enforcer.service';
+import { UsageTrackerService } from '../governance/services/usage-tracker.service';
+import { GovernanceTier } from '../governance/entities/usage-log.entity';
 
 @Injectable()
 export class DigitalLibraryService {
@@ -21,6 +29,11 @@ export class DigitalLibraryService {
     private ocrJobRepository: Repository<OcrJob>,
     private httpService: HttpService,
     private configService: ConfigService,
+    private emailService: EmailService,
+    private notificationsService: NotificationsService,
+    private usersService: UsersService,
+    private quotaEnforcer: QuotaEnforcerService,
+    private usageTracker: UsageTrackerService,
   ) {}
 
   async findAllPastPapers(params: PastPaperSearchParams, userInstitutionId?: string): Promise<{ papers: PastPaper[]; total: number; page: number; limit: number }> {
@@ -130,17 +143,85 @@ export class DigitalLibraryService {
     return this.pastPaperRepository.save(paper);
   }
 
-  async rejectPastPaper(id: string, userId: string, reason?: string): Promise<PastPaper> {
+  async rejectPastPaper(id: string, userId: string, rejectDto: RejectPaperDto): Promise<PastPaper> {
     const paper = await this.findOnePastPaper(id);
     paper.status = PastPaperStatus.REJECTED;
     paper.verifiedBy = userId;
-    if (reason) {
-      paper.metadata = {
-        ...paper.metadata,
-        rejectionReason: reason,
-      };
+
+    const reasonLabels = rejectDto.reasons.map(r => REJECTION_REASON_LABELS[r] || r);
+    const rejectionMetadata = {
+      rejectionReasons: rejectDto.reasons,
+      rejectionReasonLabels: reasonLabels,
+      additionalComments: rejectDto.additionalComments,
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: userId,
+    };
+    paper.metadata = {
+      ...paper.metadata,
+      ...rejectionMetadata,
+    };
+
+    await this.pastPaperRepository.save(paper);
+
+    const author = await this.usersService.findOne(paper.createdBy);
+    if (author && author.email) {
+      const reasonsText = reasonLabels.map((label, i) => `${i + 1}. ${label}`).join('\n');
+      const recommendations = rejectDto.reasons
+        .map(r => REJECTION_REASON_RECOMMENDATIONS[r])
+        .filter(Boolean)
+        .join('\n\n');
+
+      const emailHtml = this.emailService.generateContentRejectionEmail(
+        `${author.firstName} ${author.lastName}`,
+        paper.title,
+        reasonsText,
+        rejectDto.additionalComments,
+        recommendations,
+      );
+
+      await this.emailService.send({
+        to: author.email,
+        subject: `Content Review Update: "${paper.title}" Requires Revision`,
+        html: emailHtml,
+      });
+
+      await this.notificationsService.createNotification({
+        userId: author.id,
+        title: 'Content Rejected',
+        message: `Your submission "${paper.title}" was rejected. Reason: ${reasonLabels.join('; ')}`,
+        type: NotificationType.SYSTEM,
+        priority: NotificationPriority.HIGH,
+        actionUrl: `/library/${paper.id}`,
+        metadata: rejectionMetadata,
+      });
     }
-    return this.pastPaperRepository.save(paper);
+
+    return paper;
+  }
+
+  async deletePastPaper(id: string, userId: string, userRole: string, userInstitutionId?: string): Promise<void> {
+    const paper = await this.pastPaperRepository.findOne({ where: { id } });
+    if (!paper) {
+      throw new NotFoundException(`Past paper with ID ${id} not found`);
+    }
+
+    const isOwner = paper.createdBy === userId;
+    const isAdmin = userRole === 'super_admin' || userRole === 'institution_admin';
+
+    if (!isOwner && !isAdmin) {
+      throw new BadRequestException('You do not have permission to delete this content');
+    }
+
+    if (isOwner && !isAdmin) {
+      if (paper.status === PastPaperStatus.PUBLISHED) {
+        throw new BadRequestException('Published content cannot be deleted. Contact an admin to unpublish first.');
+      }
+    }
+
+    await this.reviewRepository.delete({ pastPaperId: id });
+    await this.questionRepository.delete({ pastPaperId: id });
+    await this.ocrJobRepository.delete({ pastPaperId: id });
+    await this.pastPaperRepository.delete(id);
   }
 
   async findAllPapersForModeration(params: { status?: string; page?: number; limit?: number; search?: string }): Promise<{ papers: any[]; total: number; page: number; limit: number }> {
@@ -180,7 +261,24 @@ export class DigitalLibraryService {
     await this.pastPaperRepository.save(paper);
   }
 
-  async createOcrJob(uploadDto: UploadOcrDto, userId: string, fileData: { url: string; size: number; mimeType: string }, uploadedFileName?: string): Promise<OcrJob> {
+  async createOcrJob(uploadDto: UploadOcrDto, userId: string, fileData: { url: string; size: number; mimeType: string }, uploadedFileName?: string, userTier: GovernanceTier = GovernanceTier.FREE, userRole?: string): Promise<OcrJob> {
+    const quotaResult = await this.quotaEnforcer.checkOcrQuota(
+      userId,
+      userTier,
+      1,
+      undefined,
+    );
+
+    if (!quotaResult.allowed) {
+      throw new BadRequestException({
+        message: quotaResult.reason || 'OCR quota exceeded',
+        retryAfter: quotaResult.retryAfter,
+        usage: quotaResult.usage,
+      });
+    }
+
+    await this.usageTracker.incrementUsage(userId, 'ocr' as any);
+
     const fileName = uploadedFileName || uploadDto.fileName || 'uploaded-document';
     const paper = await this.createPastPaper({
       title: fileName.replace(/\.[^/.]+$/, ''),
@@ -295,6 +393,7 @@ export class DigitalLibraryService {
     job.extractedData = {
       text: result.text,
       questions: result.questions,
+      images: result.images || [],
     };
 
     await this.ocrJobRepository.save(job);
@@ -397,6 +496,19 @@ export class DigitalLibraryService {
       return job;
     } catch (error) {
       throw new BadRequestException(`Failed to start OCR processing: ${error.message}`);
+    }
+  }
+
+  async proxyOcrStatus(jobId: string): Promise<any> {
+    const ocrServiceUrl = this.configService.get('OCR_SERVICE_URL', 'http://ocr-service:8003');
+    try {
+      const response = await this.httpService.axiosRef.get(`${ocrServiceUrl}/status/${jobId}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new NotFoundException('OCR job not found');
+      }
+      throw new BadRequestException(`Failed to get OCR status: ${error.message}`);
     }
   }
 
