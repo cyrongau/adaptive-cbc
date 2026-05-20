@@ -213,38 +213,37 @@ export class DigitalLibraryService {
     const ocrServiceUrl = this.configService.get('OCR_SERVICE_URL', 'http://ocr-service:8003');
 
     try {
+      const FormData = (await import('form-data')).default;
+      const formData = new FormData();
+
       if (fileData.url.startsWith('data:')) {
         const base64Data = fileData.url.split(',')[1];
         const buffer = Buffer.from(base64Data, 'base64');
-        
-        const FormData = (await import('form-data')).default;
-        const formData = new FormData();
         formData.append('file', buffer, {
           filename: fileName,
           contentType: fileData.mimeType,
         });
-
-        const response = await this.httpService.axiosRef.post(`${ocrServiceUrl}/upload`, formData, {
-          headers: formData.getHeaders(),
-          timeout: 60000,
-        });
-
-        if (response.data?.jobId) {
-          this.pollOcrStatus(jobId, response.data.jobId);
-        }
       } else {
-        const formData = new FormData();
-        formData.append('fileUrl', fileData.url);
-        formData.append('mimeType', fileData.mimeType);
-
-        const response = await this.httpService.axiosRef.post(`${ocrServiceUrl}/upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 60000,
-        });
-
-        if (response.data?.jobId) {
-          this.pollOcrStatus(jobId, response.data.jobId);
+        const fs = await import('fs');
+        const filePath = fileData.url.startsWith('/') ? fileData.url : join(process.cwd(), fileData.url);
+        if (fs.existsSync(filePath)) {
+          const fileStream = fs.createReadStream(filePath);
+          formData.append('file', fileStream, {
+            filename: fileName,
+            contentType: fileData.mimeType,
+          });
+        } else {
+          throw new Error(`File not found: ${filePath}`);
         }
+      }
+
+      const response = await this.httpService.axiosRef.post(`${ocrServiceUrl}/upload`, formData, {
+        headers: formData.getHeaders(),
+        timeout: 120000,
+      });
+
+      if (response.data?.jobId) {
+        this.pollOcrStatus(jobId, response.data.jobId);
       }
     } catch (error) {
       console.error('Failed to trigger OCR processing:', error.message);

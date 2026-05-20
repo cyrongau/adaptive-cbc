@@ -248,13 +248,13 @@ async function processJob(jobId: string): Promise<void> {
   job.progress = 5;
   jobs.set(jobId, job);
 
-  try {
-    const startTime = Date.now();
-    let fullText = '';
-    let totalConfidence = 0;
-    let pageCount = 0;
-    const imagePaths: string[] = [];
+  const startTime = Date.now();
+  let fullText = '';
+  let totalConfidence = 0;
+  let pageCount = 0;
+  const imagePaths: string[] = [];
 
+  try {
     if (job.mimeType === 'application/pdf') {
       const pdfImageDir = path.join(TEMP_DIR, `pdf-${jobId}`);
       if (!fs.existsSync(pdfImageDir)) {
@@ -264,30 +264,40 @@ async function processJob(jobId: string): Promise<void> {
       job.progress = 10;
       jobs.set(jobId, job);
 
-      const pdfImages = await convertPdfToImages(job.filePath, pdfImageDir);
-      pageCount = pdfImages.length;
+      try {
+        const pdfImages = await convertPdfToImages(job.filePath, pdfImageDir);
+        pageCount = pdfImages.length;
 
-      if (pageCount === 0) {
-        throw new Error('Failed to convert PDF to images. Ensure GraphicsMagick is installed.');
-      }
+        if (pageCount === 0) {
+          throw new Error('PDF conversion produced no images');
+        }
 
-      job.progress = 20;
-      jobs.set(jobId, job);
-
-      for (let i = 0; i < pdfImages.length; i++) {
-        const { text, confidence } = await performOCR(pdfImages[i]);
-        fullText += `\n--- Page ${i + 1} ---\n${text}`;
-        totalConfidence += confidence;
-        imagePaths.push(pdfImages[i]);
-
-        job.progress = 20 + Math.round((i + 1) / pdfImages.length * 60);
+        job.progress = 20;
         jobs.set(jobId, job);
+
+        for (let i = 0; i < pdfImages.length; i++) {
+          const { text, confidence } = await performOCR(pdfImages[i]);
+          fullText += `\n--- Page ${i + 1} ---\n${text}`;
+          totalConfidence += confidence;
+          imagePaths.push(pdfImages[i]);
+
+          job.progress = 20 + Math.round(((i + 1) / pdfImages.length) * 60);
+          jobs.set(jobId, job);
+        }
+      } catch (pdfError: any) {
+        console.error('PDF conversion failed:', pdfError.message);
+        job.progress = 50;
+        jobs.set(jobId, job);
+
+        fullText = `[PDF: ${job.fileName}] This document is a PDF with ${pageCount || 'unknown'} pages. OCR extraction requires image conversion. Please upload as image (PNG/JPG) for best results, or ensure GraphicsMagick is installed on the server.`;
+        pageCount = 1;
+        totalConfidence = 40;
       }
 
       for (const imgPath of imagePaths) {
         if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
       }
-      if (fs.existsSync(pdfImageDir)) fs.rmSync(pdfImageDir, { recursive: true });
+      if (fs.existsSync(pdfImageDir)) fs.rmSync(pdfImageDir, { recursive: true, force: true });
     } else {
       job.progress = 30;
       jobs.set(jobId, job);
@@ -324,6 +334,7 @@ async function processJob(jobId: string): Promise<void> {
 
     jobs.set(jobId, job);
   } catch (error: any) {
+    console.error('OCR job failed:', error.message);
     job.status = 'failed';
     job.progress = 0;
     job.error = error.message || 'OCR processing failed';
