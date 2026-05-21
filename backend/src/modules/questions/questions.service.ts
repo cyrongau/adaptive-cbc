@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
-import { Question, QuestionType, DifficultyLevel, QuestionStatus } from './entities/question.entity';
+import { Question, QuestionType, DifficultyLevel, QuestionStatus, BloomsTaxonomy, QuestionSourceType } from './entities/question.entity';
+import { QuestionVersion } from './entities/question-version.entity';
 
 export interface QuestionSearchParams {
   subjectId?: string;
@@ -10,6 +11,7 @@ export interface QuestionSearchParams {
   type?: QuestionType;
   difficulty?: DifficultyLevel;
   status?: QuestionStatus;
+  createdBy?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -20,14 +22,23 @@ export class QuestionsService {
   constructor(
     @InjectRepository(Question)
     private questionsRepository: Repository<Question>,
+    @InjectRepository(QuestionVersion)
+    private questionVersionRepository: Repository<QuestionVersion>,
   ) {}
 
   async findAll(params: QuestionSearchParams): Promise<{ questions: Question[]; total: number }> {
-    const { subjectId, topicId, grade, type, difficulty, status, search, page = 1, limit = 20 } = params;
+    const { subjectId, topicId, grade, type, difficulty, status, createdBy, search, page = 1, limit = 20 } = params;
 
     const query = this.questionsRepository.createQueryBuilder('question')
-      .leftJoinAndSelect('question.topic', 'topic')
-      .where('question.status = :status', { status: status || QuestionStatus.PUBLISHED });
+      .leftJoinAndSelect('question.topic', 'topic');
+
+    if (status) {
+      query.andWhere('question.status = :status', { status });
+    } else {
+      query.andWhere('question.status IN (:...statuses)', {
+        statuses: [QuestionStatus.DRAFT, QuestionStatus.PENDING_REVIEW, QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
+      });
+    }
 
     if (subjectId) {
       query.andWhere('question.subjectId = :subjectId', { subjectId });
@@ -47,6 +58,10 @@ export class QuestionsService {
 
     if (difficulty) {
       query.andWhere('question.difficulty = :difficulty', { difficulty });
+    }
+
+    if (createdBy) {
+      query.andWhere('question.createdBy = :createdBy', { createdBy });
     }
 
     if (search) {
@@ -134,5 +149,99 @@ export class QuestionsService {
   async remove(id: string): Promise<void> {
     const question = await this.findOne(id);
     await this.questionsRepository.remove(question);
+  }
+
+  async createStructured(questionData: Partial<Question>, userId: string): Promise<Question> {
+    const question = this.questionsRepository.create({
+      ...questionData,
+      createdBy: userId,
+      status: QuestionStatus.DRAFT,
+      version: 1,
+    });
+    
+    const savedQuestion = await this.questionsRepository.save(question);
+    
+    await this.questionVersionRepository.save(
+      this.questionVersionRepository.create({
+        questionId: savedQuestion.id,
+        version: 1,
+        snapshot: savedQuestion,
+        changedBy: userId,
+        changeReason: 'Initial creation',
+      })
+    );
+    
+    return savedQuestion;
+  }
+
+  async updateWithVersioning(id: string, questionData: Partial<Question>, userId: string, changeReason?: string): Promise<Question> {
+    const question = await this.findOne(id);
+    const newVersion = question.version + 1;
+    
+    Object.assign(question, {
+      ...questionData,
+      version: newVersion,
+    });
+    
+    const updatedQuestion = await this.questionsRepository.save(question);
+    
+    await this.questionVersionRepository.save(
+      this.questionVersionRepository.create({
+        questionId: updatedQuestion.id,
+        version: newVersion,
+        snapshot: updatedQuestion,
+        changedBy: userId,
+        changeReason: changeReason || 'Update',
+      })
+    );
+    
+    return updatedQuestion;
+  }
+
+  async findByCurriculum(criteria: { strandId?: string; subStrandId?: string; learningOutcomeId?: string; bloomsTaxonomy?: BloomsTaxonomy }): Promise<Question[]> {
+    const query = this.questionsRepository.createQueryBuilder('question');
+    
+    if (criteria.strandId) query.andWhere('question.strandId = :strandId', { strandId: criteria.strandId });
+    if (criteria.subStrandId) query.andWhere('question.subStrandId = :subStrandId', { subStrandId: criteria.subStrandId });
+    if (criteria.learningOutcomeId) query.andWhere('question.learningOutcomeId = :learningOutcomeId', { learningOutcomeId: criteria.learningOutcomeId });
+    if (criteria.bloomsTaxonomy) query.andWhere('question.bloomsTaxonomy = :bloomsTaxonomy', { bloomsTaxonomy: criteria.bloomsTaxonomy });
+    
+    return query.getMany();
+  }
+
+  async changeStatus(id: string, newStatus: QuestionStatus, userId: string, notes?: string): Promise<Question> {
+    const question = await this.findOne(id);
+    question.status = newStatus;
+    
+    if (notes) {
+      question.moderationNotes = notes;
+    }
+    
+    if (newStatus === QuestionStatus.APPROVED || newStatus === QuestionStatus.PUBLISHED) {
+      question.moderatedBy = userId;
+      question.moderatedAt = new Date();
+    }
+    
+    return this.questionsRepository.save(question);
+  }
+
+  async findVersions(questionId: string): Promise<QuestionVersion[]> {
+    return this.questionVersionRepository.find({
+      where: { questionId },
+      order: { version: 'DESC' },
+    });
+  }
+
+  async cloneQuestion(id: string, userId: string): Promise<Question> {
+    const question = await this.findOne(id);
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _, createdAt, updatedAt, ...cloneData } = question;
+    
+    return this.createStructured({
+      ...cloneData,
+      sourceType: QuestionSourceType.CLONED,
+      sourceId: question.id,
+    }, userId);
   }
 }

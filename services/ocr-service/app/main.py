@@ -91,6 +91,7 @@ def get_job_status(job_id: str):
             questions=questions,
             processing_time=job.get("processing_time", 0),
             page_results=page_results,
+            is_duplicate=job.get("is_duplicate", False)
         )
 
     stage_details = None

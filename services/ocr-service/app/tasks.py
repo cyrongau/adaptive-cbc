@@ -42,13 +42,14 @@ def run_pipeline(self, job_id: str):
         original_data = storage.get_object(job["original_key"])
         dup_check = check_duplicate(original_data)
         if dup_check:
+            original_job = dup_check["job_data"]
             job_store.set_completed(job_id, {
-                "text": "Duplicate document - using existing OCR result",
-                "pages": 0,
-                "confidence": 0,
-                "questions": [],
+                "text": original_job.get("result", {}).get("text", "Duplicate document - using existing OCR result"),
+                "pages": original_job.get("result", {}).get("pages", 0),
+                "confidence": original_job.get("result", {}).get("confidence", 0),
+                "questions": original_job.get("result", {}).get("questions", []),
                 "processing_time": 0,
-                "page_results": [],
+                "page_results": original_job.get("result", {}).get("page_results", []),
                 "is_duplicate": True,
                 "original_job_id": dup_check["original_job_id"],
             })

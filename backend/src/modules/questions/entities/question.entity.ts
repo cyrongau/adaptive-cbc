@@ -8,6 +8,12 @@ export enum QuestionType {
   LONG_ANSWER = 'long_answer',
   MATHEMATICAL = 'mathematical',
   MATCHING = 'matching',
+  FILL_BLANK = 'fill_blank',
+  DIAGRAM_LABELING = 'diagram_labeling',
+  PRACTICAL = 'practical',
+  COMPREHENSION = 'comprehension',
+  TABLE_INTERPRETATION = 'table_interpretation',
+  GRAPH_ANALYSIS = 'graph_analysis',
 }
 
 export enum DifficultyLevel {
@@ -18,8 +24,27 @@ export enum DifficultyLevel {
 
 export enum QuestionStatus {
   DRAFT = 'draft',
+  PENDING_REVIEW = 'pending_review',
+  APPROVED = 'approved',
   PUBLISHED = 'published',
+  FLAGGED = 'flagged',
   ARCHIVED = 'archived',
+}
+
+export enum BloomsTaxonomy {
+  REMEMBER = 'remember',
+  UNDERSTAND = 'understand',
+  APPLY = 'apply',
+  ANALYZE = 'analyze',
+  EVALUATE = 'evaluate',
+  CREATE = 'create',
+}
+
+export enum QuestionSourceType {
+  MANUAL = 'manual',
+  OCR_IMPORTED = 'ocr_imported',
+  AI_GENERATED = 'ai_generated',
+  CLONED = 'cloned',
 }
 
 export enum AICertainty {
@@ -60,6 +85,60 @@ export class Question {
 
   @Column()
   subjectId: string;
+
+  @Column({ name: 'strand_id', nullable: true })
+  strandId: string;
+
+  @Column({ name: 'sub_strand_id', nullable: true })
+  subStrandId: string;
+
+  @Column({ name: 'learning_outcome_id', nullable: true })
+  learningOutcomeId: string;
+
+  @Column({ type: 'int', default: 1 })
+  marks: number;
+
+  @Column({ type: 'int', nullable: true })
+  estimatedTimeSeconds: number;
+
+  @Column({ type: 'enum', enum: BloomsTaxonomy, nullable: true })
+  bloomsTaxonomy: BloomsTaxonomy;
+
+  @Column({ type: 'jsonb', nullable: true })
+  solutionSteps: any[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  questionMedia: any[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  tableData: any;
+
+  @Column({ type: 'jsonb', nullable: true })
+  rawData: any;
+
+  @Column({ type: 'enum', enum: QuestionSourceType, default: QuestionSourceType.MANUAL })
+  sourceType: QuestionSourceType;
+
+  @Column({ nullable: true })
+  sourceId: string;
+
+  @Column({ type: 'int', default: 1 })
+  version: number;
+
+  @Column({ nullable: true })
+  moderatedBy: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  moderatedAt: Date;
+
+  @Column({ type: 'text', nullable: true })
+  moderationNotes: string;
+
+  @Column({ default: false })
+  isAiGenerated: boolean;
+
+  @Column({ nullable: true })
+  aiGenerationModel: string;
 
   @Column({ type: 'int' })
   grade: number;

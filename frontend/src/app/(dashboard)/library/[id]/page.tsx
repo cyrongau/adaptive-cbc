@@ -219,7 +219,6 @@ export default function LibraryItemDetailPage() {
                 </div>
               ))}
             </div>
-            </div>
           </motion.div>
 
           {/* Extracted Questions */}

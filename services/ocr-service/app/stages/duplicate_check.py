@@ -21,6 +21,7 @@ def check_duplicate(image_data: bytes) -> dict | None:
                 "is_duplicate": True,
                 "original_job_id": existing_job_id,
                 "content_hash": content_hash,
+                "job_data": existing_job
             }
 
     return None

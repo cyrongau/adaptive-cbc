@@ -92,6 +92,7 @@ class OCRJobResult(BaseModel):
     questions: list[ExtractedQuestion] = []
     processing_time: int = 0
     page_results: list[PageResult] = []
+    is_duplicate: bool = False
 
 
 class JobStatusResponse(BaseModel):

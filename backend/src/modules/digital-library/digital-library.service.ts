@@ -407,6 +407,7 @@ export class DigitalLibraryService {
       text: result.text,
       questions: result.questions,
       images: result.images || [],
+      is_duplicate: result.is_duplicate || false,
     };
 
     await this.ocrJobRepository.save(job);

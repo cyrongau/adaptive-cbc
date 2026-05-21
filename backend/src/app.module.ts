@@ -28,6 +28,7 @@ import { LessonsModule } from './modules/lessons/lessons.module';
 import { StoreModule } from './modules/store/store.module';
 import { FinancialModule } from './modules/financial/financial.module';
 import { GovernanceModule } from './modules/governance/governance.module';
+import { CurriculumModule } from './modules/curriculum/curriculum.module';
 import { DatabaseSeeder } from './common/database.seeder';
 import { PromotionTaskService } from './common/promotion-task.service';
 import { User } from './modules/users/entities/user.entity';
@@ -91,6 +92,7 @@ import { User } from './modules/users/entities/user.entity';
     StoreModule,
     FinancialModule,
     GovernanceModule,
+    CurriculumModule,
     TypeOrmModule.forFeature([User]),
   ],
   controllers: [],

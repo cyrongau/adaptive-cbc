@@ -133,6 +133,8 @@ services:
       context: ./services/ocr-service
       dockerfile: Dockerfile
     container_name: adaptive-learning-ocr-service
+    env_file:
+      - ./backend/.env
     environment:
       - PORT=8003
       - REDIS_URL=redis://redis:6379/0
