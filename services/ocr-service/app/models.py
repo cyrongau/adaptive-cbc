@@ -9,6 +9,7 @@ class PipelineStage(str, Enum):
     FILE_VALIDATION = "file_validation"
     PAGE_SPLITTING = "page_splitting"
     IMAGE_PREPROCESSING = "image_preprocessing"
+    FIGURE_EXTRACTION = "figure_extraction"
     OCR_EXTRACTION = "ocr_extraction"
     LAYOUT_ANALYSIS = "layout_analysis"
     QUESTION_SEGMENTATION = "question_segmentation"
@@ -24,6 +25,7 @@ STAGE_ORDER = [
     PipelineStage.FILE_VALIDATION,
     PipelineStage.PAGE_SPLITTING,
     PipelineStage.IMAGE_PREPROCESSING,
+    PipelineStage.FIGURE_EXTRACTION,
     PipelineStage.OCR_EXTRACTION,
     PipelineStage.LAYOUT_ANALYSIS,
     PipelineStage.QUESTION_SEGMENTATION,
@@ -38,6 +40,7 @@ STAGE_PROGRESS = {
     PipelineStage.FILE_VALIDATION: 10,
     PipelineStage.PAGE_SPLITTING: 20,
     PipelineStage.IMAGE_PREPROCESSING: 30,
+    PipelineStage.FIGURE_EXTRACTION: 40,
     PipelineStage.OCR_EXTRACTION: 50,
     PipelineStage.LAYOUT_ANALYSIS: 65,
     PipelineStage.QUESTION_SEGMENTATION: 75,
@@ -65,6 +68,11 @@ class ExtractedQuestion(BaseModel):
     page_number: int = 1
     bounding_box: Optional[dict] = None
     math_latex: Optional[str] = None
+    diagram_reference: bool = False
+    diagram_description: Optional[str] = None
+    imageUrls: list[str] = Field(default_factory=list)
+    needs_review: bool = False
+    review_reason: Optional[str] = None
 
 
 class PageResult(BaseModel):

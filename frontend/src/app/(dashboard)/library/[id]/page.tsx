@@ -25,6 +25,7 @@ export default function LibraryItemDetailPage() {
   const [item, setItem] = useState<any>(null);
   const [rating, setRating] = useState<{ averageRating: number; totalReviews: number }>({ averageRating: 0, totalReviews: 0 });
   const [relatedDocs, setRelatedDocs] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [subjectName, setSubjectName] = useState('');
 
@@ -32,11 +33,12 @@ export default function LibraryItemDetailPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [paperRes, ratingRes, subjectsRes, relatedRes] = await Promise.allSettled([
+        const [paperRes, ratingRes, subjectsRes, relatedRes, questionsRes] = await Promise.allSettled([
           api.get(`/digital-library/papers/${params.id}`),
           api.get(`/digital-library/papers/${params.id}/rating`),
           api.get('/subjects'),
           api.get('/digital-library/papers', { params: { limit: 3 } }),
+          api.get(`/digital-library/papers/${params.id}/questions`),
         ]);
 
         if (paperRes.status === 'fulfilled') {
@@ -65,6 +67,10 @@ export default function LibraryItemDetailPage() {
             return { ...p, subjectName: subject?.name || 'Unknown' };
           });
           setRelatedDocs(related);
+        }
+
+        if (questionsRes.status === 'fulfilled') {
+          setQuestions(questionsRes.value.data);
         }
       } catch (error) {
         toast.error('Failed to load document details');
@@ -162,7 +168,11 @@ export default function LibraryItemDetailPage() {
 
   const termLabel = item.term ? `Term ${item.term}` : 'N/A';
   const yearLabel = item.year || 'N/A';
-  const fileSize = item.metadata?.fileSize ? `${(item.metadata.fileSize / 1024 / 1024).toFixed(1)} MB` : 'N/A';
+  const fileSize = item.metadata?.fileSize 
+    ? `${(item.metadata.fileSize / 1024 / 1024).toFixed(1)} MB` 
+    : item.pageCount 
+      ? `~${(item.pageCount * 0.45).toFixed(1)} MB (est)` 
+      : 'Unknown';
 
   return (
     <div className="space-y-6">
@@ -209,7 +219,52 @@ export default function LibraryItemDetailPage() {
                 </div>
               ))}
             </div>
+            </div>
           </motion.div>
+
+          {/* Extracted Questions */}
+          {questions && questions.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-white rounded-2xl border border-slate-200 p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Content & Questions ({questions.length})</h2>
+              <div className="space-y-4">
+                {questions.map((q: any, i: number) => (
+                  <div key={q.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="flex gap-3">
+                      <span className="font-bold text-slate-900 shrink-0">{q.questionNumber || i + 1}.</span>
+                      <div className="flex-1 space-y-3">
+                        <p className="text-slate-700 font-medium whitespace-pre-wrap">{q.questionText}</p>
+                        {q.imageUrls && q.imageUrls.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {q.imageUrls.map((url: string, idx: number) => (
+                              <img key={idx} src={url} alt="Question figure" className="max-h-40 object-contain rounded-lg border border-slate-200 bg-white" />
+                            ))}
+                          </div>
+                        )}
+                        {q.options && q.options.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                            {q.options.map((opt: any) => {
+                              const isCorrect = q.correctAnswer && opt.id.toLowerCase() === q.correctAnswer.toLowerCase();
+                              return (
+                                <div key={opt.id} className={`p-2 rounded-lg border text-sm ${isCorrect ? 'bg-green-50 border-green-200 text-green-800 font-medium' : 'bg-white border-slate-200 text-slate-600'}`}>
+                                  <span className="font-semibold mr-2">{opt.id.toUpperCase()}.</span> {opt.text}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {q.correctAnswer && (!q.options || q.options.length === 0) && (
+                          <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                            <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">Answer</p>
+                            <p className="text-sm text-blue-900 whitespace-pre-wrap">{q.correctAnswer}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           {/* Tags */}
           {item.tags && item.tags.length > 0 && (
@@ -249,8 +304,19 @@ export default function LibraryItemDetailPage() {
         <div className="space-y-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-slate-200 p-6 sticky top-6">
             <div className="text-center mb-6">
-              <div className="w-full aspect-[3/4] bg-slate-100 rounded-xl mb-4 flex items-center justify-center">
-                <FileText className="w-16 h-16 text-slate-300" />
+              <div className="w-full aspect-[3/4] bg-slate-100 rounded-xl mb-4 flex items-center justify-center overflow-hidden relative border border-slate-200">
+                {item.thumbnailUrl ? (
+                  <img src={item.thumbnailUrl} alt="Document Preview" className="w-full h-full object-cover" />
+                ) : item.fileUrl?.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+                  <img src={item.fileUrl} alt="Document Preview" className="w-full h-full object-cover" />
+                ) : item.fileUrl?.endsWith('.pdf') ? (
+                  <div className="absolute inset-0">
+                    <iframe src={`${item.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} className="w-full h-full border-0 pointer-events-none" />
+                    <div className="absolute inset-0 z-10 bg-transparent" />
+                  </div>
+                ) : (
+                  <FileText className="w-16 h-16 text-slate-300" />
+                )}
               </div>
               {rating.totalReviews > 0 && (
                 <div className="flex items-center justify-center gap-1 mb-2">

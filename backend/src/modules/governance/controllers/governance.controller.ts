@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Param, Query, Body, UseGuards, Request as Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -273,5 +273,74 @@ export class GovernanceController {
       body.confidence,
     );
     return { decision };
+  }
+}
+
+@ApiTags('Governance')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('governance')
+export class UserGovernanceController {
+  constructor(
+    private usageTracker: UsageTrackerService,
+    private quotaEnforcer: QuotaEnforcerService,
+    private creditLedger: CreditLedgerService,
+  ) {}
+
+  @Get('quota-status')
+  @ApiOperation({ summary: 'Get current user quota status' })
+  async getQuotaStatus(@Req() req) {
+    const user = req.user;
+    const tier = this.getUserTier(user);
+    const config = await this.quotaEnforcer.getQuotaConfig(tier);
+
+    const ocrUsage = await this.usageTracker.checkUsage(user.id, GovernanceServiceType.OCR, config.dailyOcrPages);
+    const aiUsage = await this.usageTracker.checkUsage(user.id, GovernanceServiceType.AI_EXPLANATION, config.dailyAiRequests);
+
+    const ocrCost = await this.usageTracker.checkCost(user.id, GovernanceServiceType.OCR, config.dailyOcrCostCap);
+    const aiCost = await this.usageTracker.checkCost(user.id, GovernanceServiceType.AI_EXPLANATION, config.dailyAiCostCap);
+
+    const credits = await this.creditLedger.getAllBalances(user.id);
+
+    return {
+      tier,
+      ocr: {
+        used: ocrUsage.count,
+        limit: config.dailyOcrPages,
+        remaining: ocrUsage.remaining,
+        isExceeded: ocrUsage.isExceeded,
+        costUsed: ocrCost.count,
+        costLimit: config.dailyOcrCostCap,
+        costRemaining: ocrCost.remaining,
+      },
+      ai: {
+        used: aiUsage.count,
+        limit: config.dailyAiRequests,
+        remaining: aiUsage.remaining,
+        isExceeded: aiUsage.isExceeded,
+        costUsed: aiCost.count,
+        costLimit: config.dailyAiCostCap,
+        costRemaining: aiCost.remaining,
+      },
+      credits: credits.map((c) => ({
+        type: c.type,
+        balance: c.balance,
+        totalAllocated: c.totalAllocated,
+        totalConsumed: c.totalConsumed,
+      })),
+      resetAt: ocrUsage.resetAt,
+    };
+  }
+
+  private getUserTier(user: any): GovernanceTier {
+    const roleTierMap: Record<string, GovernanceTier> = {
+      'SUPER_ADMIN': GovernanceTier.ENTERPRISE,
+      'INSTITUTION_ADMIN': GovernanceTier.SCHOOL,
+      'TEACHER': GovernanceTier.TUTOR,
+      'TUTOR': GovernanceTier.TUTOR,
+      'STUDENT': GovernanceTier.FREE,
+      'PARENT': GovernanceTier.FREE,
+    };
+    return roleTierMap[user.role] || GovernanceTier.FREE;
   }
 }

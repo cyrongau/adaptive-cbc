@@ -6,6 +6,7 @@ def detect_layout(blocks: list[dict]) -> dict:
     options = []
     headers = []
     paragraphs = []
+    diagrams = []
 
     for block in blocks:
         btype = block.get("block_type", "paragraph")
@@ -18,6 +19,8 @@ def detect_layout(blocks: list[dict]) -> dict:
             questions.append(block)
         elif btype == "option":
             options.append(block)
+        elif btype == "diagram_reference":
+            diagrams.append(block)
         elif btype in ("short_text",):
             if len(text) < 30 and text.isupper():
                 headers.append(block)
@@ -44,6 +47,8 @@ def detect_layout(blocks: list[dict]) -> dict:
             }
         elif btype == "option" and current_question:
             current_question["option_blocks"].append(block)
+        elif btype == "diagram_reference" and current_question:
+            current_question["supplementary_blocks"].append(block)
         elif current_question and re.match(r"^(answer|key|correct|solution)[\s:]+", text, re.IGNORECASE):
             current_question["answer_block"] = block
         elif current_question:
@@ -56,6 +61,7 @@ def detect_layout(blocks: list[dict]) -> dict:
         "total_blocks": len(blocks),
         "question_count": len(questions),
         "option_count": len(options),
+        "diagram_count": len(diagrams),
         "header_count": len(headers),
         "paragraph_count": len(paragraphs),
         "question_groups": question_groups,

@@ -176,8 +176,8 @@ export class CoursesService {
       courseId: mod.courseId,
       order: dto.order ?? count + 1,
       isPublished: true,
-    });
-    const saved = await this.lessonsRepository.save(lesson);
+    } as any);
+    const saved = await this.lessonsRepository.save(lesson as any);
 
     await this.modulesRepository.update(moduleId, { lessonsCount: count + 1 });
     await this.coursesRepository.update(mod.courseId, { totalLessons: () => 'total_lessons + 1' });

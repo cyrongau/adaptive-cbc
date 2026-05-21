@@ -111,7 +111,9 @@ export class UsageTrackerService {
       limit,
       remaining,
       resetAt,
-      isExceeded: count >= limit,
+      // limit=0 means unlimited (consistent with cost cap semantics).
+      // Never mark as exceeded if the configured limit is 0.
+      isExceeded: limit > 0 && count >= limit,
     };
   }
 

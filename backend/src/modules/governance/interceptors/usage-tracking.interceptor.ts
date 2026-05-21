@@ -77,8 +77,13 @@ export class UsageTrackingInterceptor implements NestInterceptor {
   private inferServiceType(context: ExecutionContext): GovernanceServiceType | null {
     const request = context.switchToHttp().getRequest();
     const url = request.url;
+    const method = request.method;
 
-    if (url.includes('/ocr') || url.includes('/digital-library')) {
+    if (method !== 'POST') {
+      return null; // Usage is only consumed on POST/action requests
+    }
+
+    if (url.includes('/ocr/upload') || url.includes('/ocr/process')) {
       return GovernanceServiceType.OCR;
     }
     if (url.includes('/explain')) {

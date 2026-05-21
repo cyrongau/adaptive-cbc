@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/lib/theme';
@@ -11,6 +11,7 @@ import {
   BookOpen, Package, Wrench, GraduationCap, FileText, Star,
   ChevronRight, X, CreditCard, Smartphone, Building, ArrowRight,
   Eye, Download, CheckCircle, Clock, Truck, Loader2, Tag,
+  ImagePlus, Link as LinkIcon, Upload,
 } from 'lucide-react';
 
 interface Product {
@@ -114,6 +115,11 @@ export default function StorePage() {
     tags: '', thumbnailUrl: '',
   });
   const [creatingProduct, setCreatingProduct] = useState(false);
+  const [imageUploadMode, setImageUploadMode] = useState<'url' | 'upload'>('url');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setIsMounted(true); }, []);
   useEffect(() => {
@@ -214,8 +220,23 @@ export default function StorePage() {
     }
     setCreatingProduct(true);
     try {
+      let thumbnailUrl = productForm.thumbnailUrl;
+
+      // If user selected a file, upload it first
+      if (imageUploadMode === 'upload' && imageFile) {
+        setUploadingImage(true);
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const uploadRes = await api.post('/store/products/upload-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        thumbnailUrl = uploadRes.data.imageUrl;
+        setUploadingImage(false);
+      }
+
       await api.post('/store/products', {
         ...productForm,
+        thumbnailUrl: thumbnailUrl || undefined,
         price: Number(productForm.price),
         originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
         stock: Number(productForm.stock),
@@ -226,12 +247,23 @@ export default function StorePage() {
       toast.success('Product published successfully');
       setShowAddProduct(false);
       setProductForm({ title: '', description: '', productType: 'e_book', category: 'textbooks', price: 0, originalPrice: 0, stock: 100, grade: 0, subject: '', publisher: '', tags: '', thumbnailUrl: '' });
+      setImageFile(null);
+      setImagePreview('');
+      setImageUploadMode('url');
       loadProducts();
     } catch (err: any) {
+      setUploadingImage(false);
       toast.error(err.response?.data?.message || 'Failed to create product');
     } finally {
       setCreatingProduct(false);
     }
+  };
+
+  const handleImageFileSelect = (file: File) => {
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
   };
 
   const getProductTypeIcon = (type: string) => {
@@ -487,9 +519,9 @@ export default function StorePage() {
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl font-bold text-[#47a263]">KES {product.price.toFixed(2)}</span>
+                          <span className="text-xl font-bold text-[#47a263]">KES {Number(product.price || 0).toFixed(2)}</span>
                           {product.originalPrice && product.originalPrice > product.price && (
-                            <span className="text-sm text-slate-400 line-through">KES {product.originalPrice.toFixed(2)}</span>
+                            <span className="text-sm text-slate-400 line-through">KES {Number(product.originalPrice || 0).toFixed(2)}</span>
                           )}
                         </div>
                       </div>
@@ -746,9 +778,9 @@ export default function StorePage() {
                   <span className="text-slate-500">{selectedProduct.salesCount} sold</span>
                 </div>
                 <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
-                  <span className="text-3xl font-bold text-[#47a263]">KES {selectedProduct.price.toFixed(2)}</span>
+                  <span className="text-3xl font-bold text-[#47a263]">KES {Number(selectedProduct.price || 0).toFixed(2)}</span>
                   {selectedProduct.originalPrice && selectedProduct.originalPrice > selectedProduct.price && (
-                    <span className="text-lg text-slate-400 line-through">KES {selectedProduct.originalPrice.toFixed(2)}</span>
+                    <span className="text-lg text-slate-400 line-through">KES {Number(selectedProduct.originalPrice || 0).toFixed(2)}</span>
                   )}
                 </div>
                 <div className="flex gap-3 pt-2">
@@ -801,9 +833,109 @@ export default function StorePage() {
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Publisher</label><input type="text" value={productForm.publisher} onChange={(e) => setProductForm({ ...productForm, publisher: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="KLB Publishers" /></div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Tags (comma-separated)</label><input type="text" value={productForm.tags} onChange={(e) => setProductForm({ ...productForm, tags: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="math, grade4, cbc" /></div>
                   </div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Thumbnail URL</label><input type="text" value={productForm.thumbnailUrl} onChange={(e) => setProductForm({ ...productForm, thumbnailUrl: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30" placeholder="https://example.com/image.jpg" /></div>
+                  {/* Thumbnail Image */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Product Thumbnail</label>
+                    {/* Mode tabs */}
+                    <div className="flex gap-1 p-1 bg-slate-100 rounded-lg mb-3">
+                      <button
+                        type="button"
+                        onClick={() => { setImageUploadMode('url'); setImageFile(null); setImagePreview(''); }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                          imageUploadMode === 'url'
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <LinkIcon className="w-3.5 h-3.5" /> Image URL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setImageUploadMode('upload'); setProductForm({ ...productForm, thumbnailUrl: '' }); }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                          imageUploadMode === 'upload'
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <Upload className="w-3.5 h-3.5" /> Upload File
+                      </button>
+                    </div>
+
+                    {imageUploadMode === 'url' ? (
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <LinkIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            value={productForm.thumbnailUrl}
+                            onChange={(e) => setProductForm({ ...productForm, thumbnailUrl: e.target.value })}
+                            className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#47a263]/30 text-sm"
+                            placeholder="https://example.com/image.jpg"
+                          />
+                        </div>
+                        {productForm.thumbnailUrl && (
+                          <img
+                            src={productForm.thumbnailUrl}
+                            alt="Preview"
+                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 flex-shrink-0"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          ref={imageInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          onChange={(e) => { if (e.target.files?.[0]) handleImageFileSelect(e.target.files[0]); }}
+                        />
+                        {imagePreview ? (
+                          <div className="relative">
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
+                              className="w-full h-36 object-cover rounded-xl border border-slate-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => { setImageFile(null); setImagePreview(''); if (imageInputRef.current) imageInputRef.current.value = ''; }}
+                              className="absolute top-2 right-2 p-1 bg-white rounded-full shadow border border-slate-200 hover:bg-slate-50"
+                            >
+                              <X className="w-3.5 h-3.5 text-slate-600" />
+                            </button>
+                            <span className="absolute bottom-2 left-2 text-xs bg-black/50 text-white px-2 py-0.5 rounded-full">{imageFile?.name}</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => imageInputRef.current?.click()}
+                            className="w-full border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center gap-2 hover:border-[#47a263] hover:bg-[#47a263]/5 transition-all group"
+                          >
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-[#47a263]/10 flex items-center justify-center transition-all">
+                              <ImagePlus className="w-5 h-5 text-slate-400 group-hover:text-[#47a263]" />
+                            </div>
+                            <p className="text-sm font-medium text-slate-600 group-hover:text-[#47a263]">Click to select an image</p>
+                            <p className="text-xs text-slate-400">JPG, PNG, GIF, WebP up to 5MB</p>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-3 pt-4 border-t border-slate-200">
-                    <button onClick={createProduct} disabled={creatingProduct} className="flex-1 py-3 bg-[#47a263] text-white rounded-xl font-bold hover:bg-[#3d8c54] disabled:opacity-50 flex items-center justify-center gap-2">{creatingProduct ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}Publish Product</button>
+                    <button
+                      onClick={createProduct}
+                      disabled={creatingProduct || uploadingImage}
+                      className="flex-1 py-3 bg-[#47a263] text-white rounded-xl font-bold hover:bg-[#3d8c54] disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {(creatingProduct || uploadingImage) ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" />{uploadingImage ? 'Uploading image...' : 'Publishing...'}</>
+                      ) : (
+                        <><CheckCircle className="w-5 h-5" />Publish Product</>
+                      )}
+                    </button>
                     <button onClick={() => setShowAddProduct(false)} className="px-6 py-3 border border-slate-200 rounded-xl font-medium hover:bg-slate-50">Cancel</button>
                   </div>
                 </div>

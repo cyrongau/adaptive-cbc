@@ -161,6 +161,11 @@ export class UploadOcrDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   fileName?: string;
 
   @ApiProperty({ example: 'uuid-of-subject' })

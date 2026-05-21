@@ -28,11 +28,11 @@ def _extract_from_text(text: str, page_number: int) -> list[ExtractedQuestion]:
     i = 0
     while i < len(lines):
         line = lines[i].strip()
-        match = re.match(r"^(\d+)[\.\)\-]\s+(.+)", line)
+        match = _match_question_header(line)
 
         if match:
-            q_num = int(match.group(1))
-            q_text = match.group(2).strip()
+            q_num, q_text = match
+            q_text = q_text.strip()
             options = []
             correct_answer = None
             q_type = "structured"
@@ -44,15 +44,15 @@ def _extract_from_text(text: str, page_number: int) -> list[ExtractedQuestion]:
                     j += 1
                     continue
 
-                opt_match = re.match(r"^([A-Da-d])[\.\)\s]+\s*(.+)", next_line)
-                answer_match = re.match(r"^(?:answer|key|correct|solution)[\s:]+([A-Da-d])", next_line, re.IGNORECASE)
+                opt_matches = list(re.finditer(r"(?:^|\s)(?:Option\s+)?([A-Ha-h])[\.\)\-:]\s*(.*?)(?=\s(?:Option\s+)?[A-Ha-h][\.\)\-:]\s*|$)", next_line, re.IGNORECASE))
+                answer_match = re.match(r"^(?:answer|ans|key|correct|solution)[\s:]+([A-Ha-h])", next_line, re.IGNORECASE)
                 tf_match = re.match(r"^(true|false)[\s\.)]", next_line, re.IGNORECASE)
-                next_q = re.match(r"^\d+[\.\)\-]", next_line)
+                next_q = _match_question_header(next_line)
 
                 if answer_match:
                     correct_answer = answer_match.group(1).lower()
                     options = [
-                        QuestionOption(id=o.id, text=o.text, is_correct=(o.id == correct_answer))
+                        QuestionOption(id=o.id, text=o.text, is_correct=(o.id.lower() == correct_answer))
                         for o in options
                     ]
                     j += 1
@@ -68,14 +68,17 @@ def _extract_from_text(text: str, page_number: int) -> list[ExtractedQuestion]:
                     j += 1
                     continue
 
-                if opt_match:
+                if opt_matches:
                     if not options:
                         q_type = "mcq"
-                    options.append(QuestionOption(
-                        id=opt_match.group(1).lower(),
-                        text=opt_match.group(2).strip(),
-                        is_correct=False,
-                    ))
+                    for match in opt_matches:
+                        option_id = match.group(1).lower()
+                        option_text = match.group(2).strip()
+                        options.append(QuestionOption(
+                            id=option_id,
+                            text=option_text,
+                            is_correct=False,
+                        ))
                     j += 1
                     continue
 
@@ -108,6 +111,21 @@ def _extract_from_text(text: str, page_number: int) -> list[ExtractedQuestion]:
             i += 1
 
     return questions
+
+
+def _match_question_header(line: str):
+    patterns = [
+        r"^(?:Question\s*)?(?:Q\s*)?(\d+)[\.\)\-:]\s*(.+)$",
+        r"^(?:Question\s+)(\d+)[\.\)\-:]\s*(.+)$",
+        r"^Q(\d+)[\.\)\-:]\s*(.+)$",
+    ]
+
+    for pattern in patterns:
+        match = re.match(pattern, line, re.IGNORECASE)
+        if match:
+            return int(match.group(1)), match.group(2)
+
+    return None
 
 
 def _extract_from_blocks(blocks: list[dict], page_number: int) -> list[ExtractedQuestion]:

@@ -33,7 +33,7 @@ export class SearchService {
 
     const [questions, subjects, topics, institutions, pastPapers, tutors] = await Promise.all([
       this.questionRepository.find({
-        where: [{ content: ILike(searchTerm) }, { tags: ILike(searchTerm) }],
+        where: [{ content: ILike(searchTerm) }],
         take: Math.min(limit, 10),
       }),
       this.subjectRepository.find({
@@ -68,14 +68,12 @@ export class SearchService {
         subject: q.subjectId,
         grade: q.grade,
         difficulty: q.difficulty,
-        tags: q.tags,
       })),
       subjects: subjects.map(s => ({
         id: s.id,
         type: 'subject',
         title: s.name,
         description: s.description,
-        grade: s.grade,
       })),
       topics: topics.map(t => ({
         id: t.id,
@@ -83,7 +81,6 @@ export class SearchService {
         title: t.name,
         description: t.description,
         subject: t.subjectId,
-        grade: t.grade,
       })),
       schools: institutions.map(i => ({
         id: i.id,
@@ -91,7 +88,7 @@ export class SearchService {
         title: i.name,
         description: i.description,
         county: i.county,
-        type: i.type,
+        schoolType: i.type,
       })),
       materials: pastPapers.map(p => ({
         id: p.id,
@@ -122,7 +119,7 @@ export class SearchService {
     switch (type) {
       case 'questions':
         return this.questionRepository.find({
-          where: [{ content: ILike(searchTerm) }, { tags: ILike(searchTerm) }],
+          where: [{ content: ILike(searchTerm) }],
           take: limit,
         });
       case 'subjects':

@@ -63,6 +63,47 @@ export class InstitutionsController {
     return this.institutionsService.getMyInstitution(req.user.id);
   }
 
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Search institutions by name, code, or county' })
+  async search(@Query('q') query: string) {
+    return this.institutionsService.searchInstitutions(query);
+  }
+
+  @Get('search/senior-secondary')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Search Senior Secondary schools (for transitioning students)' })
+  async searchSeniorSecondary(@Query('q') query: string) {
+    return this.institutionsService.searchInstitutionsByType(query, 'senior_secondary');
+  }
+
+  @Get('my-join-requests')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get my join requests (student)' })
+  async getMyJoinRequests(@Request() req) {
+    return this.institutionsService.getMyJoinRequests(req.user.id);
+  }
+
+  @Get('my-school')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get my school info, enrollment, and teachers (student)' })
+  async getMySchool(@Request() req) {
+    return this.institutionsService.getStudentSchoolInfo(req.user.id);
+  }
+
+  @Get('awaiting-placement')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all students awaiting Senior Secondary placement (super admin)' })
+  async getAwaitingPlacement() {
+    return this.institutionsService.getAwaitingPlacementStudents();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get institution by ID' })
   async findOne(@Param('id') id: string) {
@@ -284,21 +325,7 @@ export class InstitutionsController {
     return { message: 'Banner removed successfully' };
   }
 
-  @Get('search')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Search institutions by name, code, or county' })
-  async search(@Query('q') query: string) {
-    return this.institutionsService.searchInstitutions(query);
-  }
 
-  @Get('search/senior-secondary')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Search Senior Secondary schools (for transitioning students)' })
-  async searchSeniorSecondary(@Query('q') query: string) {
-    return this.institutionsService.searchInstitutionsByType(query, 'senior_secondary');
-  }
 
   @Post(':id/join-request')
   @UseGuards(JwtAuthGuard)
@@ -325,21 +352,7 @@ export class InstitutionsController {
     return this.institutionsService.getJoinRequests(id, status);
   }
 
-  @Get('my-join-requests')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get my join requests (student)' })
-  async getMyJoinRequests(@Request() req) {
-    return this.institutionsService.getMyJoinRequests(req.user.id);
-  }
 
-  @Get('my-school')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get my school info, enrollment, and teachers (student)' })
-  async getMySchool(@Request() req) {
-    return this.institutionsService.getStudentSchoolInfo(req.user.id);
-  }
 
   @Post('join-requests/:requestId/review')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -501,14 +514,7 @@ export class InstitutionsController {
     return this.institutionsService.promotePublicStudents(req.user.id);
   }
 
-  @Get('awaiting-placement')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get all students awaiting Senior Secondary placement (super admin)' })
-  async getAwaitingPlacement() {
-    return this.institutionsService.getAwaitingPlacementStudents();
-  }
+
 
   @Post(':id/accept-placement')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -535,7 +541,7 @@ export class InstitutionsController {
           }
           cb(null, uploadDir);
         },
-        filename: (req, file, cb) => {
+        filename: (req: any, file, cb) => {
           const uniqueSuffix = `${req.user.id}-${Date.now()}${extname(file.originalname)}`;
           cb(null, uniqueSuffix);
         },

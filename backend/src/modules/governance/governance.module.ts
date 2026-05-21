@@ -7,22 +7,24 @@ import { UsageTrackerService } from './services/usage-tracker.service';
 import { QuotaEnforcerService } from './services/quota-enforcer.service';
 import { CreditLedgerService } from './services/credit-ledger.service';
 import { CostRouterService } from './services/cost-router.service';
+import { AICacheService } from './services/ai-cache.service';
 import { QuotaGuard } from './guards/quota.guard';
 import { UsageTrackingInterceptor } from './interceptors/usage-tracking.interceptor';
-import { GovernanceController } from './controllers/governance.controller';
+import { GovernanceController, UserGovernanceController } from './controllers/governance.controller';
 import { RedisService } from '../../common/redis.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([UsageLog, CreditBalance, QuotaConfig]),
   ],
-  controllers: [GovernanceController],
+  controllers: [GovernanceController, UserGovernanceController],
   providers: [
     RedisService,
     UsageTrackerService,
     QuotaEnforcerService,
     CreditLedgerService,
     CostRouterService,
+    AICacheService,
     QuotaGuard,
     UsageTrackingInterceptor,
   ],
@@ -32,6 +34,7 @@ import { RedisService } from '../../common/redis.service';
     QuotaEnforcerService,
     CreditLedgerService,
     CostRouterService,
+    AICacheService,
     QuotaGuard,
     UsageTrackingInterceptor,
   ],

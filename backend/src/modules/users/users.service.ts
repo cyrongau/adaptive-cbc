@@ -67,16 +67,14 @@ export class UsersService {
       };
       userData.isActive = false;
     }
+    const user = this.usersRepository.create(userData as any);
 
-    const user = this.usersRepository.create(userData);
-
-    return this.usersRepository.save(user);
+    return this.usersRepository.save(user as any);
   }
 
   async findAll(): Promise<User[]> {
     return this.usersRepository.find({
       where: { deletedAt: null },
-      select: ['id', 'email', 'firstName', 'lastName', 'role', 'secondaryRoles', 'grade', 'isActive', 'isSuspended', 'suspendedAt', 'suspensionReason', 'deletedAt', 'onboardingStatus', 'transitionStatus', 'institutionId', 'createdAt'],
     });
   }
 
@@ -96,9 +94,9 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { passwordResetToken: token } });
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(id: string, updateData: UpdateUserDto | Partial<User>): Promise<User> {
     const user = await this.findOne(id);
-    Object.assign(user, updateUserDto);
+    Object.assign(user, updateData);
     return this.usersRepository.save(user);
   }
 
@@ -114,7 +112,7 @@ export class UsersService {
     user.term = dto.term;
     user.stream = dto.stream;
     user.dateOfBirth = dto.dateOfBirth;
-    user.onboardingStatus = 'completed';
+    user.onboardingStatus = OnboardingStatus.COMPLETED;
 
     return this.usersRepository.save(user);
   }
@@ -211,11 +209,11 @@ export class UsersService {
     }
 
     try {
-      await this.emailService.sendEmail(
-        user.email,
-        'Your Institution Application Has Been Approved! 🎉',
-        `Dear ${user.firstName} ${user.lastName},\n\nGreat news! Your institution application has been approved. You now have full access to the admin dashboard.\n\nYou can now manage your institution, register students, and invite teachers.\n\nBest regards,\nAdaptive CBC Learning Platform`,
-      );
+      await this.emailService.send({
+        to: user.email,
+        subject: 'Your Institution Application Has Been Approved! 🎉',
+        html: `Dear ${user.firstName} ${user.lastName},\n\nGreat news! Your institution application has been approved. You now have full access to the admin dashboard.\n\nYou can now manage your institution, register students, and invite teachers.\n\nBest regards,\nAdaptive CBC Learning Platform`,
+      });
     } catch (err) {
       console.error('Failed to send approval email:', err);
     }
@@ -233,11 +231,11 @@ export class UsersService {
     const savedUser = await this.usersRepository.save(user);
 
     try {
-      await this.emailService.sendEmail(
-        user.email,
-        'Institution Application Update',
-        `Dear ${user.firstName} ${user.lastName},\n\nYour institution application has been reviewed. Unfortunately, it was not approved at this time.\n\nReason: ${reason}\n\nYou can resubmit your application with the required corrections from your dashboard.\n\nBest regards,\nAdaptive CBC Learning Platform`,
-      );
+      await this.emailService.send({
+        to: user.email,
+        subject: 'Institution Application Update',
+        html: `Dear ${user.firstName} ${user.lastName},\n\nYour institution application has been reviewed. Unfortunately, it was not approved at this time.\n\nReason: ${reason}\n\nYou can resubmit your application with the required corrections from your dashboard.\n\nBest regards,\nAdaptive CBC Learning Platform`,
+      });
     } catch (err) {
       console.error('Failed to send rejection email:', err);
     }

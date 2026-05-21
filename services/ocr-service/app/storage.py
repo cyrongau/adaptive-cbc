@@ -38,7 +38,11 @@ class StorageManager:
         return key
 
     def get_presigned_url(self, key: str, expires_hours: int = 24) -> str:
-        return self.client.presigned_get_object(self.bucket, key, expires=3600 * expires_hours)
+        from datetime import timedelta
+        url = self.client.presigned_get_object(self.bucket, key, expires=timedelta(hours=expires_hours))
+        if "minio:9000" in url:
+            url = url.replace("minio:9000", "localhost:9003")
+        return url
 
     def get_object(self, key: str) -> bytes:
         response = self.client.get_object(self.bucket, key)

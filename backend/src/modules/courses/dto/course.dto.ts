@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsNumber, IsEnum, IsBoolean, IsArray, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CourseStatus, CourseLevel } from '../entities/course.entity';
-
+import { LessonContentType } from '../entities/course-lesson.entity';
 export class CreateCourseDto {
   @ApiProperty({ example: 'Grade 4 Math Mastery' })
   @IsString()
@@ -211,10 +211,10 @@ export class CreateCourseLessonDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ example: 'video' })
+  @ApiPropertyOptional({ enum: LessonContentType, example: LessonContentType.VIDEO })
   @IsOptional()
-  @IsString()
-  contentType?: string;
+  @IsEnum(LessonContentType)
+  contentType?: LessonContentType;
 
   @ApiPropertyOptional()
   @IsOptional()

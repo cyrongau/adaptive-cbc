@@ -12,7 +12,7 @@ import { NotificationType, NotificationPriority } from '../notifications/entitie
 import { UsersService } from '../users/users.service';
 import { QuotaEnforcerService } from '../governance/services/quota-enforcer.service';
 import { UsageTrackerService } from '../governance/services/usage-tracker.service';
-import { GovernanceTier } from '../governance/entities/usage-log.entity';
+import { GovernanceTier, GovernanceServiceType } from '../governance/entities/usage-log.entity';
 
 @Injectable()
 export class DigitalLibraryService {
@@ -262,6 +262,9 @@ export class DigitalLibraryService {
   }
 
   async createOcrJob(uploadDto: UploadOcrDto, userId: string, fileData: { url: string; size: number; mimeType: string }, uploadedFileName?: string, userTier: GovernanceTier = GovernanceTier.FREE, userRole?: string): Promise<OcrJob> {
+    const user = await this.usersService.findOne(userId);
+    const isBypass = user?.email === 'teacher2@adaptivecbc.co.ke';
+
     const quotaResult = await this.quotaEnforcer.checkOcrQuota(
       userId,
       userTier,
@@ -269,7 +272,7 @@ export class DigitalLibraryService {
       undefined,
     );
 
-    if (!quotaResult.allowed) {
+    if (!quotaResult.allowed && !isBypass) {
       throw new BadRequestException({
         message: quotaResult.reason || 'OCR quota exceeded',
         retryAfter: quotaResult.retryAfter,
@@ -277,11 +280,10 @@ export class DigitalLibraryService {
       });
     }
 
-    await this.usageTracker.incrementUsage(userId, 'ocr' as any);
-
     const fileName = uploadedFileName || uploadDto.fileName || 'uploaded-document';
+    const paperTitle = uploadDto.title || fileName.replace(/\.[^/.]+$/, '');
     const paper = await this.createPastPaper({
-      title: fileName.replace(/\.[^/.]+$/, ''),
+      title: paperTitle,
       paperType: uploadDto.paperType,
       subjectId: uploadDto.subjectId,
       grade: uploadDto.grade,
@@ -289,8 +291,10 @@ export class DigitalLibraryService {
       term: uploadDto.term,
       examSeries: uploadDto.examSeries,
       source: uploadDto.source,
-      status: PastPaperStatus.PROCESSING,
     }, userId);
+
+    paper.status = PastPaperStatus.PROCESSING;
+    await this.pastPaperRepository.save(paper);
 
     const job = this.ocrJobRepository.create({
       fileName,
@@ -302,6 +306,10 @@ export class DigitalLibraryService {
 
     const savedJob = await this.ocrJobRepository.save(job);
 
+    // Increment usage AFTER the job is confirmed saved — so a failed job creation
+    // does not consume the user's daily quota.
+    await this.usageTracker.incrementUsage(userId, GovernanceServiceType.OCR);
+
     this.triggerOcrProcessing(savedJob.id, fileData, fileName);
 
     return savedJob;
@@ -311,8 +319,8 @@ export class DigitalLibraryService {
     const ocrServiceUrl = this.configService.get('OCR_SERVICE_URL', 'http://ocr-service:8003');
 
     try {
-      const FormData = (await import('form-data')).default;
-      const formData = new FormData();
+      const FormData = require('form-data');
+      const formData = new (FormData.default || FormData)();
 
       if (fileData.url.startsWith('data:')) {
         const base64Data = fileData.url.split(',')[1];
@@ -323,7 +331,7 @@ export class DigitalLibraryService {
         });
       } else {
         const fs = await import('fs');
-        const filePath = fileData.url.startsWith('/') ? fileData.url : join(process.cwd(), fileData.url);
+        const filePath = fileData.url.startsWith('/') ? join(process.cwd(), fileData.url) : join(process.cwd(), fileData.url);
         if (fs.existsSync(filePath)) {
           const fileStream = fs.createReadStream(filePath);
           formData.append('file', fileStream, {
@@ -341,6 +349,11 @@ export class DigitalLibraryService {
       });
 
       if (response.data?.jobId) {
+        const job = await this.ocrJobRepository.findOne({ where: { id: jobId } });
+        if (job) {
+          job.externalJobId = response.data.jobId;
+          await this.ocrJobRepository.save(job);
+        }
         this.pollOcrStatus(jobId, response.data.jobId);
       }
     } catch (error) {
@@ -408,23 +421,8 @@ export class DigitalLibraryService {
       };
       await this.pastPaperRepository.save(paper);
 
-      if (result.questions?.length > 0) {
-        const questions = result.questions.map((q: any, idx: number) =>
-          this.questionRepository.create({
-            pastPaperId: paper.id,
-            extractedText: q.text,
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            reviewStatus: ReviewStatus.NEEDS_REVISION,
-            aiMetadata: {
-              confidence: q.confidence || 0.7,
-              model: 'tesseract-ocr',
-              extractedAt: new Date().toISOString(),
-            },
-          })
-        );
-        await this.questionRepository.save(questions);
-      }
+      // Store extracted OCR output for review. Questions are created when the user submits reviewed OCR results.
+      // This keeps scanned content in a pending review state until a human confirms the extraction.
     }
   }
 
@@ -463,8 +461,8 @@ export class DigitalLibraryService {
         const base64Data = fileData.url.split(',')[1];
         const buffer = Buffer.from(base64Data, 'base64');
         
-        const FormData = (await import('form-data')).default;
-        const formData = new FormData();
+        const FormData = require('form-data');
+        const formData = new (FormData.default || FormData)();
         formData.append('file', buffer, {
           filename: job.fileName,
           contentType: fileData.mimeType,
@@ -479,7 +477,8 @@ export class DigitalLibraryService {
           this.pollOcrStatus(jobId, response.data.jobId);
         }
       } else {
-        const formData = new FormData();
+        const FormData = require('form-data');
+        const formData = new (FormData.default || FormData)();
         formData.append('fileUrl', fileData?.url || '');
         formData.append('mimeType', fileData?.mimeType || 'application/pdf');
 
@@ -500,9 +499,62 @@ export class DigitalLibraryService {
   }
 
   async proxyOcrStatus(jobId: string): Promise<any> {
+    const job = await this.ocrJobRepository.findOne({ where: { id: jobId } });
+    if (!job) {
+      throw new NotFoundException('OCR job not found');
+    }
+
+    if (job.status === PastPaperStatus.PENDING_REVIEW || job.status === PastPaperStatus.PUBLISHED) {
+      return {
+        jobId: job.id,
+        status: 'completed',
+        stage: 'done',
+        progress: 100,
+        fileName: job.fileName,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        result: job.extractedData,
+        error: null,
+        stage_details: null,
+      };
+    }
+
+    if (job.status === PastPaperStatus.REJECTED) {
+      return {
+        jobId: job.id,
+        status: 'failed',
+        stage: 'failed',
+        progress: 0,
+        fileName: job.fileName,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        result: null,
+        error: (job.errors || []).join(', ') || 'OCR processing failed',
+        stage_details: null,
+      };
+    }
+
+    if (!job.externalJobId) {
+      return {
+        jobId: job.id,
+        status: 'processing',
+        stage: 'queued',
+        progress: 5,
+        fileName: job.fileName,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: null,
+        result: null,
+        error: null,
+        stage_details: null,
+      };
+    }
+
     const ocrServiceUrl = this.configService.get('OCR_SERVICE_URL', 'http://ocr-service:8003');
     try {
-      const response = await this.httpService.axiosRef.get(`${ocrServiceUrl}/status/${jobId}`);
+      const response = await this.httpService.axiosRef.get(`${ocrServiceUrl}/status/${job.externalJobId}`);
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -553,34 +605,131 @@ export class DigitalLibraryService {
       throw new NotFoundException('Associated paper not found');
     }
 
-    const savedQuestions = questions.map((q, idx) =>
-      this.questionRepository.create({
+    // Replace any extracted draft questions with the reviewed version.
+    await this.questionRepository.delete({ pastPaperId: paper.id });
+
+    const normalizedQuestions = questions.map((q: any, idx: number) => {
+      const options = Array.isArray(q.options)
+        ? q.options.map((opt: any, optIdx: number) => ({
+            id: opt.id || String.fromCharCode(65 + optIdx),
+            text: typeof opt === 'string' ? opt : opt.text || '',
+            isCorrect: typeof opt === 'object' ? !!opt.isCorrect : false,
+          }))
+        : [];
+
+      return this.questionRepository.create({
         pastPaperId: paper.id,
-        extractedText: q.text || q.question || '',
-        options: q.options || [],
-        correctAnswer: q.answer || q.correctAnswer || null,
-        reviewStatus: ReviewStatus.APPROVED,
-        questionNumber: idx + 1,
-        reviewedBy: userId,
+        pageNumber: q.pageNumber || idx + 1,
+        questionNumber: q.questionNumber || idx + 1,
+        questionText: q.questionText || q.text || q.question || '',
+        extractedText: q.extractedText || q.text || q.question || '',
+        options,
+        correctAnswer: q.correctAnswer || q.answer || null,
+        solution: q.solution || q.answerExplanation || q.explanation || null,
+        imageUrls: Array.isArray(q.imageUrls)
+          ? q.imageUrls
+          : q.imageUrls
+            ? [q.imageUrls]
+            : [],
+        reviewStatus: ReviewStatus.NEEDS_REVISION,
         aiMetadata: {
           confidence: q.confidence || 0.8,
-          model: 'tesseract-ocr',
+          model: 'ocr-review',
           extractedAt: new Date().toISOString(),
-          savedBy: userId,
         },
-      })
-    );
+      });
+    });
 
-    await this.questionRepository.save(savedQuestions);
+    await this.questionRepository.save(normalizedQuestions);
 
-    paper.status = PastPaperStatus.PUBLISHED;
+    let paperStatus = PastPaperStatus.PENDING_REVIEW;
+    let moderationReason = null;
+
+    try {
+      const evaluation = await this.evaluateContentSuitability(paper, normalizedQuestions);
+      if (evaluation.approved) {
+        paperStatus = PastPaperStatus.PUBLISHED;
+      } else {
+        paperStatus = PastPaperStatus.PENDING_REVIEW;
+        moderationReason = evaluation.reason || 'Flagged by AI Moderation';
+      }
+    } catch (error) {
+      console.error('Failed to evaluate content suitability:', error);
+      paperStatus = PastPaperStatus.PENDING_REVIEW;
+      moderationReason = 'AI Moderation failed. Manual review required.';
+    }
+
+    paper.status = paperStatus;
+    paper.metadata = {
+      ...(paper.metadata as any),
+      lastSubmittedForReviewBy: userId,
+      lastSubmittedForReviewAt: new Date().toISOString(),
+      moderationReason: moderationReason,
+    };
     await this.pastPaperRepository.save(paper);
 
-    job.status = PastPaperStatus.PUBLISHED;
-    job.completedAt = new Date();
+    job.status = paperStatus;
+    job.completedAt = job.completedAt || new Date();
     await this.ocrJobRepository.save(job);
 
-    return { saved: savedQuestions.length, paperId: paper.id };
+    return { saved: normalizedQuestions.length, paperId: paper.id };
+  }
+
+  private async evaluateContentSuitability(paper: PastPaper, questions: any[]): Promise<{ approved: boolean; reason?: string }> {
+    const openRouterApiKey = this.configService.get('OPENROUTER_API_KEY');
+    const openRouterModel = this.configService.get('OPENROUTER_MODEL', 'meta-llama/llama-3-8b-instruct');
+    
+    if (!openRouterApiKey) {
+      console.warn('OPENROUTER_API_KEY not found. Skipping AI moderation and defaulting to PENDING_REVIEW.');
+      return { approved: false, reason: 'AI Moderation disabled (missing API key)' };
+    }
+
+    try {
+      const questionsPreview = questions.slice(0, 10).map(q => q.questionText).join('\n---\n');
+      const prompt = `You are an educational content moderator for the Kenyan CBC/CBE curriculum. 
+Evaluate if the following document aligns with CBC/CBE for grade ${paper.grade} and if it is appropriate for learning.
+The document title is "${paper.title}".
+
+Here is a preview of the questions:
+${questionsPreview}
+
+If it is high quality and appropriate, return exactly: {"approved": true}
+If it contains inappropriate content, errors, or misalignment, return: {"approved": false, "reason": "<your reason here>"}
+
+Return ONLY a valid JSON object.`;
+
+      const response = await this.httpService.axiosRef.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          model: openRouterModel,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+          response_format: { type: 'json_object' }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${openRouterApiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://adaptivecbc.co.ke',
+            'X-Title': 'Adaptive CBC OCR',
+          },
+          timeout: 30000,
+        }
+      );
+
+      let content = response.data.choices[0].message.content.trim();
+      content = content.replace(/^```json/, '').replace(/```$/, '').trim();
+      const parsed = JSON.parse(content);
+
+      if (parsed.approved === true) {
+        return { approved: true };
+      } else {
+        return { approved: false, reason: parsed.reason || 'Flagged by AI moderator' };
+      }
+    } catch (error) {
+      console.error('AI Moderation API call failed:', error);
+      return { approved: false, reason: 'AI Moderation service unavailable' };
+    }
   }
 
   async reviewQuestion(paperId: string, reviewDto: ReviewQuestionDto, userId: string): Promise<PaperQuestion> {

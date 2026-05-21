@@ -1,7 +1,12 @@
 import {
   Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request,
+  UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { extname } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { MinioService } from '../../common/minio.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -15,7 +20,10 @@ import {
 @Controller('store')
 @ApiBearerAuth('JWT-auth')
 export class StoreController {
-  constructor(private readonly storeService: StoreService) {}
+  constructor(
+    private readonly storeService: StoreService,
+    private readonly minioService: MinioService,
+  ) {}
 
   @Get('products')
   @ApiOperation({ summary: 'List all published products' })
@@ -46,6 +54,40 @@ export class StoreController {
   @ApiOperation({ summary: 'Get product by ID' })
   async getProduct(@Param('id') id: string) {
     return this.storeService.findProductById(id);
+  }
+
+  @Post('products/upload-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: undefined, // use memoryStorage (multer default when storage omitted)
+      fileFilter: (req, file, cb) => {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          return cb(new Error('Only image files are allowed'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    }),
+  )
+  @ApiOperation({ summary: 'Upload a product thumbnail image to MinIO' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { image: { type: 'string', format: 'binary' } },
+    },
+  })
+  async uploadProductImage(@Request() req, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No image file provided');
+    const ext = extname(file.originalname).toLowerCase();
+    const { url } = await this.minioService.uploadFile(
+      'products',
+      `${uuidv4()}${ext}`,
+      file.buffer,
+      file.mimetype,
+    );
+    return { imageUrl: url, message: 'Image uploaded successfully' };
   }
 
   @Post('products')

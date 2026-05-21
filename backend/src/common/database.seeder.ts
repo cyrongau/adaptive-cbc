@@ -2,7 +2,8 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User, UserRole, OnboardingStatus } from '../modules/users/entities/user.entity';
+import { User, UserRole, OnboardingStatus, KycStatus } from '../modules/users/entities/user.entity';
+
 
 @Injectable()
 export class DatabaseSeeder implements OnModuleInit {
@@ -41,7 +42,7 @@ export class DatabaseSeeder implements OnModuleInit {
         isActive: true,
         isEmailVerified: true,
         onboardingStatus: OnboardingStatus.COMPLETED,
-        kycStatus: 'approved',
+        kycStatus: KycStatus.APPROVED,
       },
       {
         email: 'teacher@adaptivecbc.com',

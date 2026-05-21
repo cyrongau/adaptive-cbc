@@ -6,7 +6,7 @@ import { SchoolJoinRequest, JoinRequestStatus } from './entities/school-join-req
 import { StudentRegister } from './entities/student-register.entity';
 import { PromotionLog, StudentTransfer, PromotionType, TransferStatus } from './entities/promotion-transfer.entity';
 import { UsersService } from '../users/users.service';
-import { KycStatus, UserRole } from '../users/entities/user.entity';
+import { KycStatus, UserRole, TransitionStatus, OnboardingStatus } from '../users/entities/user.entity';
 
 @Injectable()
 export class InstitutionsService {
@@ -471,7 +471,7 @@ export class InstitutionsService {
           grade: 10,
           term: 1,
           stream: null,
-          transitionStatus: 'placed',
+          transitionStatus: TransitionStatus.PLACED,
         });
 
         const existing = await this.studentRepository.findOne({
@@ -818,8 +818,8 @@ export class InstitutionsService {
           grade: 9,
           term: null,
           stream: null,
-          transitionStatus: 'awaiting_placement',
-          onboardingStatus: 'completed',
+          transitionStatus: TransitionStatus.AWAITING_PLACEMENT,
+          onboardingStatus: OnboardingStatus.COMPLETED,
         });
 
         await this.studentRepository.update(instStudent.id, { isActive: false });
@@ -833,8 +833,8 @@ export class InstitutionsService {
         awaitingPlacementIds.push(user.id);
       } else if (currentGrade === 12) {
         await userRepo.update(user.id, {
-          transitionStatus: 'graduated',
-          onboardingStatus: 'completed',
+          transitionStatus: TransitionStatus.GRADUATED,
+          onboardingStatus: OnboardingStatus.COMPLETED,
           graduationYear: currentCalendarYear,
           graduatedAt: new Date(),
         });
@@ -882,7 +882,7 @@ export class InstitutionsService {
 
     const publicStudents = await userRepo.find({
       where: {
-        role: 'student',
+        role: UserRole.STUDENT,
         institutionId: null,
       },
     });
@@ -900,15 +900,15 @@ export class InstitutionsService {
           grade: 9,
           term: null,
           stream: null,
-          transitionStatus: 'awaiting_placement',
-          onboardingStatus: 'completed',
+          transitionStatus: TransitionStatus.AWAITING_PLACEMENT,
+          onboardingStatus: OnboardingStatus.COMPLETED,
         });
 
         awaitingPlacement++;
       } else if (currentGrade === 12) {
         await userRepo.update(student.id, {
-          transitionStatus: 'graduated',
-          onboardingStatus: 'completed',
+          transitionStatus: TransitionStatus.GRADUATED,
+          onboardingStatus: OnboardingStatus.COMPLETED,
           graduationYear: currentCalendarYear,
           graduatedAt: new Date(),
         });
@@ -940,8 +940,8 @@ export class InstitutionsService {
     const userRepo = this.usersService.getRepository();
     return userRepo.find({
       where: {
-        role: 'student',
-        transitionStatus: 'awaiting_placement',
+        role: UserRole.STUDENT,
+        transitionStatus: TransitionStatus.AWAITING_PLACEMENT,
       },
       select: ['id', 'email', 'firstName', 'lastName', 'grade', 'stream', 'institutionId', 'createdAt'],
       order: { createdAt: 'DESC' },
@@ -981,7 +981,7 @@ export class InstitutionsService {
       grade: newGrade,
       term: 1,
       stream: newStream,
-      transitionStatus: 'placed',
+      transitionStatus: TransitionStatus.PLACED,
     });
 
     let institutionStudent: InstitutionStudent;

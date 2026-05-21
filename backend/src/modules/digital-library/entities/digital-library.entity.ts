@@ -7,6 +7,7 @@ export enum PastPaperStatus {
   PENDING_REVIEW = 'pending_review',
   PUBLISHED = 'published',
   REJECTED = 'rejected',
+  FAILED = 'failed',
   ARCHIVED = 'archived',
 }
 
@@ -306,6 +307,9 @@ export class OcrJob {
 
   @Column()
   fileName: string;
+
+  @Column({ nullable: true })
+  externalJobId: string;
 
   @Column({ type: 'enum', enum: PastPaperStatus, default: PastPaperStatus.PROCESSING })
   status: PastPaperStatus;

@@ -1,0 +1,100 @@
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/integrations/twilio-sms/test, POST} route[39m[38;5;3m +2ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/integrations/whatsapp/config, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/integrations/whatsapp/test, POST} route[39m[38;5;3m +2ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/integrations/mpesa/config, POST} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/integrations/mpesa/test, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mEnrollmentController {/api/v1/enrollment}:[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment, POST} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/my-enrollments, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/my-enrollments/:courseId, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/:id/drop, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/:id/progress, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/course/:courseId/stats, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/course/:courseId, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/:id, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/:id, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/enrollment/:id, DELETE} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCoursesController {/api/v1/courses}:[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/my-courses, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/published, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:id, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:id, PUT} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:id, DELETE} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:id/publish, PATCH} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:id/archive, PATCH} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:id/thumbnail, PATCH} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/modules, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/modules, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/modules/:moduleId, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/modules/:moduleId, DELETE} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/modules/:moduleId/lessons, POST} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/modules/:moduleId/lessons/:lessonId, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/modules/:moduleId/lessons/:lessonId, DELETE} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/resources, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/resources, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/resources/:resourceId, DELETE} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/reviews, POST} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/reviews, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/reviews/stats, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/reviews/:reviewId, DELETE} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/certificates/issue/:studentId, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:courseId/certificates, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/certificates/my, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/courses/:id/analytics, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mLessonsController {/api/v1/lessons}:[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons/timetable, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons/next, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons/live, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons/stats, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons/my-lessons, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons/:id, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons/:id, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/lessons/:id, DELETE} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mStoreController {/api/v1/store}:[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/products, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/products/my, GET} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/products/:id, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/products, POST} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/products/:id, PUT} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/products/:id, DELETE} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/cart, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/cart/add, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/cart/items/:itemId, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/cart/items/:itemId, DELETE} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/cart, DELETE} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/orders, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/orders, GET} route[39m[38;5;3m +2ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/orders/:id, GET} route[39m[38;5;3m +2ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/admin/orders, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/store/admin/orders/:id/status, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mFinancialController {/api/v1/financial}:[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/wallet, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/wallet/details, PUT} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/transactions, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/withdrawals, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/withdrawals, POST} route[39m[38;5;3m +6ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/withdrawals/:id, GET} route[39m[38;5;3m +2ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/admin/stats, GET} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/admin/withdrawals, GET} route[39m[38;5;3m +3ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/admin/withdrawals/:id/process, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/admin/wallets, GET} route[39m[38;5;3m +3ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/admin/wallets/:userId/adjust, PUT} route[39m[38;5;3m +1ms[39m
+adaptive-learning-backend  | [32m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/financial/internal/record-sale, POST} route[39m[38;5;3m +0ms[39m
+adaptive-learning-backend  | [33m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [33m   WARN[39m [38;5;3m[GovernanceModule] [39m[33mCould not initialize governance defaults (DB may not be ready):[39m
+adaptive-learning-backend  | [33m[Nest] 30  - [39m05/20/2026, 6:13:10 PM [33m   WARN[39m [38;5;3m[GovernanceModule] [39m[33mNo metadata for "QuotaConfig" was found.[39m
+adaptive-learning-backend  | EntityMetadataNotFoundError: No metadata for "User" was found.
+adaptive-learning-backend  |     at DataSource.getMetadata (/app/src/data-source/DataSource.ts:451:30)
+adaptive-learning-backend  |     at Repository.get metadata [as metadata] (/app/src/repository/Repository.ts:55:40)
+adaptive-learning-backend  |     at Repository.count (/app/src/repository/Repository.ts:524:40)
+adaptive-learning-backend  |     at DatabaseSeeder.onModuleInit (/app/src/common/database.seeder.ts:15:50)
+adaptive-learning-backend  |     at MapIterator.iteratee (/app/node_modules/@nestjs/core/hooks/on-module-init.hook.js:22:43)
+adaptive-learning-backend  |     at MapIterator.next (/app/node_modules/iterare/src/map.ts:9:39)
+adaptive-learning-backend  |     at IteratorWithOperators.next (/app/node_modules/iterare/src/iterate.ts:19:28)
+adaptive-learning-backend  |     at Function.from (<anonymous>)
+adaptive-learning-backend  |     at IteratorWithOperators.toArray (/app/node_modules/iterare/src/iterate.ts:227:22)
+adaptive-learning-backend  |     at callOperator (/app/node_modules/@nestjs/core/hooks/on-module-init.hook.js:23:10)
+adaptive-learning-backend  | [ERROR] 18:13:10 EntityMetadataNotFoundError: No metadata for "User" was found.

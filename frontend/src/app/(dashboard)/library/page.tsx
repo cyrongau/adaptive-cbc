@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
+import { useQuotaStatus } from '@/hooks/useQuotaStatus';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
@@ -99,6 +100,7 @@ interface LibraryPaper {
 
 export default function LibraryPage() {
   const { user } = useAuthStore();
+  const { quota, loading: quotaLoading } = useQuotaStatus();
   const [papers, setPapers] = useState<LibraryPaper[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [totalPapers, setTotalPapers] = useState(0);
@@ -116,7 +118,7 @@ export default function LibraryPage() {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrExtractedQuestions, setOcrExtractedQuestions] = useState<any[]>([]);
   const [ocrErrorMessage, setOcrErrorMessage] = useState('');
-  const [ocrMetadata, setOcrMetadata] = useState({ subjectId: '', grade: 7, paperType: 'past_paper', year: new Date().getFullYear(), term: 1 });
+  const [ocrMetadata, setOcrMetadata] = useState({ title: '', subjectId: '', grade: 7, paperType: 'past_paper', year: new Date().getFullYear(), term: 1 });
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; paperId: string; paperTitle: string }>({ open: false, paperId: '', paperTitle: '' });
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -222,6 +224,10 @@ export default function LibraryPage() {
       toast.error('Please select a subject');
       return;
     }
+    if (quota?.ocr.isExceeded) {
+      toast.error(`OCR quota exceeded. ${quota.ocr.remaining} pages remaining today. Resets at ${new Date(quota.resetAt).toLocaleTimeString()}.`);
+      return;
+    }
     setOcrStatus('uploading');
     setOcrProgress(0);
     setOcrErrorMessage('');
@@ -233,6 +239,9 @@ export default function LibraryPage() {
       formData.append('paperType', ocrMetadata.paperType);
       formData.append('year', ocrMetadata.year.toString());
       formData.append('term', ocrMetadata.term.toString());
+      if (ocrMetadata.title) {
+        formData.append('title', ocrMetadata.title);
+      }
       const response = await api.post('/digital-library/ocr/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -258,7 +267,7 @@ export default function LibraryPage() {
         setOcrProgress(progress || 0);
         if (status === 'completed') {
           setOcrStatus('completed');
-          setOcrExtractedQuestions(result?.questions || []);
+          setOcrExtractedQuestions(normalizeOcrQuestions(result?.questions || []));
           if (result?.questions?.length > 0) {
             toast.success(`Extracted ${result.questions.length} question(s)!`);
           } else {
@@ -301,18 +310,124 @@ export default function LibraryPage() {
     setTimeout(poll, 3000);
   };
 
+  const normalizeOcrQuestions = (questions: any[]) =>
+    questions.map((q: any, idx: number) => {
+      const options = Array.isArray(q.options)
+        ? q.options.map((opt: any, optionIndex: number) => ({
+            id: opt?.id || String.fromCharCode(65 + optionIndex),
+            text: typeof opt === 'string' ? opt : opt?.text || '',
+            isCorrect: typeof opt === 'object' ? !!opt.isCorrect : false,
+          }))
+        : [];
+
+      const correctAnswer = q.correctAnswer || q.answer || options.find((opt: any) => opt.isCorrect)?.id || '';
+
+      return {
+        pageNumber: q.pageNumber || 1,
+        questionNumber: q.questionNumber || idx + 1,
+        questionText: q.questionText || q.text || q.question || '',
+        extractedText: q.extractedText || q.text || q.question || '',
+        options,
+        correctAnswer,
+        confidence: q.confidence || 0,
+      };
+    });
+
+  const updateOcrQuestion = (index: number, updates: Partial<any>) => {
+    setOcrExtractedQuestions((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...updates };
+      return next;
+    });
+  };
+
+  const updateOcrOption = (questionIndex: number, optionIndex: number, text: string) => {
+    setOcrExtractedQuestions((prev) => {
+      const next = [...prev];
+      const question = next[questionIndex];
+      if (!question) return prev;
+      const options = Array.isArray(question.options) ? [...question.options] : [];
+      options[optionIndex] = { ...options[optionIndex], text };
+      next[questionIndex] = { ...question, options };
+      return next;
+    });
+  };
+
+  const toggleOcrCorrectOption = (questionIndex: number, optionIndex: number) => {
+    setOcrExtractedQuestions((prev) => {
+      const next = [...prev];
+      const question = next[questionIndex];
+      if (!question) return prev;
+      const options = Array.isArray(question.options) ? question.options.map((opt: any, idx: number) => ({
+        ...opt,
+        isCorrect: idx === optionIndex,
+      })) : [];
+      next[questionIndex] = {
+        ...question,
+        options,
+        correctAnswer: options[optionIndex]?.id || question.correctAnswer,
+      };
+      return next;
+    });
+  };
+
+  const addOcrQuestion = () => {
+    setOcrExtractedQuestions((prev) => [
+      ...prev,
+      {
+        pageNumber: prev.length + 1,
+        questionNumber: prev.length + 1,
+        questionText: '',
+        extractedText: '',
+        options: [],
+        correctAnswer: '',
+        confidence: 0,
+      },
+    ]);
+  };
+
+  const removeOcrQuestion = (index: number) => {
+    setOcrExtractedQuestions((prev) => prev.filter((_, idx) => idx !== index).map((q: any, idx: number) => ({
+      ...q,
+      questionNumber: idx + 1,
+    })));
+  };
+
+  const addOcrOption = (questionIndex: number) => {
+    setOcrExtractedQuestions((prev) => {
+      const next = [...prev];
+      const question = next[questionIndex];
+      if (!question) return prev;
+      const options = Array.isArray(question.options) ? [...question.options] : [];
+      options.push({ id: String.fromCharCode(65 + options.length), text: '', isCorrect: false });
+      next[questionIndex] = { ...question, options };
+      return next;
+    });
+  };
+
+  const removeOcrOption = (questionIndex: number, optionIndex: number) => {
+    setOcrExtractedQuestions((prev) => {
+      const next = [...prev];
+      const question = next[questionIndex];
+      if (!question) return prev;
+      const options = Array.isArray(question.options) ? question.options.filter((_: any, idx: number) => idx !== optionIndex) : [];
+      next[questionIndex] = { ...question, options };
+      return next;
+    });
+  };
+
   const handleSaveOcrQuestions = async () => {
     try {
       await api.post('/digital-library/ocr/save', {
         jobId: ocrJobId,
         questions: ocrExtractedQuestions,
       });
-      toast.success('Questions saved successfully!');
+      toast.success('OCR results submitted for admin review');
       setShowOcrModal(false);
       resetOcrState();
       fetchPapers();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save questions');
+      toast.error(error.response?.data?.message || 'Failed to submit OCR results');
     }
   };
 
@@ -324,7 +439,7 @@ export default function LibraryPage() {
     setOcrProgress(0);
     setOcrExtractedQuestions([]);
     setOcrErrorMessage('');
-    setOcrMetadata({ subjectId: '', grade: 7, paperType: 'past_paper', year: new Date().getFullYear(), term: 1 });
+    setOcrMetadata({ title: '', subjectId: '', grade: 7, paperType: 'past_paper', year: new Date().getFullYear(), term: 1 });
   };
 
   const totalPages = Math.ceil(totalPapers / 20);
@@ -373,6 +488,53 @@ export default function LibraryPage() {
           </div>
         ))}
       </div>
+
+      {/* Quota Status Bar */}
+      {quota && !quotaLoading && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Resource Quotas</h3>
+            <span className="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded-full font-medium capitalize">{quota.tier} tier</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* OCR Quota */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-slate-600">OCR Pages Today</span>
+                <span className={`text-xs font-bold ${quota.ocr.isExceeded ? 'text-red-600' : 'text-emerald-600'}`}>
+                  {quota.ocr.used} / {quota.ocr.limit} used
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all ${quota.ocr.isExceeded ? 'bg-red-500' : quota.ocr.remaining < quota.ocr.limit * 0.2 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                  style={{ width: `${Math.min(100, (quota.ocr.used / quota.ocr.limit) * 100)}%` }}
+                />
+              </div>
+            </div>
+            {/* AI Quota */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-slate-600">AI Requests Today</span>
+                <span className={`text-xs font-bold ${quota.ai.isExceeded ? 'text-red-600' : 'text-indigo-600'}`}>
+                  {quota.ai.used} / {quota.ai.limit} used
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all ${quota.ai.isExceeded ? 'bg-red-500' : quota.ai.remaining < quota.ai.limit * 0.2 ? 'bg-amber-500' : 'bg-indigo-500'}`}
+                  style={{ width: `${Math.min(100, (quota.ai.used / quota.ai.limit) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          {quota.ocr.isExceeded || quota.ai.isExceeded ? (
+            <p className="mt-2 text-xs text-red-600">
+              Quota exceeded. Resets at {new Date(quota.resetAt).toLocaleTimeString()}.
+            </p>
+          ) : null}
+        </div>
+      )}
 
       {/* Search & Filters */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
@@ -757,6 +919,16 @@ export default function LibraryPage() {
                 <p className="text-sm text-slate-500">Upload a scanned exam or document (PDF or image). Our AI will extract questions automatically.</p>
 
                 {/* Metadata fields */}
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Document Title (Optional)</label>
+                  <input
+                    type="text"
+                    value={ocrMetadata.title}
+                    onChange={(e) => setOcrMetadata({ ...ocrMetadata, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    placeholder="e.g. Mathematics Grade 7 Term 1 Exam 2023"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Subject</label>
@@ -875,50 +1047,119 @@ export default function LibraryPage() {
                 <p className="text-sm text-slate-500">
                   Found {ocrExtractedQuestions.length} question(s) from the document. Review and edit before saving to the question bank.
                 </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-900">Review extracted questions</h3>
+                    <p className="text-sm text-slate-500">Edit estimation, add missing questions, and confirm answers before submitting for moderation.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addOcrQuestion}
+                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add question
+                  </button>
+                </div>
                 {ocrExtractedQuestions.length > 0 ? (
-                  <div className="space-y-3 max-h-80 overflow-y-auto">
-                    {ocrExtractedQuestions.map((q, idx) => {
-                      const hasOptions = q.options && q.options.length > 0;
-                      const questionType = hasOptions ? 'MCQ' : 'Structured';
-                      return (
-                        <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{questionType}</span>
-                            {q.confidence && (
-                              <span className="text-xs text-slate-400">{Math.round(q.confidence * 100)}% confidence</span>
+                  <div className="space-y-4 max-h-[38rem] overflow-y-auto">
+                    {ocrExtractedQuestions.map((q, idx) => (
+                      <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">Question {idx + 1}</p>
+                            {q.confidence ? (
+                              <p className="text-xs text-slate-500 mt-1">Confidence: {Math.round(q.confidence * 100)}%</p>
+                            ) : null}
+                            {q.needs_review && (
+                              <div className="mt-2 flex items-start gap-1.5 text-amber-700 bg-amber-50 px-2 py-1.5 rounded-lg border border-amber-200">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <span className="text-xs font-medium">{q.review_reason || 'Needs Review'}</span>
+                              </div>
                             )}
                           </div>
-                          <p className="text-sm font-medium text-slate-900 mb-2">Q{idx + 1}: {q.text || q.question || 'No text extracted'}</p>
-                          {hasOptions && (
-                            <div className="space-y-1 ml-2">
-                              {q.options.map((opt: any, i: number) => {
-                                const optText = typeof opt === 'string' ? opt : opt.text;
-                                const optId = typeof opt === 'string' ? String.fromCharCode(65 + i) : opt.id;
-                                const isCorrect = typeof opt === 'object' && opt.isCorrect;
-                                const correctAnswer = q.correctAnswer || q.answer;
-                                const isThisCorrect = isCorrect ||
-                                  (correctAnswer && (optId.toLowerCase() === correctAnswer.toLowerCase() || optText.toLowerCase().startsWith(correctAnswer.toLowerCase())));
-                                return (
-                                  <div key={i} className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${isThisCorrect ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600'}`}>
-                                    <span className="font-bold w-4">{String.fromCharCode(65 + i)}.</span>
-                                    <span>{optText}</span>
-                                    {isThisCorrect && <CheckCircle className="w-3 h-3 ml-auto text-emerald-600" />}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                          {!hasOptions && q.correctAnswer && (
-                            <p className="text-xs text-emerald-600 mt-2 font-medium">Answer: {q.correctAnswer}</p>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeOcrQuestion(idx)}
+                            className="text-xs font-medium text-red-600 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
                         </div>
-                      );
-                    })}
+                        <label className="text-xs font-semibold text-slate-600 mb-1 block">Question text</label>
+                        <textarea
+                          value={q.questionText || ''}
+                          onChange={(e) => updateOcrQuestion(idx, { questionText: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none"
+                          rows={3}
+                        />
+                        {q.extractedText && q.extractedText !== q.questionText ? (
+                          <p className="text-xs text-slate-400 mt-2">Original extraction: {q.extractedText}</p>
+                        ) : null}
+                        {Array.isArray(q.options) && q.options.length > 0 ? (
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-semibold text-slate-600">Options</p>
+                              <button
+                                type="button"
+                                onClick={() => addOcrOption(idx)}
+                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                              >
+                                + Option
+                              </button>
+                            </div>
+                            <div className="space-y-2">
+                              {q.options.map((opt: any, optIdx: number) => (
+                                <div key={opt.id || optIdx} className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleOcrCorrectOption(idx, optIdx)}
+                                    className={`w-6 h-6 rounded-full border ${opt.isCorrect ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 text-slate-500'}`}
+                                  >
+                                    {opt.isCorrect ? '✓' : ''}
+                                  </button>
+                                  <input
+                                    value={opt.text || ''}
+                                    onChange={(e) => updateOcrOption(idx, optIdx, e.target.value)}
+                                    className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeOcrOption(idx, optIdx)}
+                                    className="text-xs font-medium text-red-600 hover:text-red-700"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-xs font-semibold text-slate-600 block">Answer</label>
+                              <button
+                                type="button"
+                                onClick={() => addOcrOption(idx)}
+                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                              >
+                                + Convert to MCQ
+                              </button>
+                            </div>
+                            <input
+                              value={q.correctAnswer || ''}
+                              onChange={(e) => updateOcrQuestion(idx, { correctAnswer: e.target.value })}
+                              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                              placeholder="Enter the correct answer"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
                     <p className="text-sm text-amber-700 font-medium">No questions were automatically detected</p>
-                    <p className="text-xs text-amber-600 mt-1">The document may need manual question entry. You can still save it to the library.</p>
+                    <p className="text-xs text-amber-600 mt-1">Use the button above to add questions manually before submitting for review.</p>
                   </div>
                 )}
                 <div className="flex gap-3 pt-2">
@@ -934,7 +1175,7 @@ export default function LibraryPage() {
                     className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 flex items-center justify-center gap-2"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Save to Question Bank
+                    Submit for Review
                   </button>
                 </div>
               </div>

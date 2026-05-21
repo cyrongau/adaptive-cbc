@@ -19,7 +19,7 @@ import { UpdateUserDto, CompleteOnboardingDto, SuspendUserDto, DemoteUserDto, Re
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from './entities/user.entity';
+import { UserRole, OnboardingStatus } from './entities/user.entity';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
@@ -100,7 +100,7 @@ export class UsersController {
           }
           cb(null, uploadDir);
         },
-        filename: (req, file, cb) => {
+        filename: (req: any, file, cb) => {
           const uniqueSuffix = `${req.user.id}-${Date.now()}${extname(file.originalname)}`;
           cb(null, uniqueSuffix);
         },
@@ -191,7 +191,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update student grade (admin only)' })
   async updateStudentGrade(
     @Param('id') id: string,
-    @Body() data: { grade?: number; term?: number; stream?: string; onboardingStatus?: string },
+    @Body() data: { grade?: number; term?: number; stream?: string; onboardingStatus?: OnboardingStatus },
   ) {
     return this.usersService.update(id, {
       grade: data.grade,

@@ -20,4 +20,4 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 EXPOSE 8003
 
-CMD ["sh", "-c", "celery -A app.celery_app worker --loglevel=info --concurrency=4 & uvicorn app.main:app --host 0.0.0.0 --port 8003"]
+CMD ["sh", "-c", "celery -A app.tasks worker --loglevel=info --concurrency=4 & uvicorn app.main:app --host 0.0.0.0 --port 8003"]

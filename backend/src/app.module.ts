@@ -47,7 +47,8 @@ import { User } from './modules/users/entities/user.entity';
         username: configService.get('DATABASE_USER', 'cbc_user'),
         password: configService.get('DATABASE_PASSWORD', ''),
         database: configService.get('DATABASE_NAME', 'adaptive_cbc'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        entities: [User, __dirname + '/**/*.entity{.ts,.js}'],
+        autoLoadEntities: true,
         synchronize: configService.get('NODE_ENV') !== 'production',
         logging: configService.get('NODE_ENV') === 'development',
         ssl: configService.get('DATABASE_SSL') === 'true'
