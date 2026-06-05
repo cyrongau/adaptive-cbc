@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CurriculumService } from './curriculum.service';
 import { CurriculumController } from './curriculum.controller';
 import { CbcStrand, CbcSubStrand, CbcLearningOutcome, CbcCompetency } from './entities/cbc-taxonomy.entity';
+import { Subject } from '../subjects/entities/subject.entity';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { CbcStrand, CbcSubStrand, CbcLearningOutcome, CbcCompetency } from './en
       CbcSubStrand,
       CbcLearningOutcome,
       CbcCompetency,
+      Subject,
     ]),
   ],
   controllers: [CurriculumController],

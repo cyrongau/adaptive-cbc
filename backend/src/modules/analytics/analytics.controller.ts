@@ -94,4 +94,56 @@ export class AnalyticsController {
   async getRecentActivity() {
     return this.analyticsService.getRecentActivity();
   }
+
+  @Get('admin/content-metrics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiOperation({ summary: 'Content creation metrics (questions per teacher/subject/week)' })
+  @ApiQuery({ name: 'period', required: false, enum: ['week', 'month', 'year'] })
+  @ApiQuery({ name: 'subjectId', required: false })
+  @ApiQuery({ name: 'grade', required: false })
+  async getContentMetrics(
+    @Query('period') period?: 'week' | 'month' | 'year',
+    @Query('subjectId') subjectId?: string,
+    @Query('grade') grade?: number,
+  ) {
+    return this.analyticsService.getContentCreationMetrics({ period, subjectId, grade });
+  }
+
+  @Get('admin/curriculum-coverage')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiOperation({ summary: 'Curriculum coverage heatmap showing strand/sub-strand gaps' })
+  @ApiQuery({ name: 'subjectId', required: false })
+  @ApiQuery({ name: 'grade', required: false })
+  async getCurriculumCoverage(
+    @Query('subjectId') subjectId?: string,
+    @Query('grade') grade?: number,
+  ) {
+    return this.analyticsService.getCurriculumCoverage({ subjectId, grade });
+  }
+
+  @Get('admin/quality-distribution')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiOperation({ summary: 'Question quality distribution (difficulty, Bloom\'s taxonomy, types)' })
+  @ApiQuery({ name: 'subjectId', required: false })
+  @ApiQuery({ name: 'grade', required: false })
+  async getQualityDistribution(
+    @Query('subjectId') subjectId?: string,
+    @Query('grade') grade?: number,
+  ) {
+    return this.analyticsService.getQualityDistribution({ subjectId, grade });
+  }
+
+  @Get('admin/ai-usage')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiOperation({ summary: 'AI usage analytics (calls by type, daily trend, top users)' })
+  @ApiQuery({ name: 'period', required: false, enum: ['week', 'month', 'year'] })
+  async getAiUsage(
+    @Query('period') period?: 'week' | 'month' | 'year',
+  ) {
+    return this.analyticsService.getAiUsageAnalytics({ period });
+  }
 }

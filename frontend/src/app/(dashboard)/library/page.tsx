@@ -109,6 +109,7 @@ export default function LibraryPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadForm, setUploadForm] = useState({ title: '', subjectId: '', grade: 4, term: 1, paperType: 'notes', description: '', visibility: 'public', isPremium: false, price: 0 });
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; paperId: string; paperTitle: string }>({ open: false, paperId: '', paperTitle: '' });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const isTeacher = user?.role === 'teacher' || user?.role === 'super_admin' || user?.role === 'institution_admin';
@@ -164,20 +165,25 @@ export default function LibraryPage() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/digital-library/papers', {
-        title: uploadForm.title,
-        description: uploadForm.description,
-        paperType: uploadForm.paperType,
-        subjectId: uploadForm.subjectId,
-        grade: uploadForm.grade,
-        year: new Date().getFullYear(),
-        term: uploadForm.term,
-        visibility: uploadForm.visibility,
-        isPremium: uploadForm.isPremium,
-        price: uploadForm.price,
+      const formData = new FormData();
+      if (uploadFile) formData.append('file', uploadFile);
+      formData.append('title', uploadForm.title);
+      formData.append('description', uploadForm.description || '');
+      formData.append('paperType', uploadForm.paperType);
+      formData.append('subjectId', uploadForm.subjectId);
+      formData.append('grade', String(uploadForm.grade));
+      formData.append('year', String(new Date().getFullYear()));
+      formData.append('term', String(uploadForm.term));
+      formData.append('visibility', uploadForm.visibility);
+      formData.append('isPremium', String(uploadForm.isPremium));
+      formData.append('price', String(uploadForm.price));
+
+      await api.post('/digital-library/papers', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success('Resource uploaded successfully!');
       setShowUploadModal(false);
+      setUploadFile(null);
       setUploadForm({ title: '', subjectId: '', grade: 4, term: 1, paperType: 'notes', description: '', visibility: 'public', isPremium: false, price: 0 });
       fetchPapers();
     } catch (error: any) {
@@ -606,10 +612,29 @@ export default function LibraryPage() {
                 </div>
               ) : null}
 
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
+              <div
+                className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#6366f1'; }}
+                onDragLeave={(e) => { e.currentTarget.style.borderColor = ''; }}
+                onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) setUploadFile(file); }}
+                onClick={() => document.getElementById('library-file-upload')?.click()}
+              >
                 <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-500">Drag & drop files or click to upload</p>
-                <p className="text-xs text-slate-400 mt-1">PDF, DOC, PPT up to 10MB</p>
+                {uploadFile ? (
+                  <p className="text-sm font-medium text-indigo-600">{uploadFile.name}</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-500">Drag & drop files or click to upload</p>
+                    <p className="text-xs text-slate-400 mt-1">PDF, DOC, PPT up to 10MB</p>
+                  </>
+                )}
+                <input
+                  id="library-file-upload"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx"
+                  className="hidden"
+                  onChange={(e) => { const file = e.target.files?.[0]; if (file) setUploadFile(file); }}
+                />
               </div>
               <div className="flex gap-3 pt-2">
                 <button
@@ -628,6 +653,8 @@ export default function LibraryPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
 
 
       {/* Delete Confirmation Modal */}

@@ -65,16 +65,19 @@ export default function AdminDashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [statsRes, activityRes, subjectRes] = await Promise.all([
+      const [statsRes, activityRes, subjectRes] = await Promise.allSettled([
         api.get('/analytics/admin/platform-stats'),
         api.get('/analytics/admin/recent-activity'),
         api.get('/analytics/admin/subject-popularity'),
       ]);
-      setStats(statsRes.data);
-      setActivities(activityRes.data);
-      setSubjects(subjectRes.data);
-    } catch (error) {
-      toast.error('Failed to load dashboard data');
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
+      if (activityRes.status === 'fulfilled') setActivities(activityRes.value.data);
+      if (subjectRes.status === 'fulfilled') setSubjects(subjectRes.value.data);
+      if ([statsRes, activityRes, subjectRes].some((result) => result.status === 'rejected')) {
+        toast.error('Some dashboard data could not be loaded');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }

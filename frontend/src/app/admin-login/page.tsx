@@ -33,6 +33,7 @@ export default function AdminLoginPage() {
 
       if (response.data.accessToken) {
         localStorage.setItem('token', response.data.accessToken);
+        localStorage.setItem('refreshToken', response.data.refreshToken);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         
         const userRole = response.data.user?.role;
@@ -137,7 +138,7 @@ export default function AdminLoginPage() {
         >
           <p className="text-sm text-slate-400 font-medium mb-2">Demo Credentials:</p>
           <div className="space-y-1 text-xs text-slate-500">
-            <p><span className="text-amber-400">Super Admin:</span> admin@adaptivecbc.com</p>
+            <p><span className="text-amber-400">Super Admin:</span> admin@adaptivecbc.co.ke</p>
             <p><span className="text-amber-400">Institution Admin:</span> institution@adaptivecbc.com</p>
             <p><span className="text-slate-400">Password:</span> Password123!</p>
           </div>

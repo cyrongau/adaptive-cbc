@@ -152,16 +152,16 @@ export class UsersController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all users (admin only)' })
-  async findAll() {
-    return this.usersService.findAll();
+  async findAll(@Request() req) {
+    return this.usersService.findAll(req.user.role, req.user.institutionId);
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get user by ID' })
-  async findOne(@Param('id') id: string) {
-    const user = await this.usersService.findOne(id);
+  async findOne(@Request() req, @Param('id') id: string) {
+    const user = await this.usersService.findOne(id, req.user.role, req.user.institutionId, req.user.id);
     const { password, refreshToken, ...result } = user;
     return result;
   }
@@ -171,8 +171,8 @@ export class UsersController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update user details (admin only)' })
-  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  async updateUser(@Request() req, @Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(id, updateUserDto, req.user.role, req.user.institutionId, req.user.id);
   }
 
   @Delete(':id')
@@ -190,15 +190,22 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update student grade (admin only)' })
   async updateStudentGrade(
+    @Request() req,
     @Param('id') id: string,
     @Body() data: { grade?: number; term?: number; stream?: string; onboardingStatus?: OnboardingStatus },
   ) {
-    return this.usersService.update(id, {
-      grade: data.grade,
-      term: data.term,
-      stream: data.stream,
-      onboardingStatus: data.onboardingStatus,
-    });
+    return this.usersService.update(
+      id,
+      {
+        grade: data.grade,
+        term: data.term,
+        stream: data.stream,
+        onboardingStatus: data.onboardingStatus,
+      },
+      req.user.role,
+      req.user.institutionId,
+      req.user.id,
+    );
   }
 
   @Get('kyc/pending')
@@ -313,5 +320,14 @@ export class UsersController {
   @ApiOperation({ summary: 'Permanently delete user (super admin only)' })
   async hardDeleteUser(@Param('id') id: string) {
     return this.usersService.hardDeleteUser(id);
+  }
+
+  @Post(':id/reset-password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Reset user password (admin only)' })
+  async adminResetPassword(@Request() req, @Param('id') id: string) {
+    return this.usersService.adminResetPassword(id, req.user.role, req.user.institutionId, req.user.id);
   }
 }

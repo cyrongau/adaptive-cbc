@@ -10,10 +10,10 @@ import { QuotaEnforcerService } from '../services/quota-enforcer.service';
 import { CreditLedgerService } from '../services/credit-ledger.service';
 import { CostRouterService, TaskComplexity } from '../services/cost-router.service';
 import { UsageQueryDto, CreditAllocationDto, QuotaUpdateDto } from '../dto/governance.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserRole } from '../../users/entities/user.entity';
+import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../modules/auth/guards/roles.guard';
+import { Roles } from '../../../modules/auth/decorators/roles.decorator';
+import { UserRole } from '../../../modules/users/entities/user.entity';
 
 @ApiTags('Governance')
 @ApiBearerAuth()

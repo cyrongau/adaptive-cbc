@@ -51,7 +51,7 @@ export default function AuthorStudioDashboard() {
     if (user?.id) {
       fetchData();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const fetchData = async () => {
     setLoading(true);

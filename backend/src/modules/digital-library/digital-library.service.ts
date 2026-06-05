@@ -112,12 +112,25 @@ export class DigitalLibraryService {
     });
   }
 
-  async createPastPaper(createDto: CreatePastPaperDto, userId: string, userInstitutionId?: string): Promise<PastPaper> {
+  async createPastPaper(
+    createDto: CreatePastPaperDto,
+    userId: string,
+    userInstitutionId?: string,
+    file?: Express.Multer.File,
+    fileUrl?: string,
+  ): Promise<PastPaper> {
     const paper = this.pastPaperRepository.create({
       ...createDto,
       createdBy: userId,
       institutionId: createDto.visibility === 'institution_only' ? userInstitutionId : null,
       status: PastPaperStatus.DRAFT,
+      fileUrl: fileUrl || null,
+      metadata: file ? {
+        originalFileName: file.originalname,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+        uploadedAt: new Date(),
+      } : undefined,
     });
 
     return this.pastPaperRepository.save(paper);
@@ -407,7 +420,6 @@ export class DigitalLibraryService {
       text: result.text,
       questions: result.questions,
       images: result.images || [],
-      is_duplicate: result.is_duplicate || false,
     };
 
     await this.ocrJobRepository.save(job);

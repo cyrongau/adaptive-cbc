@@ -404,7 +404,7 @@ export class InstitutionsController {
   @ApiOperation({ summary: 'Add student to institution register' })
   async addToStudentRegister(
     @Param('id') id: string,
-    @Body() data: { studentName: string; grade: number; admissionNumber: string; stream?: string },
+    @Body() data: { studentName: string; grade: number; admissionNumber: string; stream?: string; parentName?: string; parentEmail?: string; parentPhone?: string },
   ) {
     return this.institutionsService.addToStudentRegister(id, data);
   }
@@ -416,7 +416,7 @@ export class InstitutionsController {
   @ApiOperation({ summary: 'Bulk add students to register via CSV data' })
   async bulkAddToStudentRegister(
     @Param('id') id: string,
-    @Body() data: { students: { studentName: string; grade: number; admissionNumber: string; stream?: string }[] },
+    @Body() data: { students: { studentName: string; grade: number; admissionNumber: string; stream?: string; parentName?: string; parentEmail?: string; parentPhone?: string }[] },
   ) {
     return this.institutionsService.bulkAddToStudentRegister(id, data.students);
   }

@@ -27,6 +27,15 @@ export class StudentRegister {
   stream: string;
 
   @Column({ nullable: true })
+  parentName: string;
+
+  @Column({ nullable: true })
+  parentEmail: string;
+
+  @Column({ nullable: true })
+  parentPhone: string;
+
+  @Column({ nullable: true })
   userId: string;
 
   @Column({ default: true })

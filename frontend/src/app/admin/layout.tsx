@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/lib/theme';
 import { getAvatarUrl } from '@/lib/utils';
+import SessionGuard from '@/components/SessionGuard';
 import {
   LayoutDashboard,
   Users,
@@ -31,6 +32,7 @@ import {
   UserPlus,
   Wallet,
   ShoppingCart,
+  CheckCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -42,7 +44,7 @@ const SUPER_ADMIN_SIDEBAR = [
   { label: 'Institutions', icon: Building2, href: '/admin/institutions' },
   { label: 'Financial Oversight', icon: Wallet, href: '/admin/financial' },
   { label: 'Store Management', icon: ShoppingCart, href: '/admin/store' },
-  { label: 'Content Moderation', icon: BookOpen, href: '/admin/content' },
+  { label: 'Content Moderation', icon: CheckCircle, href: '/admin/content' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
   { label: 'Settings', icon: Settings, href: '/admin/settings' },
@@ -149,7 +151,9 @@ export default function AdminLayout({
   };
 
   return (
-    <div className="h-screen bg-[#0b1326] flex overflow-hidden font-sans" style={{ fontFamily: "'Nunito Sans', sans-serif" }}>
+    <>
+      <SessionGuard />
+      <div className="h-screen bg-[#0b1326] flex overflow-hidden font-sans" style={{ fontFamily: "'Nunito Sans', sans-serif" }}>
 
       {/* Mobile Header */}
       <header className="md:hidden bg-[#171f33] border-b border-[#2a3a5c] p-4 flex items-center justify-between fixed top-0 left-0 right-0 z-30">
@@ -437,5 +441,6 @@ export default function AdminLayout({
       </main>
 
     </div>
+    </>
   );
 }

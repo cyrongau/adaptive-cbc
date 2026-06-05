@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { User, UserRole, OnboardingStatus, KycStatus } from '../modules/users/entities/user.entity';
 
 
@@ -24,7 +24,7 @@ export class DatabaseSeeder implements OnModuleInit {
 
     const demoUsers = [
       {
-        email: 'admin@adaptivecbc.com',
+        email: 'admin@adaptivecbc.co.ke',
         password: hashedPassword,
         firstName: 'System',
         lastName: 'Administrator',
@@ -121,7 +121,7 @@ export class DatabaseSeeder implements OnModuleInit {
     }
 
     console.log('✅ Database seeded with 8 demo users');
-    console.log('📧 Admin: admin@adaptivecbc.com');
+    console.log('📧 Admin: admin@adaptivecbc.co.ke');
     console.log('📧 Institution: institution@adaptivecbc.com');
     console.log('📧 Teacher: teacher@adaptivecbc.com');
     console.log('📧 Tutor: tutor@adaptivecbc.com');

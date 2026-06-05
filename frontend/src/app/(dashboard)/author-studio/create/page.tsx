@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
@@ -30,6 +31,15 @@ import {
   GripVertical,
   Loader2,
 } from 'lucide-react';
+import 'react-quill/dist/quill.snow.css';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+// @ts-ignore
+import renderMathInElement from 'katex/dist/contrib/auto-render.mjs';
+
+if (typeof window !== 'undefined') {
+  (window as any).katex = katex;
+}
 
 const STEPS = [
   { id: 1, title: 'Curriculum', icon: BookOpen },
@@ -181,6 +191,94 @@ const defaultFormData: FormData = {
   scope: 'PUBLIC',
 };
 
+
+
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+
+const HtmlWithMath = ({ html, className = "prose max-w-none text-slate-800 text-sm" }: { html: string, className?: string }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (containerRef.current) {
+      renderMathInElement(containerRef.current, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    }
+  }, [html]);
+
+  return <div ref={containerRef} className={className} dangerouslySetInnerHTML={{ __html: html || '<span class="text-slate-300 italic">No content</span>' }} />;
+};
+
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'color': [] }, { 'background': [] }],
+    [{ 'script': 'sub'}, { 'script': 'super' }],
+    ['blockquote', 'code-block'],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    [{ 'indent': '-1'}, { 'indent': '+1' }],
+    ['link', 'image', 'formula'],
+    ['clean']
+  ],
+};
+
+const processHtmlForFormulas = (html: string) => {
+  if (!html) return html;
+  
+  // Replace $$...$$
+  let processed = html.replace(/\$\$(.*?)\$\$/g, (match, p1) => {
+    // Unescape HTML entities that quill might have added
+    const unescaped = p1.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ');
+    // Escape quotes for data-value attribute
+    const escapedAttr = unescaped.replace(/"/g, '&quot;');
+    return `<span class="ql-formula" data-value="${escapedAttr}"></span>`;
+  });
+  
+  // Replace \(...\)
+  processed = processed.replace(/\\\((.*?)\\\)/g, (match, p1) => {
+    const unescaped = p1.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ');
+    const escapedAttr = unescaped.replace(/"/g, '&quot;');
+    return `<span class="ql-formula" data-value="${escapedAttr}"></span>`;
+  });
+  
+  return processed;
+};
+
+const RichTextArea = ({ value, onChange, placeholder, minHeight = 120 }: { value: string, onChange: (val: string) => void, placeholder?: string, minHeight?: number }) => {
+  const handleChange = (val: string) => {
+    // Auto-convert LaTeX delimiters to Quill formula blots as user types or pastes
+    const processedVal = processHtmlForFormulas(val);
+    onChange(processedVal);
+  };
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden border border-slate-200 focus-within:border-[#47a263] focus-within:ring-1 focus-within:ring-[#47a263] quill-wrapper">
+      <style dangerouslySetInnerHTML={{__html: `
+        .quill-wrapper .ql-toolbar { border: none; border-bottom: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0.75rem 0.75rem 0 0; }
+        .quill-wrapper .ql-container { border: none; font-family: inherit; font-size: 1rem; }
+        .quill-wrapper .ql-editor { min-height: ${minHeight}px; padding: 1rem; }
+        .quill-wrapper .ql-formula { cursor: pointer; padding: 0 2px; }
+        .quill-wrapper strong { font-weight: bold; }
+        .quill-wrapper em { font-style: italic; }
+        .quill-wrapper u { text-decoration: underline; }
+        .quill-wrapper s { text-decoration: line-through; }
+      `}} />
+      <ReactQuill 
+        theme="snow" 
+        value={value} 
+        onChange={handleChange} 
+        placeholder={placeholder}
+        modules={quillModules}
+      />
+    </div>
+  );
+};
+
 function CreateQuestionWizardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -196,7 +294,6 @@ function CreateQuestionWizardContent() {
   const [filteredGrades, setFilteredGrades] = useState<number[]>([]);
 
   const [newHint, setNewHint] = useState('');
-  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
   const [isOcrImport, setIsOcrImport] = useState(false);
 
   const selectedStrand = curriculumTree.find(s => s.id === form.strandId);
@@ -349,7 +446,7 @@ function CreateQuestionWizardContent() {
   const nextStep = () => setCurrentStep(p => Math.min(p + 1, 5));
   const prevStep = () => setCurrentStep(p => Math.max(p - 1, 1));
 
-  const validate = (): string[] => {
+  const getWarnings = (): string[] => {
     const warnings: string[] = [];
     if (!form.subjectId) warnings.push('Subject is required');
     if (!form.grade) warnings.push('Grade is required');
@@ -361,7 +458,6 @@ function CreateQuestionWizardContent() {
       if (!form.options.some(o => o.isCorrect)) warnings.push('Select the correct answer');
     }
     if (!form.bloomsTaxonomy) warnings.push('Bloom\'s Taxonomy level is recommended');
-    setValidationWarnings(warnings);
     return warnings;
   };
 
@@ -403,6 +499,10 @@ function CreateQuestionWizardContent() {
   };
 
   const handleSaveDraft = async () => {
+    if (!form.subjectId || !form.grade || !form.content.trim()) {
+      toast.error('Subject, Grade, and Question Text are required to save a draft.');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = { ...buildPayload(), status: 'draft' };
@@ -417,7 +517,7 @@ function CreateQuestionWizardContent() {
   };
 
   const handleSubmitForReview = async () => {
-    const warnings = validate();
+    const warnings = getWarnings();
     if (warnings.length > 0) {
       toast.error('Please fix validation warnings before submitting');
       return;
@@ -445,7 +545,7 @@ function CreateQuestionWizardContent() {
       });
       const { enhanced } = res.data;
       if (enhanced) {
-        updateForm('content', enhanced);
+        updateForm('content', processHtmlForFormulas(enhanced));
         toast.success('Question wording enhanced');
       }
     } catch {
@@ -468,11 +568,10 @@ function CreateQuestionWizardContent() {
       });
       const { steps, finalAnswer } = res.data;
       if (steps && Array.isArray(steps)) {
-        const newSteps = steps.map((text: string, i: number) => ({ step: i + 1, text }));
-        setForm(prev => ({ ...prev, solutionSteps: newSteps }));
+        setForm(prev => ({ ...prev, solutionSteps: steps.map((s: any, i: number) => ({ step: i + 1, text: processHtmlForFormulas(s.text || s) })) }));
       }
       if (finalAnswer) {
-        updateForm('explanation', finalAnswer);
+        updateForm('explanation', processHtmlForFormulas(finalAnswer));
       }
       toast.success('Solution generated');
     } catch {
@@ -740,23 +839,12 @@ function CreateQuestionWizardContent() {
                 AI Enhance
               </button>
             </div>
-            <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#47a263] focus-within:ring-1 focus-within:ring-[#47a263]">
-              <div className="bg-slate-50 p-2 border-b border-slate-200 flex gap-2">
-                <button className="p-1.5 hover:bg-slate-200 rounded text-slate-600 font-bold">B</button>
-                <button className="p-1.5 hover:bg-slate-200 rounded text-slate-600 italic">I</button>
-                <button className="p-1.5 hover:bg-slate-200 rounded text-slate-600 underline">U</button>
-                <div className="w-px h-6 bg-slate-300 my-auto mx-1" />
-                <button className="p-1.5 hover:bg-slate-200 rounded text-slate-600 flex items-center gap-1 text-xs font-medium">
-                  <ImageIcon className="w-4 h-4" /> Media
-                </button>
-              </div>
-              <textarea
-                value={form.content}
-                onChange={(e) => updateForm('content', e.target.value)}
-                className="w-full min-h-[120px] p-4 outline-none resize-y"
-                placeholder="Type your question here. Use LaTeX with $$...$$ for mathematical expressions."
-              />
-            </div>
+            <RichTextArea
+              value={form.content}
+              onChange={(val) => updateForm('content', val)}
+              placeholder="Type your question here. Use LaTeX with $$...$$ for mathematical expressions."
+              minHeight={120}
+            />
           </div>
 
           {form.type === 'multiple_choice' && (
@@ -987,11 +1075,11 @@ function CreateQuestionWizardContent() {
               {step.step}
             </div>
             <div className="flex-1">
-              <textarea
+              <RichTextArea
                 value={step.text}
-                onChange={(e) => updateSolutionStep(idx, e.target.value)}
+                onChange={(val) => updateSolutionStep(idx, val)}
                 placeholder={`Describe step ${step.step}...`}
-                className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-[#47a263] resize-y min-h-[60px]"
+                minHeight={60}
               />
             </div>
             {form.solutionSteps.length > 1 && (
@@ -1008,21 +1096,21 @@ function CreateQuestionWizardContent() {
 
       <div className="space-y-3">
         <label className="text-sm font-medium text-slate-700">Explanation</label>
-        <textarea
+        <RichTextArea
           value={form.explanation}
-          onChange={(e) => updateForm('explanation', e.target.value)}
+          onChange={(val) => updateForm('explanation', val)}
           placeholder="Provide a detailed explanation of the answer..."
-          className="w-full min-h-[80px] p-3 border border-slate-200 rounded-xl outline-none focus:border-[#47a263] resize-y"
+          minHeight={80}
         />
       </div>
 
       <div className="space-y-3">
         <label className="text-sm font-medium text-slate-700">Marking Scheme</label>
-        <textarea
+        <RichTextArea
           value={form.markingScheme}
-          onChange={(e) => updateForm('markingScheme', e.target.value)}
+          onChange={(val) => updateForm('markingScheme', val)}
           placeholder="Describe how marks are allocated..."
-          className="w-full min-h-[60px] p-3 border border-slate-200 rounded-xl outline-none focus:border-[#47a263] resize-y"
+          minHeight={60}
         />
       </div>
 
@@ -1215,7 +1303,7 @@ function CreateQuestionWizardContent() {
   );
 
   const renderReviewStep = () => {
-    const warnings = validate();
+    const warnings = getWarnings();
     return (
       <motion.div
         key="step5"
@@ -1276,7 +1364,7 @@ function CreateQuestionWizardContent() {
             </div>
 
             <div className="prose max-w-none text-slate-800 text-sm">
-              <p>{form.content || <span className="text-slate-300 italic">No question content entered yet</span>}</p>
+              <HtmlWithMath html={form.content} />
             </div>
 
             {form.type === 'multiple_choice' && form.options.some(o => o.text) && (
@@ -1324,7 +1412,7 @@ function CreateQuestionWizardContent() {
                     <div className="w-6 h-6 rounded-full bg-[#47a263]/10 text-[#47a263] flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                       {step.step}
                     </div>
-                    <p className="text-sm text-slate-700">{step.text}</p>
+                    <HtmlWithMath html={step.text} />
                   </div>
                 ))}
               </div>
@@ -1334,7 +1422,18 @@ function CreateQuestionWizardContent() {
           {form.explanation && (
             <div>
               <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Explanation</h4>
-              <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl">{form.explanation}</p>
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <HtmlWithMath html={form.explanation} className="text-sm text-slate-700" />
+              </div>
+            </div>
+          )}
+
+          {form.markingScheme && (
+            <div>
+              <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Marking Scheme</h4>
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <HtmlWithMath html={form.markingScheme} className="text-sm text-slate-700" />
+              </div>
             </div>
           )}
 

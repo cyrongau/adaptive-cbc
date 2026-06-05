@@ -95,16 +95,19 @@ export default function AdminFinancialPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, withdrawalsRes, walletsRes] = await Promise.all([
+      const [statsRes, withdrawalsRes, walletsRes] = await Promise.allSettled([
         api.get('/financial/admin/stats'),
         api.get('/financial/admin/withdrawals'),
         api.get('/financial/admin/wallets'),
       ]);
-      setStats(statsRes.data);
-      setWithdrawals(withdrawalsRes.data);
-      setWallets(walletsRes.data);
-    } catch (err) {
-      toast.error('Failed to load financial data');
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
+      if (withdrawalsRes.status === 'fulfilled') setWithdrawals(withdrawalsRes.value.data);
+      if (walletsRes.status === 'fulfilled') setWallets(walletsRes.value.data);
+      if ([statsRes, withdrawalsRes, walletsRes].some((result) => result.status === 'rejected')) {
+        toast.error('Some financial data could not be loaded');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to load financial data');
     } finally {
       setLoading(false);
     }
@@ -158,7 +161,11 @@ export default function AdminFinancialPage() {
     return true;
   });
 
-  const formatCurrency = (amount: number) => `KES ${amount.toFixed(2)}`;
+  const toNumber = (value: unknown) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount : 0;
+  };
+  const formatCurrency = (amount: number | string | null | undefined) => `KES ${toNumber(amount).toFixed(2)}`;
   const formatDate = (date: string) => new Date(date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   if (!isMounted || loading) {

@@ -59,7 +59,7 @@ export class MinioService implements OnModuleInit {
 
   /**
    * Upload a Multer file buffer directly.
-   * Returns the public URL (presigned or permanent depending on bucket policy).
+   * Returns the public URL.
    */
   async uploadFile(
     folder: string,
@@ -69,12 +69,24 @@ export class MinioService implements OnModuleInit {
   ): Promise<{ objectName: string; url: string }> {
     const objectName = `${folder}/${filename}`;
     await this.uploadObject(objectName, buffer, buffer.length, mimetype);
-    const url = await this.getPresignedUrl(objectName, 24 * 365); // 1-year link
+    const url = this.getPublicUrl(objectName);
     return { objectName, url };
   }
 
   /**
+   * Generate a public URL for the object.
+   * Assumes the bucket has an anonymous download policy.
+   * @param objectName Key in the bucket
+   */
+  getPublicUrl(objectName: string): string {
+    const protocol = this.configService.get<string>('MINIO_SECURE', 'false') === 'true' ? 'https' : 'http';
+    return `${protocol}://${this.publicEndpoint}/${this.bucket}/${objectName}`;
+  }
+
+  /**
    * Generate a presigned GET URL, with internal→external host rewriting.
+   * Note: Rewriting host invalidates S3 signatures unless the client is explicitly
+   * configured to use the public endpoint as its primary endpoint. Use getPublicUrl instead for public buckets.
    * @param objectName Key in the bucket
    * @param expiryHours How long the link is valid
    */

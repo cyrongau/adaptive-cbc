@@ -30,11 +30,13 @@ export class PracticeService {
     topicId?: string;
     grade: number;
     questionCount: number;
+    difficulty?: string;
   }): Promise<PracticeSession> {
     const questions = await this.questionsService.findRandomByCriteria({
       subjectId: data.subjectId,
       topicId: data.topicId,
       grade: data.grade,
+      difficulty: data.difficulty as any,
       count: data.questionCount,
     });
 

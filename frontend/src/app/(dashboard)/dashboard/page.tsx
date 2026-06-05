@@ -56,6 +56,8 @@ export default function DashboardOverviewPage() {
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [myCourses, setMyCourses] = useState<any[]>([]);
   const [loadingMyCourses, setLoadingMyCourses] = useState(false);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
 
   const isTeacher = user?.role === 'teacher';
   const isTutor = user?.role === 'tutor';
@@ -70,9 +72,22 @@ export default function DashboardOverviewPage() {
     if (user?.institutionId) {
       fetchSchoolInfo();
     }
+    if (user?.id) fetchDashboardData();
     if (isStudent) fetchEnrolledCourses();
     if (isTeacher || isTutor) fetchMyCourses();
-  }, [user?.institutionId]);
+  }, [user?.id, user?.institutionId]);
+
+  const fetchDashboardData = async () => {
+    setLoadingDashboard(true);
+    try {
+      const res = await api.get('/analytics/dashboard');
+      setDashboardData(res.data);
+    } catch (err) {
+      setDashboardData(null);
+    } finally {
+      setLoadingDashboard(false);
+    }
+  };
 
   const fetchSchoolInfo = async () => {
     setLoadingSchool(true);
@@ -359,25 +374,17 @@ export default function DashboardOverviewPage() {
   }
 
   /* ─── STUDENT DASHBOARD (original) ─── */
+  const liveMetrics = dashboardData?.metrics || {};
   const stats = [
-    { label: 'Practice Sessions', value: '24', change: '+12%', icon: Target, color: 'text-blue-600' },
-    { label: 'Average Score', value: '87%', change: '+5%', icon: TrendingUp, color: 'text-green-600' },
-    { label: 'Time Spent', value: '18.5h', change: '+3.2h', icon: Clock, color: 'text-purple-600' },
-    { label: 'Achievements', value: '12', change: '+2', icon: Award, color: 'text-amber-600' },
+    { label: 'Practice Sessions', value: liveMetrics.practiceSessions ?? 0, change: `${liveMetrics.totalQuestions ?? 0} questions`, icon: Target, color: 'text-blue-600' },
+    { label: 'Average Score', value: `${liveMetrics.averageScore ?? 0}%`, change: `${liveMetrics.successRate ?? 0}% success`, icon: TrendingUp, color: 'text-green-600' },
+    { label: 'Time Spent', value: `${Math.round((liveMetrics.totalTimeMinutes ?? 0) / 60 * 10) / 10}h`, change: `${liveMetrics.recentTimeMinutes ?? 0}m recent`, icon: Clock, color: 'text-purple-600' },
+    { label: 'Streak Days', value: dashboardData?.streak ?? 0, change: 'live', icon: Award, color: 'text-amber-600' },
   ];
-
-  const recentActivities = [
-    { subject: 'Mathematics', topic: 'Fractions & Decimals', score: '92%', date: '2 hours ago', type: 'Practice' },
-    { subject: 'English', topic: 'Comprehension', score: '88%', date: '5 hours ago', type: 'Assignment' },
-    { subject: 'Science', topic: 'Plant Biology', score: '95%', date: 'Yesterday', type: 'Quiz' },
-    { subject: 'Kiswahili', topic: 'Sarufi - Nomino', score: '85%', date: '2 days ago', type: 'Practice' },
-  ];
-
-  const upcomingTasks = [
-    { title: 'Mathematics Quiz', subject: 'Algebra Basics', due: 'Tomorrow, 10:00 AM', priority: 'high' },
-    { title: 'English Essay', subject: 'Creative Writing', due: 'Wed, 3:00 PM', priority: 'medium' },
-    { title: 'Science Lab Report', subject: 'Photosynthesis', due: 'Fri, 12:00 PM', priority: 'low' },
-  ];
+  const recentActivities = dashboardData?.recentActivities || [];
+  const upcomingTasks = dashboardData?.upcomingTasks || [];
+  const formatActivityDate = (date: string) => new Date(date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+  const formatTaskDue = (due: string) => new Date(due).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   return (
     <div className="space-y-8">
@@ -592,7 +599,14 @@ export default function DashboardOverviewPage() {
             <p className={`text-sm ${theme.mutedText} mt-1`}>Your latest learning progress</p>
           </div>
           <div className="divide-y divide-slate-100">
-            {recentActivities.map((activity, index) => (
+            {loadingDashboard ? (
+              <div className="p-8 text-center text-sm text-slate-400">Loading activity...</div>
+            ) : recentActivities.length === 0 ? (
+              <div className="p-8 text-center">
+                <BookOpen className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-400">No learning activity yet</p>
+              </div>
+            ) : recentActivities.map((activity: any, index: number) => (
               <div key={index} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 ${theme.primaryLight} rounded-lg flex items-center justify-center`}>
@@ -604,8 +618,8 @@ export default function DashboardOverviewPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-slate-900">{activity.score}</p>
-                  <p className="text-xs text-slate-400">{activity.date}</p>
+                  <p className="font-bold text-slate-900">{activity.score}%</p>
+                  <p className="text-xs text-slate-400">{formatActivityDate(activity.date)}</p>
                 </div>
               </div>
             ))}
@@ -625,7 +639,14 @@ export default function DashboardOverviewPage() {
             <p className={`text-sm ${theme.mutedText} mt-1`}>Don't miss your deadlines</p>
           </div>
           <div className="p-4 space-y-3">
-            {upcomingTasks.map((task, index) => (
+            {loadingDashboard ? (
+              <div className="py-8 text-center text-sm text-slate-400">Loading tasks...</div>
+            ) : upcomingTasks.length === 0 ? (
+              <div className="py-8 text-center">
+                <Calendar className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-400">No upcoming tasks</p>
+              </div>
+            ) : upcomingTasks.map((task: any, index: number) => (
               <div key={index} className="p-4 bg-slate-50 rounded-lg border border-slate-100">
                 <div className="flex items-center justify-between mb-2">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
@@ -639,7 +660,7 @@ export default function DashboardOverviewPage() {
                 </div>
                 <p className="font-semibold text-slate-900 text-sm">{task.title}</p>
                 <p className={`text-xs ${theme.mutedText} mt-1`}>{task.subject}</p>
-                <p className="text-xs text-slate-400 mt-2">{task.due}</p>
+                <p className="text-xs text-slate-400 mt-2">{formatTaskDue(task.due)}</p>
               </div>
             ))}
           </div>

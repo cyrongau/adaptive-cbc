@@ -91,6 +91,11 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  variants?: any[];
 }
 
 export class UpdateProductDto {
@@ -183,6 +188,11 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  variants?: any[];
 }
 
 export class AddToCartDto {

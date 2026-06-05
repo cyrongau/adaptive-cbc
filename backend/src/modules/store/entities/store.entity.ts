@@ -24,6 +24,15 @@ export enum ProductCategory {
   EXAM_PREP = 'exam_prep',
 }
 
+export interface ProductVariant {
+  name: string;
+  options: {
+    value: string;
+    priceAdjustment?: number;
+    stock?: number;
+  }[];
+}
+
 @Entity('store_products')
 export class Product {
   @PrimaryGeneratedColumn('uuid')
@@ -61,6 +70,9 @@ export class Product {
 
   @Column({ nullable: true })
   downloadUrl: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  variants: ProductVariant[];
 
   @Column({ type: 'jsonb', nullable: true })
   tags: string[];

@@ -9,6 +9,7 @@ import { EmailModule } from '../../common/email.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { MinioService } from '../../common/minio.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { GovernanceModule } from '../governance/governance.module';
     GovernanceModule,
   ],
   controllers: [DigitalLibraryController],
-  providers: [DigitalLibraryService],
+  providers: [DigitalLibraryService, MinioService],
   exports: [DigitalLibraryService],
 })
 export class DigitalLibraryModule {}

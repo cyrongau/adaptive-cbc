@@ -10,6 +10,7 @@ import {
   Palette,
   Save,
   CheckCircle,
+  Send,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -38,6 +39,11 @@ export default function SettingsPage() {
     twoFactorEnabled: false,
     sessionTimeout: 30,
     passwordExpiry: 90,
+  });
+  const [parentInvite, setParentInvite] = useState({
+    email: '',
+    phone: '',
+    relationshipType: 'parent',
   });
 
   useEffect(() => {
@@ -118,6 +124,29 @@ export default function SettingsPage() {
       toast.success('Security settings updated!');
     } catch (error) {
       toast.error('Failed to update security settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendParentInvite = async () => {
+    if (!user?.id || !parentInvite.email) {
+      toast.error('Enter a parent or guardian email address');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post('/relationships/invite', {
+        userId: user.id,
+        relationshipType: parentInvite.relationshipType,
+        relatedUserEmail: parentInvite.email,
+        relatedUserPhone: parentInvite.phone || undefined,
+      });
+      toast.success('Parent invitation sent');
+      setParentInvite({ email: '', phone: '', relationshipType: 'parent' });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to send invitation');
     } finally {
       setLoading(false);
     }
@@ -207,6 +236,61 @@ export default function SettingsPage() {
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
+
+          {user?.role === 'student' && (
+            <div className="border-t border-slate-200 pt-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Parent/Guardian Invitation</h2>
+                <p className="text-sm text-slate-500 mt-1">Send or resend a parent portal invitation.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Relationship</label>
+                  <select
+                    value={parentInvite.relationshipType}
+                    onChange={(e) => setParentInvite({ ...parentInvite, relationshipType: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  >
+                    <option value="parent">Parent</option>
+                    <option value="mother">Mother</option>
+                    <option value="father">Father</option>
+                    <option value="guardian">Guardian</option>
+                    <option value="sponsor">Sponsor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={parentInvite.email}
+                    onChange={(e) => setParentInvite({ ...parentInvite, email: e.target.value })}
+                    placeholder="parent@example.com"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Phone</label>
+                  <input
+                    type="tel"
+                    value={parentInvite.phone}
+                    onChange={(e) => setParentInvite({ ...parentInvite, phone: e.target.value })}
+                    placeholder="+254..."
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSendParentInvite}
+                  disabled={loading || !parentInvite.email}
+                  className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                  {loading ? 'Sending...' : 'Send Invitation'}
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
       )}
 

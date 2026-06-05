@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const { resetPassword, loading, error, clearError, resetEmail } = useAuthStore();
+  const { resetPassword, loading, error, clearError, resetEmail, devResetToken } = useAuthStore();
 
   const [step, setStep] = useState<'code' | 'password'>('code');
   const [code, setCode] = useState('');
@@ -27,6 +27,13 @@ export default function ResetPasswordPage() {
     if (emailParam) setEmail(emailParam);
     else if (resetEmail) setEmail(resetEmail);
   }, [resetEmail]);
+
+  useEffect(() => {
+    if (devResetToken) {
+      setCode(devResetToken);
+      setStep('password');
+    }
+  }, [devResetToken]);
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();

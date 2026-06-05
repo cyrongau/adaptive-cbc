@@ -28,14 +28,27 @@ export class StoreService {
   ) {}
 
   async createProduct(dto: CreateProductDto, userId: string): Promise<Product> {
-    const product = this.productRepo.create({ ...dto, createdBy: userId });
+    const product = this.productRepo.create({
+      ...dto,
+      originalPrice: dto.originalPrice || null,
+      grade: dto.grade || null,
+      tags: dto.tags || [],
+      images: dto.images || [],
+      variants: dto.variants || [],
+      createdBy: userId,
+    });
     return this.productRepo.save(product);
   }
 
-  async findAllProducts(filters?: { category?: string; productType?: string; grade?: number; search?: string; featured?: boolean }): Promise<Product[]> {
+  async findAllProducts(filters?: { category?: string; productType?: string; grade?: number; search?: string; featured?: boolean; includeAllStatuses?: boolean }): Promise<Product[]> {
     const qb = this.productRepo.createQueryBuilder('p')
-      .leftJoinAndSelect('p.creator', 'creator')
-      .where('p.status = :status', { status: ProductStatus.PUBLISHED });
+      .leftJoinAndSelect('p.creator', 'creator');
+
+    if (!filters?.includeAllStatuses) {
+      qb.where('p.status = :status', { status: ProductStatus.PUBLISHED });
+    } else {
+      qb.where('1 = 1');
+    }
 
     if (filters?.category) qb.andWhere('p.category = :category', { category: filters.category });
     if (filters?.productType) qb.andWhere('p.productType = :productType', { productType: filters.productType });
@@ -68,13 +81,20 @@ export class StoreService {
     if (product.createdBy !== userId && userRole !== UserRole.SUPER_ADMIN && userRole !== UserRole.INSTITUTION_ADMIN) {
       throw new ForbiddenException('You can only edit your own products');
     }
-    Object.assign(product, dto);
+    Object.assign(product, {
+      ...dto,
+      originalPrice: dto.originalPrice === undefined ? product.originalPrice : dto.originalPrice || null,
+      grade: dto.grade === undefined ? product.grade : dto.grade || null,
+      tags: dto.tags === undefined ? product.tags : dto.tags || [],
+      images: dto.images === undefined ? product.images : dto.images || [],
+      variants: dto.variants === undefined ? product.variants : dto.variants || [],
+    });
     return this.productRepo.save(product);
   }
 
   async deleteProduct(id: string, userId: string, userRole: string): Promise<void> {
     const product = await this.findProductById(id);
-    if (product.createdBy !== userId && userRole !== UserRole.SUPER_ADMIN) {
+    if (product.createdBy !== userId && userRole !== UserRole.SUPER_ADMIN && userRole !== UserRole.INSTITUTION_ADMIN) {
       throw new ForbiddenException('You can only delete your own products');
     }
     await this.productRepo.remove(product);

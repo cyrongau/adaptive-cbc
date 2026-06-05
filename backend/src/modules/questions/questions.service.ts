@@ -214,7 +214,8 @@ export class QuestionsService {
     question.status = newStatus;
     
     if (notes) {
-      question.moderationNotes = notes;
+      const existing = question.moderationNotes ? question.moderationNotes + '\n---\n' : '';
+      question.moderationNotes = existing + `[${new Date().toISOString()}] ${userId}: ${notes}`;
     }
     
     if (newStatus === QuestionStatus.APPROVED || newStatus === QuestionStatus.PUBLISHED) {
@@ -223,6 +224,45 @@ export class QuestionsService {
     }
     
     return this.questionsRepository.save(question);
+  }
+
+  async getModerationQueue(params: {
+    search?: string;
+    subjectId?: string;
+    grade?: number;
+    status?: QuestionStatus;
+    page?: number;
+    limit?: number;
+  }): Promise<{ questions: Question[]; total: number }> {
+    const { search, subjectId, grade, status, page = 1, limit = 20 } = params;
+
+    const query = this.questionsRepository.createQueryBuilder('question')
+      .leftJoinAndSelect('question.topic', 'topic')
+      .where('question.status IN (:...statuses)', {
+        statuses: status
+          ? [status]
+          : [QuestionStatus.PENDING_REVIEW, QuestionStatus.FLAGGED],
+      });
+
+    if (subjectId) {
+      query.andWhere('question.subjectId = :subjectId', { subjectId });
+    }
+
+    if (grade) {
+      query.andWhere('question.grade = :grade', { grade });
+    }
+
+    if (search) {
+      query.andWhere('(question.content ILIKE :search OR question.createdBy ILIKE :search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    const total = await query.getCount();
+    query.skip((page - 1) * limit).take(limit).orderBy('question.createdAt', 'DESC');
+
+    const questions = await query.getMany();
+    return { questions, total };
   }
 
   async findVersions(questionId: string): Promise<QuestionVersion[]> {

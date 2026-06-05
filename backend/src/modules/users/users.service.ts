@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, forwardRef, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, forwardRef, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { User, UserRole, OnboardingStatus, KycStatus } from './entities/user.entity';
 import { CreateUserDto, UpdateUserDto, CompleteOnboardingDto, InstitutionApplicationDto } from './dto/user.dto';
 import { InstitutionsService } from '../institutions/institutions.service';
@@ -10,6 +10,8 @@ import { EmailService } from '../../common/email.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
@@ -72,17 +74,39 @@ export class UsersService {
     return this.usersRepository.save(user as any);
   }
 
-  async findAll(): Promise<User[]> {
-    return this.usersRepository.find({
-      where: { deletedAt: null },
-    });
+  async findAll(requesterRole?: string, requesterInstitutionId?: string): Promise<User[]> {
+    const where: any = { deletedAt: null };
+
+    if (requesterRole === UserRole.INSTITUTION_ADMIN) {
+      where.institutionId = requesterInstitutionId || 'non-existent-institution-id';
+    }
+
+    return this.usersRepository.find({ where, order: { createdAt: 'DESC' } });
   }
 
-  async findOne(id: string): Promise<User> {
+  async findOne(
+    id: string,
+    requesterRole?: string,
+    requesterInstitutionId?: string,
+    requesterId?: string,
+  ): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
+
+    if (requesterRole && requesterRole !== UserRole.SUPER_ADMIN) {
+      if (id !== requesterId) {
+        if (requesterRole === UserRole.INSTITUTION_ADMIN || requesterRole === UserRole.TEACHER) {
+          if (user.institutionId !== requesterInstitutionId) {
+            throw new ForbiddenException('Access denied: User belongs to another institution');
+          }
+        } else {
+          throw new ForbiddenException('Access denied: You cannot view other users\' profiles');
+        }
+      }
+    }
+
     return user;
   }
 
@@ -90,14 +114,58 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  async findByResetToken(token: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { passwordResetToken: token } });
+  async findByPhone(phone: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { phone } });
   }
 
-  async update(id: string, updateData: UpdateUserDto | Partial<User>): Promise<User> {
-    const user = await this.findOne(id);
+  async findByResetToken(token: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { passwordResetToken: token.toUpperCase() } });
+  }
+
+  async setPasswordResetToken(id: string, token: string, expires: Date): Promise<void> {
+    await this.usersRepository.update(id, {
+      passwordResetToken: token.toUpperCase(),
+      passwordResetExpires: expires,
+    });
+  }
+
+  async update(
+    id: string,
+    updateData: UpdateUserDto | Partial<User>,
+    requesterRole?: string,
+    requesterInstitutionId?: string,
+    requesterId?: string,
+  ): Promise<User> {
+    const user = await this.findOne(id, requesterRole, requesterInstitutionId, requesterId);
+    const changingCredentials = 'email' in updateData && updateData.email !== user.email;
+    const oldEmail = user.email;
     Object.assign(user, updateData);
-    return this.usersRepository.save(user);
+    if (changingCredentials) {
+      user.refreshToken = null;
+    }
+    const savedUser = await this.usersRepository.save(user);
+
+    if (changingCredentials) {
+      const name = `${savedUser.firstName || ''} ${savedUser.lastName || ''}`.trim() || 'User';
+      const emailResult = await this.emailService.send({
+        to: savedUser.email,
+        subject: 'Your Adaptive CBC Email Has Been Updated',
+        html: this.emailService.generateEmailChangedEmail(name, savedUser.email),
+      });
+      if (!emailResult.success) {
+        this.logger.warn(`Email change notification email failed for ${savedUser.email}: ${emailResult.message}`);
+      }
+      const oldEmailResult = await this.emailService.send({
+        to: oldEmail,
+        subject: 'Your Adaptive CBC Email Has Been Changed',
+        html: this.emailService.generateEmailChangedEmail(name, savedUser.email),
+      });
+      if (!oldEmailResult.success) {
+        this.logger.warn(`Email change notification to old email failed for ${oldEmail}: ${oldEmailResult.message}`);
+      }
+    }
+
+    return savedUser;
   }
 
   async remove(id: string): Promise<void> {
@@ -160,7 +228,18 @@ export class UsersService {
     user.password = await bcrypt.hash(newPassword, 10);
     user.passwordResetToken = null;
     user.passwordResetExpires = null;
+    user.refreshToken = null;
     await this.usersRepository.save(user);
+
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
+    const emailResult = await this.emailService.send({
+      to: user.email,
+      subject: 'Your Adaptive CBC Password Has Been Changed',
+      html: this.emailService.generatePasswordChangedEmail(name),
+    });
+    if (!emailResult.success) {
+      this.logger.warn(`Password change notification email failed for ${user.email}: ${emailResult.message}`);
+    }
   }
 
   async validatePassword(user: User, password: string): Promise<boolean> {
@@ -330,7 +409,7 @@ export class UsersService {
 
   async suspendUser(adminId: string, userId: string, reason?: string): Promise<User> {
     const admin = await this.findOne(adminId);
-    const user = await this.findOne(userId);
+    const user = await this.findOne(userId, admin.role, admin.institutionId, admin.id);
 
     if (user.id === adminId) {
       throw new BadRequestException('You cannot suspend your own account');
@@ -372,7 +451,7 @@ export class UsersService {
 
   async unsuspendUser(adminId: string, userId: string): Promise<User> {
     const admin = await this.findOne(adminId);
-    const user = await this.findOne(userId);
+    const user = await this.findOne(userId, admin.role, admin.institutionId, admin.id);
 
     if (admin.role === UserRole.INSTITUTION_ADMIN) {
       if (user.role === UserRole.SUPER_ADMIN) {
@@ -403,7 +482,7 @@ export class UsersService {
 
   async softDeleteUser(adminId: string, userId: string): Promise<User> {
     const admin = await this.findOne(adminId);
-    const user = await this.findOne(userId);
+    const user = await this.findOne(userId, admin.role, admin.institutionId, admin.id);
 
     if (user.id === adminId) {
       throw new BadRequestException('You cannot delete your own account');
@@ -451,7 +530,7 @@ export class UsersService {
 
   async restoreUser(adminId: string, userId: string): Promise<User> {
     const admin = await this.findOne(adminId);
-    const user = await this.findOne(userId);
+    const user = await this.findOne(userId, admin.role, admin.institutionId, admin.id);
 
     if (admin.role === UserRole.INSTITUTION_ADMIN) {
       if (user.role === UserRole.SUPER_ADMIN) {
@@ -500,5 +579,32 @@ export class UsersService {
   async hardDeleteUser(userId: string): Promise<void> {
     const user = await this.findOne(userId);
     await this.usersRepository.remove(user);
+  }
+
+  async adminResetPassword(
+    userId: string,
+    requesterRole?: string,
+    requesterInstitutionId?: string,
+    requesterId?: string,
+  ): Promise<{ temporaryPassword: string }> {
+    const user = await this.findOne(userId, requesterRole, requesterInstitutionId, requesterId);
+    const tempPassword = `Temp${Math.random().toString(36).slice(-8)}!`;
+    user.password = await bcrypt.hash(tempPassword, 10);
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.refreshToken = null;
+    await this.usersRepository.save(user);
+
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
+    const emailResult = await this.emailService.send({
+      to: user.email,
+      subject: 'Your Adaptive CBC Password Has Been Reset',
+      html: this.emailService.generatePasswordChangedEmail(name),
+    });
+    if (!emailResult.success) {
+      this.logger.warn(`Password reset notification email failed for ${user.email}: ${emailResult.message}`);
+    }
+
+    return { temporaryPassword: tempPassword };
   }
 }

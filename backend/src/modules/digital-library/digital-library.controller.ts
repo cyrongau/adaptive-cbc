@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import { MinioService } from '../../common/minio.service';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
@@ -15,7 +16,10 @@ import { GovernanceTier } from '../governance/entities/usage-log.entity';
 @ApiTags('digital-library')
 @Controller('digital-library')
 export class DigitalLibraryController {
-  constructor(private readonly digitalLibraryService: DigitalLibraryService) {}
+  constructor(
+    private readonly digitalLibraryService: DigitalLibraryService,
+    private readonly minioService: MinioService,
+  ) {}
 
   @Get('papers')
   @ApiOperation({ summary: 'Get all past papers with filters' })
@@ -96,9 +100,41 @@ export class DigitalLibraryController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Create new past paper entry' })
-  async createPaper(@Request() req, @Body() createDto: CreatePastPaperDto) {
-    return this.digitalLibraryService.createPastPaper(createDto, req.user.id, req.user.institutionId);
+  @ApiOperation({ summary: 'Create new past paper with file upload' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        title: { type: 'string' },
+        description: { type: 'string' },
+        paperType: { type: 'string' },
+        subjectId: { type: 'string' },
+        grade: { type: 'number' },
+        year: { type: 'number' },
+        term: { type: 'number' },
+        visibility: { type: 'string' },
+        isPremium: { type: 'boolean' },
+        price: { type: 'number' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  async createPaper(
+    @Request() req,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createDto: CreatePastPaperDto,
+  ) {
+    let fileUrl: string | undefined;
+    if (file) {
+      const timestamp = Date.now();
+      const ext = extname(file.originalname);
+      const filename = `${timestamp}-${Math.random().toString(36).substring(2)}${ext}`;
+      const { url } = await this.minioService.uploadFile('library', filename, file.buffer, file.mimetype);
+      fileUrl = url;
+    }
+    return this.digitalLibraryService.createPastPaper(createDto, req.user.id, req.user.institutionId, file, fileUrl);
   }
 
   @Post('papers/:id/publish')

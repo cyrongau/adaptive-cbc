@@ -29,13 +29,13 @@ function VerifyOtpForm() {
     }
 
     // Redirect if no active temporary authentication session exists
-    const token = localStorage.getItem('token');
     const tempAuth = useAuthStore.getState().tempAuthData;
-    if (token) {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const isAdmin = user?.role === 'super_admin' || user?.role === 'institution_admin';
-      router.push(isAdmin ? '/admin/dashboard' : '/dashboard');
-    } else if (!tempAuth) {
+    if (tempAuth) {
+      // Clear any stale tokens so verifyOtp can write fresh ones
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+    } else {
       toast.error('No verification session found. Please log in first.');
       router.push('/login');
     }

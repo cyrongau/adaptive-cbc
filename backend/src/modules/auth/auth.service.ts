@@ -6,6 +6,7 @@ import { LoginDto, RegisterDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswor
 import { User } from '../users/entities/user.entity';
 import { randomBytes } from 'crypto';
 import { EmailService } from '../../common/email.service';
+import { RelationshipsService } from '../relationships/relationships.service';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private emailService: EmailService,
+    private relationshipsService: RelationshipsService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<User | null> {
@@ -69,6 +71,10 @@ export class AuthService {
 
   async register(registerDto: RegisterDto) {
     const user = await this.usersService.create(registerDto);
+
+    if (registerDto.invitationToken && user.role === 'parent') {
+      await this.relationshipsService.acceptInvitation(registerDto.invitationToken, user.id);
+    }
 
     const tokens = await this.generateTokens(user);
     await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
@@ -128,18 +134,18 @@ export class AuthService {
   }
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    const user = await this.usersService.findByEmail(forgotPasswordDto.email);
+    const { email } = forgotPasswordDto;
+    const user = email.includes('@')
+      ? await this.usersService.findByEmail(email)
+      : await this.usersService.findByPhone(email);
     if (!user) {
-      return { message: 'If the email exists, a reset code has been sent' };
+      return { message: 'If the account exists, a reset code has been sent' };
     }
 
     const resetToken = randomBytes(3).toString('hex').toUpperCase();
     const resetExpires = new Date(Date.now() + 3600000);
 
-    await this.usersService.update(user.id, {
-      passwordResetToken: resetToken,
-      passwordResetExpires: resetExpires,
-    });
+    await this.usersService.setPasswordResetToken(user.id, resetToken, resetExpires);
 
     const emailHtml = this.emailService.generatePasswordResetEmail(
       user.firstName,
@@ -182,6 +188,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      secondaryRoles: user.secondaryRoles || [],
     };
 
     const [accessToken, refreshToken] = await Promise.all([

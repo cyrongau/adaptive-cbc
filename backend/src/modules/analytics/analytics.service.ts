@@ -1,8 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { PerformanceMetric, RevisionSession, LearningInsight, ParentReport } from './entities/analytics.entity';
 import { User, UserRole } from '../users/entities/user.entity';
+import { Question, QuestionStatus, DifficultyLevel, BloomsTaxonomy, QuestionSourceType } from '../questions/entities/question.entity';
+import { UsageLog } from '../governance/entities/usage-log.entity';
+import { Assignment } from '../assignments/entities/assignment.entity';
+import { Lesson, LessonStatus } from '../lessons/entities/lesson.entity';
 
 @Injectable()
 export class AnalyticsService {
@@ -17,6 +21,14 @@ export class AnalyticsService {
     private reportRepository: Repository<ParentReport>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(Question)
+    private questionRepository: Repository<Question>,
+    @InjectRepository(UsageLog)
+    private usageLogRepository: Repository<UsageLog>,
+    @InjectRepository(Assignment)
+    private assignmentRepository: Repository<Assignment>,
+    @InjectRepository(Lesson)
+    private lessonRepository: Repository<Lesson>,
   ) {}
 
   async getUserPerformance(userId: string, subjectId?: string): Promise<PerformanceMetric> {
@@ -215,13 +227,95 @@ export class AnalyticsService {
     const stats = await this.getUserStats(userId);
     const weakAreas = await this.getWeakAreas(userId);
     const insights = await this.getLearningInsights(userId);
+    const recentSessions = await this.sessionRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 8,
+    });
+
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    const upcomingAssignments = user?.grade
+      ? await this.assignmentRepository.find({
+          where: {
+            grade: user.grade,
+            status: 'published',
+            dueDate: MoreThanOrEqual(new Date()),
+          },
+          order: { dueDate: 'ASC' },
+          take: 8,
+        })
+      : [];
+
+    const upcomingLessons = user?.grade
+      ? await this.lessonRepository.find({
+          where: {
+            grade: user.grade,
+            status: LessonStatus.SCHEDULED,
+          },
+          order: { date: 'ASC', startTime: 'ASC' },
+          take: 8,
+        })
+      : [];
+
+    const totalCorrect = recentSessions.reduce((sum, session) => sum + Number(session.correctAnswers || 0), 0);
+    const totalAttempted = recentSessions.reduce((sum, session) => sum + Number(session.questionsAttempted || 0), 0);
+    const totalTimeMinutes = recentSessions.reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
+    const averageRecentScore = recentSessions.length
+      ? Math.round(recentSessions.reduce((sum, session) => sum + Number(session.score || 0), 0) / recentSessions.length)
+      : 0;
 
     return {
       stats,
       weakAreas: weakAreas.slice(0, 5),
       recentInsights: insights.slice(0, 3),
-      streak: 0,
+      streak: user?.streakDays || 0,
+      metrics: {
+        practiceSessions: stats.totalSessions,
+        averageScore: stats.averageScore,
+        recentAverageScore: averageRecentScore,
+        successRate: stats.successRate,
+        totalTimeMinutes: stats.totalTimeMinutes,
+        recentTimeMinutes: totalTimeMinutes,
+        totalQuestions: stats.totalQuestions,
+        totalCorrect,
+        totalAttempted,
+      },
+      recentActivities: recentSessions.map((session) => ({
+        id: session.id,
+        subject: session.subjectId || 'Practice',
+        topic: session.topicId || session.sessionType,
+        score: Number(session.score || 0),
+        date: session.createdAt,
+        type: session.sessionType,
+        questionsAttempted: session.questionsAttempted,
+        correctAnswers: session.correctAnswers,
+      })),
+      upcomingTasks: [
+        ...upcomingAssignments.map((assignment) => ({
+          id: assignment.id,
+          title: assignment.title,
+          subject: assignment.subject,
+          due: assignment.dueDate,
+          type: 'assignment',
+          priority: this.getTaskPriority(assignment.dueDate),
+        })),
+        ...upcomingLessons.map((lesson) => ({
+          id: lesson.id,
+          title: lesson.title,
+          subject: lesson.subject,
+          due: lesson.date ? `${lesson.date}T${lesson.startTime}` : lesson.startTime,
+          type: 'lesson',
+          priority: 'medium',
+        })),
+      ].slice(0, 8),
     };
+  }
+
+  private getTaskPriority(dueDate: Date): 'high' | 'medium' | 'low' {
+    const hoursUntilDue = (new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntilDue <= 24) return 'high';
+    if (hoursUntilDue <= 72) return 'medium';
+    return 'low';
   }
 
   async getPlatformStats(): Promise<any> {
@@ -376,5 +470,229 @@ export class AnalyticsService {
       console.error('Error in getRecentActivity:', error);
       return [];
     }
+  }
+
+  async getContentCreationMetrics(params: {
+    period?: 'week' | 'month' | 'year';
+    subjectId?: string;
+    grade?: number;
+  }): Promise<any> {
+    const { period = 'week', subjectId, grade } = params;
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'month': startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()); break;
+      case 'year': startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()); break;
+      default: startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const query = this.questionRepository
+      .createQueryBuilder('q')
+      .select("TO_CHAR(q.createdAt, 'YYYY-MM-DD')", 'date')
+      .addSelect('COUNT(*)', 'count')
+      .where('q.createdAt >= :startDate', { startDate });
+
+    if (subjectId) query.andWhere('q.subjectId = :subjectId', { subjectId });
+    if (grade) query.andWhere('q.grade = :grade', { grade });
+
+    const trend = await query
+      .groupBy("TO_CHAR(q.createdAt, 'YYYY-MM-DD')")
+      .orderBy('date', 'ASC')
+      .getRawMany();
+
+    const perSubject = await this.questionRepository
+      .createQueryBuilder('q')
+      .select('q.subjectId', 'subject')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('q.subjectId')
+      .orderBy('count', 'DESC')
+      .getRawMany();
+
+    const perTeacher = await this.questionRepository
+      .createQueryBuilder('q')
+      .select('q.createdBy', 'teacher')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('q.createdBy')
+      .orderBy('count', 'DESC')
+      .limit(20)
+      .getRawMany();
+
+    const totalQuestions = await this.questionRepository.count();
+    const totalDrafts = await this.questionRepository.count({ where: { status: QuestionStatus.DRAFT } });
+    const totalPending = await this.questionRepository.count({ where: { status: QuestionStatus.PENDING_REVIEW } });
+    const totalApproved = await this.questionRepository.count({ where: { status: QuestionStatus.APPROVED } });
+    const totalPublished = await this.questionRepository.count({ where: { status: QuestionStatus.PUBLISHED } });
+
+    return {
+      totalQuestions,
+      byStatus: { drafts: totalDrafts, pendingReview: totalPending, approved: totalApproved, published: totalPublished },
+      trend,
+      perSubject,
+      perTeacher,
+    };
+  }
+
+  async getCurriculumCoverage(params: {
+    subjectId?: string;
+    grade?: number;
+  }): Promise<any> {
+    const { subjectId, grade } = params;
+
+    const query = this.questionRepository
+      .createQueryBuilder('q')
+      .select('q.strandId', 'strand')
+      .addSelect('q.grade', 'grade')
+      .addSelect('COUNT(*)', 'questionCount')
+      .where('q.strandId IS NOT NULL')
+      .andWhere('q.status IN (:...statuses)', {
+        statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
+      });
+
+    if (subjectId) query.andWhere('q.subjectId = :subjectId', { subjectId });
+    if (grade) query.andWhere('q.grade = :grade', { grade });
+
+    const coverage = await query
+      .groupBy('q.strandId')
+      .addGroupBy('q.grade')
+      .orderBy('q.grade', 'ASC')
+      .addOrderBy('count', 'DESC')
+      .getRawMany();
+
+    const subStrandCoverage = await this.questionRepository
+      .createQueryBuilder('q')
+      .select('q.subStrandId', 'subStrand')
+      .addSelect('q.strandId', 'strand')
+      .addSelect('COUNT(*)', 'questionCount')
+      .where('q.subStrandId IS NOT NULL')
+      .andWhere('q.status IN (:...statuses)', {
+        statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
+      })
+      .groupBy('q.subStrandId')
+      .addGroupBy('q.strandId')
+      .orderBy('count', 'DESC')
+      .getRawMany();
+
+    const totalStrands = await this.questionRepository
+      .createQueryBuilder('q')
+      .select('DISTINCT q.strandId', 'strand')
+      .getRawMany();
+
+    return {
+      coverage,
+      subStrandCoverage,
+      totalStrands: totalStrands.length,
+      coveredStrands: coverage.length,
+    };
+  }
+
+  async getQualityDistribution(params: {
+    subjectId?: string;
+    grade?: number;
+  }): Promise<any> {
+    const { subjectId, grade } = params;
+
+    const diffQuery = this.questionRepository
+      .createQueryBuilder('q')
+      .select('q.difficulty', 'difficulty')
+      .addSelect('COUNT(*)', 'count')
+      .where('q.status IN (:...statuses)', {
+        statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
+      });
+
+    if (subjectId) diffQuery.andWhere('q.subjectId = :subjectId', { subjectId });
+    if (grade) diffQuery.andWhere('q.grade = :grade', { grade });
+
+    const difficultySpread = await diffQuery
+      .groupBy('q.difficulty')
+      .getRawMany();
+
+    const bloomQuery = this.questionRepository
+      .createQueryBuilder('q')
+      .select('q.bloomsTaxonomy', 'bloom')
+      .addSelect('COUNT(*)', 'count')
+      .where('q.bloomsTaxonomy IS NOT NULL')
+      .andWhere('q.status IN (:...statuses)', {
+        statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
+      });
+
+    if (subjectId) bloomQuery.andWhere('q.subjectId = :subjectId', { subjectId });
+    if (grade) bloomQuery.andWhere('q.grade = :grade', { grade });
+
+    const bloomSpread = await bloomQuery
+      .groupBy('q.bloomsTaxonomy')
+      .orderBy('count', 'DESC')
+      .getRawMany();
+
+    const typeQuery = this.questionRepository
+      .createQueryBuilder('q')
+      .select('q.type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .where('q.status IN (:...statuses)', {
+        statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
+      });
+
+    if (subjectId) typeQuery.andWhere('q.subjectId = :subjectId', { subjectId });
+    if (grade) typeQuery.andWhere('q.grade = :grade', { grade });
+
+    const typeDistribution = await typeQuery
+      .groupBy('q.type')
+      .orderBy('count', 'DESC')
+      .getRawMany();
+
+    return { difficultySpread, bloomSpread, typeDistribution };
+  }
+
+  async getAiUsageAnalytics(params: {
+    period?: 'week' | 'month' | 'year';
+  }): Promise<any> {
+    const { period = 'week' } = params;
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'month': startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()); break;
+      case 'year': startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()); break;
+      default: startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const totalAiCalls = await this.usageLogRepository.count({
+      where: { createdAt: { $gte: startDate } as any },
+    });
+
+    const byType = await this.usageLogRepository
+      .createQueryBuilder('log')
+      .select('log.serviceType', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .where('log.createdAt >= :startDate', { startDate })
+      .groupBy('log.serviceType')
+      .orderBy('count', 'DESC')
+      .getRawMany();
+
+    const dailyTrend = await this.usageLogRepository
+      .createQueryBuilder('log')
+      .select("TO_CHAR(log.createdAt, 'YYYY-MM-DD')", 'date')
+      .addSelect('COUNT(*)', 'count')
+      .where('log.createdAt >= :startDate', { startDate })
+      .groupBy("TO_CHAR(log.createdAt, 'YYYY-MM-DD')")
+      .orderBy('date', 'ASC')
+      .getRawMany();
+
+    const byUser = await this.usageLogRepository
+      .createQueryBuilder('log')
+      .select('log.userId', 'user')
+      .addSelect('COUNT(*)', 'count')
+      .where('log.createdAt >= :startDate', { startDate })
+      .groupBy('log.userId')
+      .orderBy('count', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    return {
+      totalAiCalls,
+      byType,
+      dailyTrend,
+      topUsers: byUser,
+    };
   }
 }

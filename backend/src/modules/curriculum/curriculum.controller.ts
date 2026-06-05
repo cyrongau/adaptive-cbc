@@ -1,11 +1,7 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { CurriculumService } from './curriculum.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('curriculum')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class CurriculumController {
   constructor(private readonly curriculumService: CurriculumService) {}
 
@@ -23,32 +19,13 @@ export class CurriculumController {
     return this.curriculumService.findAllStrands(subjectId);
   }
 
-  @Post('strands')
-  @Roles('admin')
-  createStrand(@Body() data: any) {
-    return this.curriculumService.createStrand(data);
-  }
-
-  @Post('sub-strands')
-  @Roles('admin')
-  createSubStrand(@Body() data: any) {
-    return this.curriculumService.createSubStrand(data);
-  }
-
-  @Post('learning-outcomes')
-  @Roles('admin')
-  createLearningOutcome(@Body() data: any) {
-    return this.curriculumService.createLearningOutcome(data);
-  }
-
   @Get('competencies')
   getCompetencies() {
     return this.curriculumService.findAllCompetencies();
   }
 
-  @Post('competencies')
-  @Roles('admin')
-  createCompetency(@Body() data: any) {
-    return this.curriculumService.createCompetency(data);
+  @Post('seed-all')
+  seedAll() {
+    return this.curriculumService.seedAll();
   }
 }

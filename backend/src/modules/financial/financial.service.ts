@@ -80,8 +80,8 @@ export class FinancialService {
       metadata: { productTitle: dto.productTitle, grossAmount: dto.amount, commissionRate },
     });
 
-    sellerWallet.availableBalance += sellerAmount;
-    sellerWallet.totalEarnings += sellerAmount;
+    sellerWallet.availableBalance = Number(sellerWallet.availableBalance) + sellerAmount;
+    sellerWallet.totalEarnings = Number(sellerWallet.totalEarnings) + sellerAmount;
 
     await this.walletRepo.save(sellerWallet);
     await this.transactionRepo.save(sellerTransaction);
@@ -130,8 +130,8 @@ export class FinancialService {
 
     const savedWithdrawal = await this.withdrawalRepo.save(withdrawal);
 
-    wallet.availableBalance -= dto.amount;
-    wallet.pendingBalance += dto.amount;
+    wallet.availableBalance = Number(wallet.availableBalance) - dto.amount;
+    wallet.pendingBalance = Number(wallet.pendingBalance) + dto.amount;
     await this.walletRepo.save(wallet);
 
     const transaction = this.transactionRepo.create({
@@ -175,8 +175,8 @@ export class FinancialService {
     const wallet = withdrawal.wallet;
 
     if (dto.status === WithdrawalStatus.COMPLETED) {
-      wallet.pendingBalance -= withdrawal.amount;
-      wallet.totalWithdrawn += withdrawal.amount;
+      wallet.pendingBalance = Number(wallet.pendingBalance) - Number(withdrawal.amount);
+      wallet.totalWithdrawn = Number(wallet.totalWithdrawn) + Number(withdrawal.amount);
 
       const transaction = await this.transactionRepo.findOne({
         where: { withdrawalId: withdrawal.id, type: TransactionType.WITHDRAWAL },
@@ -186,8 +186,8 @@ export class FinancialService {
         await this.transactionRepo.save(transaction);
       }
     } else if (dto.status === WithdrawalStatus.REJECTED || dto.status === WithdrawalStatus.FAILED) {
-      wallet.pendingBalance -= withdrawal.amount;
-      wallet.availableBalance += withdrawal.amount;
+      wallet.pendingBalance = Number(wallet.pendingBalance) - Number(withdrawal.amount);
+      wallet.availableBalance = Number(wallet.availableBalance) + Number(withdrawal.amount);
 
       const transaction = await this.transactionRepo.findOne({
         where: { withdrawalId: withdrawal.id, type: TransactionType.WITHDRAWAL },
@@ -261,9 +261,9 @@ export class FinancialService {
     }
 
     const wallet = await this.getWallet(userId);
-    wallet.availableBalance += dto.amount;
+    wallet.availableBalance = Number(wallet.availableBalance) + dto.amount;
     if (dto.amount > 0) {
-      wallet.totalEarnings += dto.amount;
+      wallet.totalEarnings = Number(wallet.totalEarnings) + dto.amount;
     }
 
     const transaction = this.transactionRepo.create({

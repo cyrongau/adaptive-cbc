@@ -50,6 +50,25 @@ export class StoreController {
     return this.storeService.findMyProducts(req.user.id);
   }
 
+  @Get('admin/products')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiOperation({ summary: 'List all products for admin management' })
+  async getAdminProducts(
+    @Query('category') category?: string,
+    @Query('productType') productType?: string,
+    @Query('grade') grade?: number,
+    @Query('search') search?: string,
+  ) {
+    return this.storeService.findAllProducts({
+      category,
+      productType,
+      grade,
+      search,
+      includeAllStatuses: true,
+    });
+  }
+
   @Get('products/:id')
   @ApiOperation({ summary: 'Get product by ID' })
   async getProduct(@Param('id') id: string) {

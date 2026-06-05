@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../store/authStore';
 import { GraduationCap, ArrowRight, Loader2, Sparkles, User, Mail, Phone, ShieldAlert, Building2, Shield, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -10,8 +10,9 @@ import toast from 'react-hot-toast';
 
 type RoleType = 'student' | 'parent' | 'tutor' | 'institution_admin';
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register, loading, error, clearError, initialize } = useAuthStore();
   
   const [selectedRole, setSelectedRole] = useState<RoleType>('student');
@@ -27,7 +28,11 @@ export default function RegisterPage() {
   useEffect(() => {
     initialize();
     clearError();
-  }, []);
+    const invitationToken = searchParams.get('invitationToken');
+    if (invitationToken) {
+      setSelectedRole('parent');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +71,11 @@ export default function RegisterPage() {
         address,
         phone,
       };
+    }
+
+    const invitationToken = searchParams.get('invitationToken');
+    if (selectedRole === 'parent' && invitationToken) {
+      payload.invitationToken = invitationToken;
     }
 
     const success = await register(payload);
@@ -352,5 +362,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <RegisterPageContent />
+    </Suspense>
   );
 }

@@ -72,6 +72,11 @@ export class RegisterDto {
   @IsObject()
   @ValidateIf((o) => o.role === 'institution_admin')
   institutionApplication?: InstitutionApplicationDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  invitationToken?: string;
 }
 
 export class RefreshTokenDto {
@@ -82,7 +87,7 @@ export class RefreshTokenDto {
 
 export class ForgotPasswordDto {
   @ApiProperty({ example: 'student@email.com' })
-  @IsEmail()
+  @IsString()
   email: string;
 }
 

@@ -15,38 +15,46 @@ interface Child {
   subjects: { name: string; progress: number }[];
 }
 
-const MOCK_CHILDREN: Child[] = [
-  { 
-    id: '1', 
-    name: 'Alex Mwangi', 
-    grade: 4, 
-    streak: 5, 
-    xp: 1250, 
-    weeklyProgress: 78,
-    subjects: [
-      { name: 'Mathematics', progress: 82 },
-      { name: 'English', progress: 65 },
-      { name: 'Science', progress: 88 },
-    ]
-  },
-  { 
-    id: '2', 
-    name: 'Emma Wanjiku', 
-    grade: 6, 
-    streak: 12, 
-    xp: 3450, 
-    weeklyProgress: 92,
-    subjects: [
-      { name: 'Mathematics', progress: 95 },
-      { name: 'English', progress: 78 },
-      { name: 'Science', progress: 90 },
-    ]
-  },
-];
+interface UserRelationship {
+  id: string;
+  relationshipType: string;
+  verificationStatus: string;
+  student?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    grade: number;
+    streakDays: number;
+    xpPoints: number;
+    // mock properties for ui matching
+    weeklyProgress?: number;
+    subjects?: { name: string; progress: number }[];
+  };
+}
 
 export default function ChildrenPage() {
   const { user } = useAuthStore();
   const isParent = user?.role === 'parent';
+  const [children, setChildren] = useState<UserRelationship[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isParent && user?.id) {
+      const fetchChildren = async () => {
+        try {
+          const res = await api.get(`/relationships/parent/${user.id}/children`);
+          setChildren(res.data || []);
+        } catch (error) {
+          console.error("Failed to fetch children", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchChildren();
+    } else {
+      setLoading(false);
+    }
+  }, [isParent, user?.id]);
 
   if (!isParent) {
     return (
@@ -73,7 +81,7 @@ export default function ChildrenPage() {
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Children', value: MOCK_CHILDREN.length, icon: Users, color: 'bg-blue-50 text-blue-600' },
+          { label: 'Total Children', value: children.length, icon: Users, color: 'bg-blue-50 text-blue-600' },
           { label: 'Avg Progress', value: '85%', icon: TrendingUp, color: 'bg-green-50 text-green-600' },
           { label: 'Active Streaks', value: '17 days', icon: Flame, color: 'bg-orange-50 text-orange-600' },
           { label: 'Topics Mastered', value: '24', icon: Trophy, color: 'bg-amber-50 text-amber-600' },
@@ -90,30 +98,55 @@ export default function ChildrenPage() {
 
       {/* Children List */}
       <div className="space-y-4">
-        {MOCK_CHILDREN.map((child) => (
-          <div key={child.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        {loading ? (
+          <div className="text-center py-8 text-slate-500">Loading children...</div>
+        ) : children.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+            <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-slate-900">No Children Linked</h3>
+            <p className="text-slate-500 mt-2">Your students need to invite you from their onboarding or settings page.</p>
+          </div>
+        ) : children.map((rel) => {
+          const child = rel.student;
+          if (!child) return null;
+          
+          const fullName = `${child.firstName} ${child.lastName}`;
+          const weeklyProgress = child.weeklyProgress || 0;
+          const subjects = child.subjects || [
+            { name: 'Mathematics', progress: 0 },
+            { name: 'English', progress: 0 },
+            { name: 'Science', progress: 0 }
+          ];
+          
+          return (
+          <div key={rel.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
+            {rel.verificationStatus === 'unverified' && (
+              <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-bl-lg">
+                Pending Verification
+              </div>
+            )}
             <div className="flex items-start justify-between mb-6">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center">
-                  <span className="text-xl font-bold text-emerald-700">{child.name.split(' ').map(n => n[0]).join('')}</span>
+                  <span className="text-xl font-bold text-emerald-700">{child.firstName?.[0]}{child.lastName?.[0]}</span>
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-lg">{child.name}</h3>
-                  <p className="text-sm text-slate-500">Grade {child.grade} • Student</p>
+                  <h3 className="font-bold text-slate-900 text-lg">{fullName}</h3>
+                  <p className="text-sm text-slate-500">Grade {child.grade || 'N/A'} • {rel.relationshipType}</p>
                 </div>
               </div>
               <div className="flex items-center gap-6">
                 <div className="text-center">
                   <div className="flex items-center gap-1 text-orange-500">
                     <Flame className="w-5 h-5" />
-                    <span className="font-bold">{child.streak}</span>
+                    <span className="font-bold">{child.streakDays || 0}</span>
                   </div>
                   <p className="text-xs text-slate-500">day streak</p>
                 </div>
                 <div className="text-center">
                   <div className="flex items-center gap-1 text-amber-600">
                     <Trophy className="w-5 h-5" />
-                    <span className="font-bold">{child.xp.toLocaleString()}</span>
+                    <span className="font-bold">{(child.xpPoints || 0).toLocaleString()}</span>
                   </div>
                   <p className="text-xs text-slate-500">XP</p>
                 </div>
@@ -124,21 +157,20 @@ export default function ChildrenPage() {
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-slate-700">Weekly Progress</span>
-                <span className="text-sm font-bold text-emerald-600">{child.weeklyProgress}%</span>
+                <span className="text-sm font-bold text-emerald-600">{weeklyProgress}%</span>
               </div>
               <div className="w-full bg-slate-100 rounded-full h-3">
                 <div 
                   className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-3 rounded-full"
-                  style={{ width: `${child.weeklyProgress}%` }}
+                  style={{ width: `${weeklyProgress}%` }}
                 />
               </div>
             </div>
 
-            {/* Subject Progress */}
             <div className="border-t border-slate-100 pt-4">
               <h4 className="text-sm font-bold text-slate-700 mb-3">Subject Progress</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {child.subjects.map((subject, i) => (
+                {subjects.map((subject, i) => (
                   <div key={i} className="bg-slate-50 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-slate-700">{subject.name}</span>
@@ -170,7 +202,8 @@ export default function ChildrenPage() {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

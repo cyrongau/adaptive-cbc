@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import {
   User,
+  Users,
   GraduationCap,
   BookOpen,
   ChevronRight,
@@ -70,6 +71,12 @@ export default function OnboardingPage() {
     stream: '',
   });
 
+  const [guardianData, setGuardianData] = useState({
+    email: '',
+    phone: '',
+    relationshipType: 'parent',
+  });
+
   const [assessmentStarted, setAssessmentStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<AssessmentQuestion | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -89,7 +96,7 @@ export default function OnboardingPage() {
       }
       fetchSession();
     }
-  }, [user]);
+  }, [user?.id, user?.onboardingStatus, router]);
 
   const fetchSession = async () => {
     try {
@@ -112,12 +119,14 @@ export default function OnboardingPage() {
   const handleNext = async () => {
     if (step === 1) {
       await savePersonalInfo();
+    } else if (step === 2) {
+      await saveGuardianInfo();
     }
     setStep(prev => prev + 1);
   };
 
   const handleBack = () => {
-    if (step === 3 && assessmentStarted && !isComplete) {
+    if (step === 4 && assessmentStarted && !isComplete) {
       return;
     }
     setStep(prev => prev - 1);
@@ -130,6 +139,23 @@ export default function OnboardingPage() {
       await initialize();
     } catch (error) {
       console.error('Failed to save personal info:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveGuardianInfo = async () => {
+    if (!guardianData.email && !guardianData.phone) return; // Need at least one contact method
+    setSaving(true);
+    try {
+      await api.post('/relationships/invite', {
+        userId: user?.id,
+        relationshipType: guardianData.relationshipType,
+        relatedUserEmail: guardianData.email || undefined,
+        relatedUserPhone: guardianData.phone || undefined,
+      });
+    } catch (error) {
+      console.error('Failed to save guardian info:', error);
     } finally {
       setSaving(false);
     }
@@ -261,14 +287,14 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-center mb-8">
-          {[1, 2, 3, 4].map((s, i) => (
+          {[1, 2, 3, 4, 5].map((s, i) => (
             <React.Fragment key={s}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
                 step >= s ? `${primaryBg} text-white` : 'bg-slate-200 text-slate-500'
               }`}>
                 {step > s ? <CheckCircle2 className="w-5 h-5" /> : s}
               </div>
-              {i < 3 && (
+              {i < 4 && (
                 <div className={`w-16 h-1 mx-2 ${step > s ? primaryBg : 'bg-slate-200'}`} />
               )}
             </React.Fragment>
@@ -380,6 +406,104 @@ export default function OnboardingPage() {
             >
               <div className="flex items-center gap-3 mb-6">
                 <div className={`w-12 h-12 rounded-xl ${primaryLight} flex items-center justify-center`}>
+                  <Users className={`w-6 h-6 ${primaryText}`} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Guardian Information</h2>
+                  <p className="text-slate-500">Connect with your parent or guardian</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-6 mb-6">
+                <p className="text-slate-600">
+                  Invite your parent or guardian to monitor your progress. Enter their email or phone number below.
+                  They will receive a link to connect with your account.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Relationship
+                  </label>
+                  <select
+                    value={guardianData.relationshipType}
+                    onChange={(e) => setGuardianData({ ...guardianData, relationshipType: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="parent">Parent</option>
+                    <option value="mother">Mother</option>
+                    <option value="father">Father</option>
+                    <option value="guardian">Guardian</option>
+                    <option value="sponsor">Sponsor</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={guardianData.email}
+                    onChange={(e) => setGuardianData({ ...guardianData, email: e.target.value })}
+                    placeholder="parent@example.com"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Phone Number (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={guardianData.phone}
+                    onChange={(e) => setGuardianData({ ...guardianData, phone: e.target.value })}
+                    placeholder="+254..."
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between mt-8">
+                <button
+                  onClick={handleBack}
+                  className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  Back
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setStep(prev => prev + 1)}
+                    className="px-6 py-3 text-slate-500 rounded-xl font-bold hover:bg-slate-100 transition-all"
+                  >
+                    Skip
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    disabled={saving || (!guardianData.email && !guardianData.phone)}
+                    className={`flex items-center gap-2 px-6 py-3 ${(!guardianData.email && !guardianData.phone) ? 'bg-slate-200 text-slate-400' : `${primaryBg} ${primaryHover} text-white`} rounded-xl font-bold transition-all`}
+                  >
+                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ChevronRight className="w-5 h-5" />}
+                    Send Invite
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 3 && (
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className={`w-12 h-12 rounded-xl ${primaryLight} flex items-center justify-center`}>
                   <BookOpen className={`w-6 h-6 ${primaryText}`} />
                 </div>
                 <div>
@@ -414,7 +538,7 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {step === 3 && !assessmentStarted && (
+          {step === 4 && !assessmentStarted && (
             <motion.div
               key="step3-intro"
               initial={{ opacity: 0, x: 20 }}
@@ -505,7 +629,7 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {step === 3 && assessmentStarted && !isComplete && currentQuestion && (
+          {step === 4 && assessmentStarted && !isComplete && currentQuestion && (
             <motion.div
               key="step3-question"
               initial={{ opacity: 0, y: 20 }}
@@ -591,7 +715,7 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {step === 3 && isComplete && (
+          {step === 4 && isComplete && (
             <motion.div
               key="step3-results"
               initial={{ opacity: 0, y: 20 }}
@@ -672,7 +796,7 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <motion.div
               key="step4"
               initial={{ opacity: 0, x: 20 }}

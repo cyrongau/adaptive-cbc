@@ -52,6 +52,7 @@ interface AuthState {
       address: string;
       phone: string;
     };
+    invitationToken?: string;
   }) => Promise<boolean>;
   verifyOtp: (code: string) => Promise<boolean>;
   forgotPassword: (emailOrPhone: string) => Promise<boolean>;
@@ -139,6 +140,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         registerData.institutionApplication = payload.institutionApplication;
       }
 
+      if (payload.invitationToken) {
+        registerData.invitationToken = payload.invitationToken;
+      }
+
       const response = await api.post('/auth/register', registerData);
 
       const { accessToken, refreshToken, user } = response.data;
@@ -202,10 +207,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   forgotPassword: async (emailOrPhone) => {
     set({ loading: true, error: null });
     try {
-      const email = emailOrPhone.includes('@') ? emailOrPhone : 'parent@adaptivecbc.com';
-      const response = await api.post('/auth/forgot-password', { email });
+      const response = await api.post('/auth/forgot-password', { email: emailOrPhone });
       const devToken = response.data?.resetToken || null;
-      set({ resetEmail: email, devResetToken: devToken, loading: false });
+      set({ resetEmail: emailOrPhone, devResetToken: devToken, loading: false });
       return true;
     } catch (err: any) {
       const errMsg = err.response?.data?.message || 'Failed to send reset code';

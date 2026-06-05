@@ -25,6 +25,7 @@ import {
   ShieldOff,
   RotateCcw,
   UserMinus,
+  Loader2,
 } from 'lucide-react';
 
 interface UserData {
@@ -103,6 +104,9 @@ export default function AdminUsersPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDemoteModal, setShowDemoteModal] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [tempPassword, setTempPassword] = useState('');
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [selectedUserForAction, setSelectedUserForAction] = useState<UserData | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
   const [demoteRole, setDemoteRole] = useState('student');
@@ -338,6 +342,30 @@ export default function AdminUsersPage() {
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to demote user');
     }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedUserForAction) return;
+    setResetPasswordLoading(true);
+    try {
+      const response = await api.post(`/users/${selectedUserForAction.id}/reset-password`);
+      setTempPassword(response.data.temporaryPassword);
+      toast.success('Password reset successfully!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to reset password');
+      setShowResetPasswordModal(false);
+      setSelectedUserForAction(null);
+    } finally {
+      setResetPasswordLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Password copied to clipboard!');
+    }).catch(() => {
+      toast.error('Failed to copy to clipboard');
+    });
   };
 
   const canSuspend = (user: UserData) => {
@@ -625,6 +653,17 @@ export default function AdminUsersPage() {
                                           Delete Account
                                         </button>
                                       )}
+                                      <button
+                                        onClick={() => {
+                                          setSelectedUserForAction(user);
+                                          setShowResetPasswordModal(true);
+                                          setOpenActionMenu(null);
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-xs text-[#89ceff] hover:bg-[#2d3449] flex items-center gap-2"
+                                      >
+                                        <Shield className="w-3 h-3" />
+                                        Reset Password
+                                      </button>
                                       {canDemote(user) && (
                                         <button
                                           onClick={() => {
@@ -778,8 +817,8 @@ export default function AdminUsersPage() {
                 <input
                   type="email"
                   value={formData.email}
-                  disabled
-                  className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2 text-[#becabd] text-sm"
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2 text-[#dae2fd] text-sm focus:border-[#7eda95] outline-none"
                 />
               </div>
               <div>
@@ -818,14 +857,17 @@ export default function AdminUsersPage() {
                 <button
                   onClick={async () => {
                     try {
-                      await api.patch(`/users/${selectedUser.id}/grade`, {
+                      await api.patch(`/users/${selectedUser.id}`, {
+                        firstName: formData.firstName,
+                        lastName: formData.lastName,
+                        email: formData.email,
                         grade: formData.role === 'student' ? formData.grade : undefined,
                       });
-                      toast.success('User updated!');
+                      toast.success('User updated successfully!');
                       setShowModal(false);
                       fetchUsers();
-                    } catch (error) {
-                      toast.error('Failed to update user');
+                    } catch (error: any) {
+                      toast.error(error.response?.data?.message || 'Failed to update user');
                     }
                   }}
                   className="flex-1 px-4 py-2 bg-[#47a263] text-[#003919] rounded-lg font-semibold hover:opacity-90 transition-all"
@@ -1152,6 +1194,68 @@ export default function AdminUsersPage() {
                 <button onClick={handleDemoteUser} className="flex-1 px-4 py-2 bg-[#b7c8e1] text-black rounded-lg font-semibold hover:opacity-90 transition-all">Demote User</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && selectedUserForAction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#171f33] border border-[#89ceff]/30 rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-[#89ceff] flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Reset Password
+              </h2>
+              <button onClick={() => { setShowResetPasswordModal(false); setSelectedUserForAction(null); setTempPassword(''); }} className="text-[#becabd] hover:text-[#dae2fd]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="bg-[#060e20] border border-[#3f4940] rounded-lg p-4 mb-4">
+              <p className="text-sm font-semibold text-[#dae2fd]">{selectedUserForAction.firstName} {selectedUserForAction.lastName}</p>
+              <p className="text-xs text-[#becabd]">{selectedUserForAction.email}</p>
+              <p className="text-xs text-[#89ceff] mt-1 capitalize">{selectedUserForAction.role.replace('_', ' ')}</p>
+            </div>
+
+            {tempPassword ? (
+              <div className="space-y-4">
+                <div className="bg-[#7eda95]/10 border border-[#7eda95]/30 rounded-lg p-4">
+                  <p className="text-xs text-[#7eda95] font-semibold mb-2">Temporary Password</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-3 text-[#dae2fd] text-sm font-mono select-all">
+                      {tempPassword}
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(tempPassword)}
+                      className="px-3 py-3 bg-[#47a263] text-[#003919] text-sm font-bold rounded-lg hover:opacity-90 transition-all"
+                      title="Copy to clipboard"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-[#becabd]">Share this temporary password with the user. They will be prompted to change it on next login.</p>
+                <button
+                  onClick={() => { setShowResetPasswordModal(false); setSelectedUserForAction(null); setTempPassword(''); }}
+                  className="w-full px-4 py-2 bg-[#47a263] text-[#003919] rounded-lg font-semibold hover:opacity-90 transition-all"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                  <p className="text-xs text-amber-300">This will immediately reset the user's password. They will not be able to log in with their current password.</p>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => { setShowResetPasswordModal(false); setSelectedUserForAction(null); }} className="flex-1 px-4 py-2 border border-[#3f4940] text-[#becabd] rounded-lg font-semibold hover:bg-[#2d3449] transition-all">Cancel</button>
+                  <button onClick={handleResetPassword} disabled={resetPasswordLoading} className="flex-1 px-4 py-2 bg-[#89ceff] text-black rounded-lg font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    {resetPasswordLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Reset Password
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -27,6 +27,9 @@ interface StudentRegisterEntry {
   grade: number;
   admissionNumber: string;
   stream: string;
+  parentName?: string;
+  parentEmail?: string;
+  parentPhone?: string;
   isActive: boolean;
   isSuspended?: boolean;
   deletedAt?: string;
@@ -49,6 +52,9 @@ export default function StudentRegisterPage() {
     grade: '',
     admissionNumber: '',
     stream: '',
+    parentName: '',
+    parentEmail: '',
+    parentPhone: '',
   });
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
@@ -88,10 +94,13 @@ export default function StudentRegisterPage() {
         grade: parseInt(newStudent.grade),
         admissionNumber: newStudent.admissionNumber,
         stream: newStudent.stream || undefined,
+        parentName: newStudent.parentName || undefined,
+        parentEmail: newStudent.parentEmail || undefined,
+        parentPhone: newStudent.parentPhone || undefined,
       });
       toast.success('Student added to register');
       setShowAddModal(false);
-      setNewStudent({ studentName: '', grade: '', admissionNumber: '', stream: '' });
+      setNewStudent({ studentName: '', grade: '', admissionNumber: '', stream: '', parentName: '', parentEmail: '', parentPhone: '' });
       fetchStudents();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to add student');
@@ -111,7 +120,7 @@ export default function StudentRegisterPage() {
   };
 
   const downloadSampleCSV = () => {
-    const csvContent = 'studentName,grade,admissionNumber,stream\nJohn Doe,7,ADM-2024-001,Blue\nJane Smith,8,ADM-2024-002,Red\nPeter Mwangi,9,ADM-2024-003,Green';
+    const csvContent = 'studentName,grade,admissionNumber,stream,parentName,parentEmail,parentPhone\nJohn Doe,7,ADM-2024-001,Blue,Mary Doe,mary@example.com,+254700000001\nJane Smith,8,ADM-2024-002,Red,Peter Smith,peter@example.com,+254700000002';
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -144,6 +153,9 @@ export default function StudentRegisterPage() {
       const gradeIdx = headers.findIndex(h => h.includes('grade'));
       const admIdx = headers.findIndex(h => h.includes('admission') || h.includes('adm'));
       const streamIdx = headers.findIndex(h => h.includes('stream'));
+      const parentNameIdx = headers.findIndex(h => h.includes('parentname') || h.includes('parent name') || h.includes('guardianname') || h.includes('guardian name'));
+      const parentEmailIdx = headers.findIndex(h => h.includes('parentemail') || h.includes('parent email') || h.includes('guardianemail') || h.includes('guardian email'));
+      const parentPhoneIdx = headers.findIndex(h => h.includes('parentphone') || h.includes('parent phone') || h.includes('guardianphone') || h.includes('guardian phone'));
 
       if (nameIdx === -1 || gradeIdx === -1 || admIdx === -1) {
         toast.error('CSV must have columns: studentName, grade, admissionNumber');
@@ -158,6 +170,9 @@ export default function StudentRegisterPage() {
           grade: parseInt(cols[gradeIdx]),
           admissionNumber: cols[admIdx],
           stream: streamIdx !== -1 ? cols[streamIdx] : undefined,
+          parentName: parentNameIdx !== -1 ? cols[parentNameIdx] : undefined,
+          parentEmail: parentEmailIdx !== -1 ? cols[parentEmailIdx] : undefined,
+          parentPhone: parentPhoneIdx !== -1 ? cols[parentPhoneIdx] : undefined,
         };
       }).filter(s => s.studentName && s.grade && s.admissionNumber);
 
@@ -471,6 +486,36 @@ export default function StudentRegisterPage() {
                   className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2.5 text-[#dae2fd] text-sm focus:border-[#7eda95] outline-none"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#becabd] uppercase tracking-wider mb-2">Parent/Guardian Name</label>
+                <input
+                  type="text"
+                  value={newStudent.parentName}
+                  onChange={(e) => setNewStudent({ ...newStudent, parentName: e.target.value })}
+                  placeholder="e.g. Mary Doe"
+                  className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2.5 text-[#dae2fd] text-sm focus:border-[#7eda95] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#becabd] uppercase tracking-wider mb-2">Parent/Guardian Email</label>
+                <input
+                  type="email"
+                  value={newStudent.parentEmail}
+                  onChange={(e) => setNewStudent({ ...newStudent, parentEmail: e.target.value })}
+                  placeholder="parent@example.com"
+                  className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2.5 text-[#dae2fd] text-sm focus:border-[#7eda95] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#becabd] uppercase tracking-wider mb-2">Parent/Guardian Phone</label>
+                <input
+                  type="tel"
+                  value={newStudent.parentPhone}
+                  onChange={(e) => setNewStudent({ ...newStudent, parentPhone: e.target.value })}
+                  placeholder="+254..."
+                  className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2.5 text-[#dae2fd] text-sm focus:border-[#7eda95] outline-none"
+                />
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
@@ -522,7 +567,7 @@ export default function StudentRegisterPage() {
                 <div className="mt-4 p-4 bg-[#060e20] rounded-lg border border-[#3f4940]">
                   <p className="text-xs font-semibold text-[#becabd] uppercase tracking-wider mb-2">Expected CSV Format</p>
                   <code className="text-xs text-[#7eda95] block">
-                    studentName, grade, admissionNumber, stream
+                    studentName, grade, admissionNumber, stream, parentName, parentEmail, parentPhone
                   </code>
                   <p className="text-xs text-[#becabd]/60 mt-2">
                     Example: John Doe, 7, ADM-2024-001, Blue

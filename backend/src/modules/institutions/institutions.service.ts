@@ -362,7 +362,7 @@ export class InstitutionsService {
     });
 
     const nameMatches = registerEntry &&
-      registerEntry.studentName.trim().toLowerCase() === fullName.trim().toLowerCase();
+      registerEntry.studentName.trim().toLowerCase().replace(/\s+/g, ' ') === fullName.trim().toLowerCase().replace(/\s+/g, ' ');
 
     if (registerEntry && nameMatches) {
       // VERIFIED: Auto-approve — student found in register
@@ -639,14 +639,27 @@ export class InstitutionsService {
     });
   }
 
-  async addToStudentRegister(institutionId: string, data: { studentName: string; grade: number; admissionNumber: string; stream?: string }): Promise<StudentRegister> {
+  async addToStudentRegister(institutionId: string, data: { studentName: string; grade: number; admissionNumber: string; stream?: string; parentName?: string; parentEmail?: string; parentPhone?: string }): Promise<StudentRegister> {
     const institution = await this.findOne(institutionId);
 
     const existing = await this.studentRegisterRepository.findOne({
-      where: { institutionId, admissionNumber: data.admissionNumber, isActive: true },
+      where: { institutionId, admissionNumber: data.admissionNumber },
     });
-    if (existing) {
+    if (existing?.isActive) {
       throw new ConflictException(`Student with admission number ${data.admissionNumber} already exists in the register`);
+    }
+
+    if (existing) {
+      Object.assign(existing, {
+        studentName: data.studentName,
+        grade: data.grade,
+        stream: data.stream,
+        parentName: data.parentName,
+        parentEmail: data.parentEmail,
+        parentPhone: data.parentPhone,
+        isActive: true,
+      });
+      return this.studentRegisterRepository.save(existing);
     }
 
     const entry = this.studentRegisterRepository.create({
@@ -655,12 +668,15 @@ export class InstitutionsService {
       grade: data.grade,
       admissionNumber: data.admissionNumber,
       stream: data.stream,
+      parentName: data.parentName,
+      parentEmail: data.parentEmail,
+      parentPhone: data.parentPhone,
     });
 
     return this.studentRegisterRepository.save(entry);
   }
 
-  async bulkAddToStudentRegister(institutionId: string, students: { studentName: string; grade: number; admissionNumber: string; stream?: string }[]): Promise<{ successCount: number; errorCount: number; errors: string[] }> {
+  async bulkAddToStudentRegister(institutionId: string, students: { studentName: string; grade: number; admissionNumber: string; stream?: string; parentName?: string; parentEmail?: string; parentPhone?: string }[]): Promise<{ successCount: number; errorCount: number; errors: string[] }> {
     let successCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
@@ -668,11 +684,26 @@ export class InstitutionsService {
     for (const studentData of students) {
       try {
         const existing = await this.studentRegisterRepository.findOne({
-          where: { institutionId, admissionNumber: studentData.admissionNumber, isActive: true },
+          where: { institutionId, admissionNumber: studentData.admissionNumber },
         });
-        if (existing) {
+        if (existing?.isActive) {
           errorCount++;
           errors.push(`${studentData.studentName} (${studentData.admissionNumber}): Already exists`);
+          continue;
+        }
+
+        if (existing) {
+          Object.assign(existing, {
+            studentName: studentData.studentName,
+            grade: studentData.grade,
+            stream: studentData.stream,
+            parentName: studentData.parentName,
+            parentEmail: studentData.parentEmail,
+            parentPhone: studentData.parentPhone,
+            isActive: true,
+          });
+          await this.studentRegisterRepository.save(existing);
+          successCount++;
           continue;
         }
 
@@ -682,6 +713,9 @@ export class InstitutionsService {
           grade: studentData.grade,
           admissionNumber: studentData.admissionNumber,
           stream: studentData.stream,
+          parentName: studentData.parentName,
+          parentEmail: studentData.parentEmail,
+          parentPhone: studentData.parentPhone,
         });
         await this.studentRegisterRepository.save(entry);
         successCount++;

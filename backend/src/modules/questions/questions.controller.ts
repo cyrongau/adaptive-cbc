@@ -108,16 +108,25 @@ export class QuestionsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create new question' })
   async create(@Body() questionData: any) {
     return this.questionsService.create(questionData);
   }
 
+  @Post('structured')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Create new structured question from Author Studio' })
+  async createStructured(@Body() questionData: any, @Request() req: any) {
+    return this.questionsService.createStructured(questionData, req.user.id);
+  }
+
   @Post(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update question' })
   async update(@Param('id') id: string, @Body() questionData: any) {
@@ -126,25 +135,16 @@ export class QuestionsController {
 
   @Post(':id/require-review')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.TUTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Mark question for human review' })
   async requireReview(@Param('id') id: string) {
     return this.questionsService.requireHumanReview(id);
   }
 
-  @Post('structured')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Create new structured question from Author Studio' })
-  async createStructured(@Body() questionData: any, @Request() req: any) {
-    return this.questionsService.createStructured(questionData, req.user.id);
-  }
-
   @Post(':id/version')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update question and create new version' })
   async updateWithVersioning(
@@ -170,10 +170,32 @@ export class QuestionsController {
 
   @Post(':id/clone')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Clone question for variation' })
   async cloneQuestion(@Param('id') id: string, @Request() req: any) {
     return this.questionsService.cloneQuestion(id, req.user.id);
+  }
+
+  @Get('moderation/queue')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get moderation queue' })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'subjectId', required: false })
+  @ApiQuery({ name: 'grade', required: false })
+  @ApiQuery({ name: 'status', required: false, enum: QuestionStatus })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  async getModerationQueue(
+    @Query('search') search?: string,
+    @Query('subjectId') subjectId?: string,
+    @Query('grade') grade?: number,
+    @Query('status') status?: QuestionStatus,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.questionsService.getModerationQueue({ search, subjectId, grade, status, page, limit });
   }
 }

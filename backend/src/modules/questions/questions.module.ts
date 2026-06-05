@@ -8,6 +8,8 @@ import { Question } from './entities/question.entity';
 import { QuestionVersion } from './entities/question-version.entity';
 import { AIAssistantService } from './services/ai-assistant.service';
 import { AIAssistantController } from './ai-assistant.controller';
+import { DiagramController } from './diagram.controller';
+import { DiagramService } from './services/diagram.service';
 import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
@@ -17,8 +19,8 @@ import { GovernanceModule } from '../governance/governance.module';
     HttpModule,
     GovernanceModule,
   ],
-  controllers: [QuestionsController, AIAssistantController],
-  providers: [QuestionsService, AIAssistantService],
+  controllers: [QuestionsController, AIAssistantController, DiagramController],
+  providers: [QuestionsService, AIAssistantService, DiagramService],
   exports: [QuestionsService],
 })
 export class QuestionsModule {}

@@ -473,6 +473,63 @@ export class AIAssistantService {
     };
   }
 
+  async scoreQuality(
+    userId: string,
+    question: {
+      content: string;
+      type: string;
+      difficulty: string;
+      bloomsTaxonomy?: string;
+      subject?: string;
+      grade?: number;
+      correctAnswer?: string;
+      options?: { id: string; text: string; isCorrect: boolean }[];
+      explanation?: string;
+    },
+    tier: GovernanceTier,
+  ): Promise<{
+    overall: number;
+    grammar: number;
+    clarity: number;
+    difficulty_consistency: number;
+    curriculum_alignment: number;
+    feedback: string;
+  }> {
+    await this.checkAiQuota(userId, tier);
+    const model = this.getModelForTask('classification');
+    const prompt = `
+      Score the quality of this ${question.subject || ''} question for Grade ${question.grade || '?'} CBC.
+      Question: "${question.content}"
+      Type: ${question.type}
+      Difficulty: ${question.difficulty}
+      Bloom's Taxonomy: ${question.bloomsTaxonomy || 'N/A'}
+      Correct Answer: "${question.correctAnswer || 'N/A'}"
+      Options: ${JSON.stringify(question.options || [])}
+      Explanation: "${question.explanation || 'N/A'}"
+
+      Return JSON with scores 0-100:
+      {
+        "overall": number,
+        "grammar": number,
+        "clarity": number,
+        "difficulty_consistency": number,
+        "curriculum_alignment": number,
+        "feedback": "Brief actionable feedback"
+      }
+    `;
+    const result = await this.callOpenRouter(prompt, model, 'You are an expert at evaluating educational question quality for CBC.', 'quality-score');
+    await this.recordUsage(userId);
+
+    return {
+      overall: Math.round(result.overall ?? 75),
+      grammar: Math.round(result.grammar ?? 70),
+      clarity: Math.round(result.clarity ?? 70),
+      difficulty_consistency: Math.round(result.difficulty_consistency ?? 70),
+      curriculum_alignment: Math.round(result.curriculum_alignment ?? 70),
+      feedback: result.feedback || 'No feedback generated.',
+    };
+  }
+
   async mapCompetency(
     userId: string,
     question: string,

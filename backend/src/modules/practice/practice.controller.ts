@@ -24,6 +24,7 @@ export class PracticeController {
     topicId?: string;
     grade: number;
     questionCount: number;
+    difficulty?: string;
   }) {
     return this.practiceService.createSession(req.user.id, data);
   }

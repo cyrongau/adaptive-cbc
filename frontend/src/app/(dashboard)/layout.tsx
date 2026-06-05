@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/lib/theme';
 import { getAvatarUrl } from '@/lib/utils';
 import api from '@/lib/api';
+import SessionGuard from '@/components/SessionGuard';
 import {
   LayoutDashboard,
   BookOpen,
@@ -34,6 +35,7 @@ import {
   ShoppingBag,
   Users,
   Wallet,
+  CheckCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from '@/components/NotificationBell';
@@ -42,6 +44,7 @@ const SIDEBAR_ITEMS_STUDENT = [
   { label: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
+  { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
   { label: 'School', icon: Building2, href: '/school' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
@@ -54,6 +57,7 @@ const SIDEBAR_ITEMS_AFFILIATED_STUDENT = [
   { label: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
+  { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
   { label: 'My School', icon: Building2, href: '/school' },
   { label: 'My Teachers', icon: Users, href: '/school' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
@@ -83,6 +87,7 @@ const SIDEBAR_ITEMS_TUTOR = [
   { label: 'Financial Hub', icon: Wallet, href: '/financial-hub' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Progress', icon: BarChart2, href: '/progress' },
+  { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
   { label: 'Materials', icon: FileText, href: '/materials' },
   { label: 'Schedule', icon: PenTool, href: '/schedule' },
   { label: 'Settings', icon: Settings, href: '/settings' },
@@ -100,6 +105,7 @@ const SIDEBAR_ITEMS_TEACHER = [
   { label: 'Financial Hub', icon: Wallet, href: '/financial-hub' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
+  { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
   { label: 'Materials', icon: FileText, href: '/materials' },
   { label: 'Analytics', icon: BarChart2, href: '/analytics' },
   { label: 'Settings', icon: Settings, href: '/settings' },
@@ -109,6 +115,7 @@ const SIDEBAR_ITEMS_ADMIN = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
   { label: 'Users', icon: GraduationCap, href: '/admin/users' },
   { label: 'Institutions', icon: BookOpen, href: '/admin/institutions' },
+  { label: 'Content Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Content', icon: PenTool, href: '/admin/content' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
@@ -227,7 +234,9 @@ export default function DashboardLayout({
   const sidebarWidth = sidebarCollapsed ? theme.collapsedWidth : theme.expandedWidth;
 
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
+    <>
+      <SessionGuard />
+      <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
 
       {/* Mobile Header */}
       <header className="md:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between fixed top-0 left-0 right-0 z-30">
@@ -567,5 +576,6 @@ export default function DashboardLayout({
       </main>
 
     </div>
+    </>
   );
 }

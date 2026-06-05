@@ -109,6 +109,31 @@ export default function AdminSettingsPage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
+  const fetchUserSettings = async () => {
+    if (!user) return;
+    try {
+      const response = await api.get(`/settings/user/${user.id}`);
+      if (response.data) {
+        if (response.data.notifications) {
+          setNotificationSettings(prev => ({
+            ...prev,
+            ...response.data.notifications,
+          }));
+        }
+        if (response.data.security) {
+          setSecuritySettings(prev => ({
+            ...prev,
+            twoFactorEnabled: response.data.security.twoFactorEnabled ?? prev.twoFactorEnabled,
+            sessionTimeout: String(response.data.security.sessionTimeout ?? prev.sessionTimeout),
+            passwordExpiry: String(response.data.security.passwordExpiry ?? prev.passwordExpiry),
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch user settings:', error);
+    }
+  };
+
   useEffect(() => {
     if (isSuperAdmin) {
       setActiveTab('platform');
@@ -117,7 +142,8 @@ export default function AdminSettingsPage() {
     } else {
       fetchInstitution();
     }
-  }, [isSuperAdmin]);
+    fetchUserSettings();
+  }, [isSuperAdmin, user]);
 
   const fetchIntegrations = async () => {
     try {
@@ -125,17 +151,26 @@ export default function AdminSettingsPage() {
       const response = await api.get('/integrations');
       setIntegrations(response.data);
       response.data.forEach((integration: any) => {
-        if (integration.type === 'smtp') setSmtpConfig({ ...smtpConfig, ...integration.config });
-        if (integration.type === 'firebase_fcm') setFirebaseConfig({ ...firebaseConfig, ...integration.config });
-        if (integration.type === 'twilio_sms') setTwilioConfig({ ...twilioConfig, ...integration.config });
-        if (integration.type === 'whatsapp') setWhatsAppConfig({ ...whatsappConfig, ...integration.config });
-        if (integration.type === 'mpesa') setMpesaConfig({ ...mpesaConfig, ...integration.config });
+        if (integration.type === 'smtp') setSmtpConfig(prev => ({ ...prev, ...integration.config }));
+        if (integration.type === 'firebase_fcm') setFirebaseConfig(prev => ({ ...prev, ...integration.config }));
+        if (integration.type === 'twilio_sms') setTwilioConfig(prev => ({ ...prev, ...integration.config }));
+        if (integration.type === 'whatsapp') setWhatsAppConfig(prev => ({ ...prev, ...integration.config }));
+        if (integration.type === 'mpesa') setMpesaConfig(prev => ({ ...prev, ...integration.config }));
         if (integration.lastTestStatus) {
           setTestResults(prev => ({ ...prev, [integration.type]: { success: integration.lastTestStatus === 'success', message: integration.lastTestMessage || '', testedAt: integration.lastTestedAt || '' } }));
         }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch integrations:', error);
+      const status = error.response?.status;
+      const msg = error.response?.data?.message || error.message;
+      if (status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else if (status === 403) {
+        toast.error('Access denied. Super admin privileges required.');
+      } else {
+        toast.error(`Failed to load integrations: ${msg}`);
+      }
     } finally {
       setIntegrationsLoading(false);
     }
@@ -216,9 +251,12 @@ export default function AdminSettingsPage() {
   const handleSaveNotifications = async () => {
     setLoading(true);
     try {
+      await api.patch('/settings/user', {
+        notifications: notificationSettings,
+      });
       toast.success('Notification preferences saved successfully!');
-    } catch (error) {
-      toast.error('Failed to save notification preferences');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to save notification preferences');
     } finally {
       setLoading(false);
     }
@@ -227,9 +265,16 @@ export default function AdminSettingsPage() {
   const handleSaveSecurity = async () => {
     setLoading(true);
     try {
+      await api.patch('/settings/user', {
+        security: {
+          twoFactorEnabled: securitySettings.twoFactorEnabled,
+          sessionTimeout: parseInt(securitySettings.sessionTimeout),
+          passwordExpiry: parseInt(securitySettings.passwordExpiry),
+        },
+      });
       toast.success('Security settings updated successfully!');
-    } catch (error) {
-      toast.error('Failed to update security settings');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update security settings');
     } finally {
       setLoading(false);
     }

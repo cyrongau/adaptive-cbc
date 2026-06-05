@@ -80,6 +80,57 @@ export class EmailService {
     }
   }
 
+  generateParentInvitationEmail(data: {
+    parentName?: string;
+    studentName: string;
+    relationshipType: string;
+    invitationUrl: string;
+  }): string {
+    const greetingName = data.parentName?.trim() || 'Parent/Guardian';
+    const relationship = data.relationshipType.replace('_', ' ');
+
+    return `
+      <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #f0f2f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #006a34 0%, #1c8445 50%, #0b5327 100%); padding: 40px; text-align: center;">
+                    <img src="https://adaptivecbc.co.ke/logo.png" alt="Adaptive CBC" style="height: 56px; margin-bottom: 16px;" onerror="this.style.display='none'" />
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0;">Parent Portal Invitation</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; font-weight: 500;">Connect to your child's learning progress</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Hello ${greetingName},</p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">
+                      ${data.studentName} has invited you to connect as their ${relationship} on Adaptive CBC Learning Platform. Once connected, you can view learning progress, activity, and parent reports.
+                    </p>
+                    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #22c55e; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                      <p style="color: #166534; font-size: 13px; font-weight: 700; margin: 0 0 16px;">Accept the invitation to create or connect your parent account.</p>
+                      <a href="${data.invitationUrl}" style="display: inline-block; background: #006a34; color: #ffffff; text-decoration: none; padding: 14px 24px; border-radius: 10px; font-size: 14px; font-weight: 800;">Accept Invitation</a>
+                    </div>
+                    <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0;">If the button does not work, copy and paste this link into your browser:</p>
+                    <p style="color: #006a34; font-size: 12px; line-height: 1.6; word-break: break-all; margin: 8px 0 24px;">${data.invitationUrl}</p>
+                    <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0;">If you were not expecting this invitation, you can safely ignore this email.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>
+                    <p style="color: #cbd5e1; font-size: 11px; margin: 0;">Empowering Kenyan Education &bull; This is an automated email. Please do not reply.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
+
   generatePasswordResetEmail(name: string, resetCode: string, expiryMinutes: number = 60): string {
     return `
       <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -117,6 +168,84 @@ export class EmailService {
                   </td>
                 </tr>
                 <!-- Footer -->
+                <tr>
+                  <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>
+                    <p style="color: #cbd5e1; font-size: 11px; margin: 0;">Empowering Kenyan Education &bull; This is an automated email. Please do not reply.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
+
+  generatePasswordChangedEmail(name: string): string {
+    return `
+      <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #f0f2f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #006a34 0%, #1c8445 50%, #0b5327 100%); padding: 40px; text-align: center;">
+                    <img src="https://adaptivecbc.co.ke/logo.png" alt="Adaptive CBC" style="height: 56px; margin-bottom: 16px;" onerror="this.style.display='none'" />
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0;">Password Changed</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; font-weight: 500;">Your account security has been updated</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Hello ${name},</p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">Your Adaptive CBC account password was recently changed. If you made this change, no further action is needed.</p>
+                    <div style="background: #fffbeb; border: 1px solid #fbbf24; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                      <p style="color: #92400e; font-size: 13px; font-weight: 600; margin: 0 0 8px;">⚠️ Didn't request this change?</p>
+                      <p style="color: #78350f; font-size: 13px; line-height: 1.6; margin: 0;">Contact our support team immediately at <a href="mailto:support@adaptivecbc.co.ke" style="color: #006a34; font-weight: 600;">support@adaptivecbc.co.ke</a> and secure your account.</p>
+                    </div>
+                    <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0;">For security reasons, all active sessions have been terminated. Please log in with your new password.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>
+                    <p style="color: #cbd5e1; font-size: 11px; margin: 0;">Empowering Kenyan Education &bull; This is an automated email. Please do not reply.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
+
+  generateEmailChangedEmail(name: string, newEmail: string): string {
+    return `
+      <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #f0f2f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #006a34 0%, #1c8445 50%, #0b5327 100%); padding: 40px; text-align: center;">
+                    <img src="https://adaptivecbc.co.ke/logo.png" alt="Adaptive CBC" style="height: 56px; margin-bottom: 16px;" onerror="this.style.display='none'" />
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0;">Email Address Updated</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; font-weight: 500;">Your account email has been changed</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Hello ${name},</p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">Your Adaptive CBC account email has been updated to <strong>${newEmail}</strong>. If you made this change, no further action is needed.</p>
+                    <div style="background: #fffbeb; border: 1px solid #fbbf24; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                      <p style="color: #92400e; font-size: 13px; font-weight: 600; margin: 0 0 8px;">⚠️ Didn't request this change?</p>
+                      <p style="color: #78350f; font-size: 13px; line-height: 1.6; margin: 0;">Contact our support team immediately at <a href="mailto:support@adaptivecbc.co.ke" style="color: #006a34; font-weight: 600;">support@adaptivecbc.co.ke</a> to secure your account.</p>
+                    </div>
+                    <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0;">For security reasons, all active sessions have been terminated. Please log in with your new credentials.</p>
+                  </td>
+                </tr>
                 <tr>
                   <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
                     <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>

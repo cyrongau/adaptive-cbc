@@ -149,4 +149,23 @@ export class AIAssistantController {
     const tier = this.getUserTier(req.user.role);
     return this.aiAssistantService.generateRandomizedValues(req.user.id, data.question, tier);
   }
+
+  @Post('quality-score')
+  @ApiOperation({ summary: 'AI-assisted quality scoring for moderation' })
+  async scoreQuality(@Request() req, @Body() data: {
+    question: {
+      content: string;
+      type: string;
+      difficulty: string;
+      bloomsTaxonomy?: string;
+      subject?: string;
+      grade?: number;
+      correctAnswer?: string;
+      options?: { id: string; text: string; isCorrect: boolean }[];
+      explanation?: string;
+    };
+  }) {
+    const tier = this.getUserTier(req.user.role);
+    return this.aiAssistantService.scoreQuality(req.user.id, data.question, tier);
+  }
 }
