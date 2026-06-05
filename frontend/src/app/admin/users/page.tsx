@@ -861,6 +861,7 @@ export default function AdminUsersPage() {
                         firstName: formData.firstName,
                         lastName: formData.lastName,
                         email: formData.email,
+                        role: formData.role,
                         grade: formData.role === 'student' ? formData.grade : undefined,
                       });
                       toast.success('User updated successfully!');

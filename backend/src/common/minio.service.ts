@@ -80,7 +80,23 @@ export class MinioService implements OnModuleInit {
    */
   getPublicUrl(objectName: string): string {
     const protocol = this.configService.get<string>('MINIO_SECURE', 'false') === 'true' ? 'https' : 'http';
-    return `${protocol}://${this.publicEndpoint}/${this.bucket}/${objectName}`;
+    let url = `${protocol}://${this.publicEndpoint}/${this.bucket}/${objectName}`;
+    
+    // Rewrite internal docker hostname to the externally-reachable public endpoint
+    const internalHost = `${this.endpoint}:${this.port}`;
+    if (this.publicEndpoint && url.includes(internalHost)) {
+      url = url.replace(internalHost, this.publicEndpoint);
+    }
+    
+    // Also explicitly rewrite "minio:9000" if it sneaks in
+    if (url.includes('minio:9000')) {
+      const fallbackPublic = this.publicEndpoint && this.publicEndpoint !== 'minio:9000'
+        ? this.publicEndpoint
+        : 'localhost:9003';
+      url = url.replace('minio:9000', fallbackPublic);
+    }
+    
+    return url;
   }
 
   /**

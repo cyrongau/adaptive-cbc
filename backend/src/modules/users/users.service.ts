@@ -137,6 +137,13 @@ export class UsersService {
     requesterId?: string,
   ): Promise<User> {
     const user = await this.findOne(id, requesterRole, requesterInstitutionId, requesterId);
+    
+    if (updateData.role && updateData.role !== user.role) {
+      if (requesterRole !== UserRole.SUPER_ADMIN) {
+        throw new ForbiddenException('Access denied: Only Super Admins can modify user roles');
+      }
+    }
+
     const changingCredentials = 'email' in updateData && updateData.email !== user.email;
     const oldEmail = user.email;
     Object.assign(user, updateData);

@@ -134,6 +134,11 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEnum(OnboardingStatus)
   onboardingStatus?: OnboardingStatus;
+
+  @ApiPropertyOptional({ enum: UserRole })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
 }
 
 export class OnboardingQuestionAnswerDto {
