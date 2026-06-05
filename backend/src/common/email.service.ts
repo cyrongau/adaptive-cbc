@@ -131,6 +131,57 @@ export class EmailService {
     `;
   }
 
+  generateOtpEmail(name: string, otpCode: string, expiryMinutes: number = 5): string {
+    return `
+      <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #f0f2f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                <!-- Header with Brand -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #006a34 0%, #1c8445 50%, #0b5327 100%); padding: 40px; text-align: center;">
+                    <img src="https://adaptivecbc.co.ke/logo.png" alt="Adaptive CBC" style="height: 56px; margin-bottom: 16px;" onerror="this.style.display='none'" />
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">Verification Code</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; font-weight: 500;">Secure your Adaptive CBC account</p>
+                  </td>
+                </tr>
+                <!-- Body -->
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Hello ${name},</p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 32px;">Please use the verification code below to log in or register. This code expires in <strong>${expiryMinutes} minutes</strong>.</p>
+
+                    <!-- OTP Code Box -->
+                    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #22c55e; border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 32px;">
+                      <p style="color: #166534; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 16px;">Your Verification Code</p>
+                      <p style="color: #006a34; font-size: 42px; font-weight: 900; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">${otpCode}</p>
+                    </div>
+
+                    <!-- Security Notice -->
+                    <div style="background: #fffbeb; border: 1px solid #fbbf24; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                      <p style="color: #92400e; font-size: 13px; font-weight: 600; margin: 0 0 8px;">⚠️ Security Notice</p>
+                      <p style="color: #78350f; font-size: 13px; line-height: 1.6; margin: 0;">Do not share this code with anyone. Adaptive CBC support will never ask for your code.</p>
+                    </div>
+
+                    <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0;">If you did not request this, please contact support.</p>
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>
+                    <p style="color: #cbd5e1; font-size: 11px; margin: 0;">Empowering Kenyan Education &bull; This is an automated email. Please do not reply.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
+
   generatePasswordResetEmail(name: string, resetCode: string, expiryMinutes: number = 60): string {
     return `
       <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">

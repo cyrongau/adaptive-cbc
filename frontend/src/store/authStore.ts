@@ -32,11 +32,6 @@ interface AuthState {
   tempPhone: string | null;
   resetEmail: string | null;
   devResetToken: string | null;
-  tempAuthData: {
-    accessToken: string;
-    refreshToken: string;
-    user: User;
-  } | null;
 
   login: (email: string, password: string) => Promise<boolean>;
   register: (payload: {
@@ -74,17 +69,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   tempPhone: null,
   resetEmail: null,
   devResetToken: null,
-  tempAuthData: null,
 
   clearError: () => set({ error: null }),
 
   initialize: () => {
     if (typeof window !== 'undefined') {
-      const savedToken = localStorage.getItem('token');
       const savedUser = localStorage.getItem('user');
-      if (savedToken && savedUser) {
+      if (savedUser) {
         set({
-          token: savedToken,
           user: JSON.parse(savedUser),
         });
       }
@@ -96,16 +88,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       // Hit backend login API
       const response = await api.post('/auth/login', { email, password });
-      const { accessToken, refreshToken, user } = response.data;
 
-      // Two-Factor Authentication (2FA) trigger
-      // To provide high-fidelity interactive flow, we set isTwoFactorPending to true 
-      // and redirect the user to the verification page before writing token to state/storage.
       set({
         isTwoFactorPending: true,
-        tempEmail: email,
-        tempPhone: user.phone || '0712345678',
-        tempAuthData: { accessToken, refreshToken, user },
+        tempEmail: response.data.tempEmail || email,
+        tempPhone: '0712345678', // mock for demo UI
         loading: false,
       });
       return true;
@@ -146,13 +133,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const response = await api.post('/auth/register', registerData);
 
-      const { accessToken, refreshToken, user } = response.data;
-
       set({
         isTwoFactorPending: true,
-        tempEmail: payload.email,
+        tempEmail: response.data.tempEmail || payload.email,
         tempPhone: payload.phone,
-        tempAuthData: { accessToken, refreshToken, user },
         loading: false,
       });
       return true;
@@ -166,35 +150,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   verifyOtp: async (code) => {
     set({ loading: true, error: null });
     try {
-      // In a real production setup, we verify the OTP code against backend auth OTP service.
-      // For highest fidelity and smooth demo performance:
-      // If code is '123456' or backend is mocked, we accept it.
-      if (code !== '123456' && code !== '000000' && code.length === 6) {
-        // Let's also support custom entry to mock a failed verification
-        if (code === '654321') {
-          throw new Error('Verification code has expired or is invalid');
-        }
-      }
-
-      const tempAuth = get().tempAuthData;
-      if (!tempAuth) {
+      const tempEmail = get().tempEmail;
+      if (!tempEmail) {
         throw new Error('Session expired. Please try logging in again.');
       }
 
-      // Persist token & user profile
+      // Hit real backend verify-otp API
+      const response = await api.post('/auth/verify-otp', { email: tempEmail, code });
+      const user = response.data.user;
+
+      // Persist user profile
       if (typeof window !== 'undefined') {
-        localStorage.setItem('token', tempAuth.accessToken);
-        localStorage.setItem('refreshToken', tempAuth.refreshToken);
-        localStorage.setItem('user', JSON.stringify(tempAuth.user));
+        localStorage.setItem('user', JSON.stringify(user));
       }
 
       set({
-        token: tempAuth.accessToken,
-        user: tempAuth.user,
+        user: user,
         isTwoFactorPending: false,
         tempEmail: null,
         tempPhone: null,
-        tempAuthData: null,
         loading: false,
       });
       return true;
@@ -231,10 +205,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      console.error('Logout error', err);
+    }
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
     }
     set({
@@ -243,7 +220,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isTwoFactorPending: false,
       tempEmail: null,
       tempPhone: null,
-      tempAuthData: null,
       resetEmail: null,
       devResetToken: null,
     });

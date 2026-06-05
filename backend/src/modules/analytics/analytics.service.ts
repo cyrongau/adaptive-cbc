@@ -7,6 +7,8 @@ import { Question, QuestionStatus, DifficultyLevel, BloomsTaxonomy, QuestionSour
 import { UsageLog } from '../governance/entities/usage-log.entity';
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { Lesson, LessonStatus } from '../lessons/entities/lesson.entity';
+import { Course } from '../courses/entities/course.entity';
+import { Enrollment } from '../enrollment/entities/enrollment.entity';
 
 @Injectable()
 export class AnalyticsService {
@@ -29,6 +31,10 @@ export class AnalyticsService {
     private assignmentRepository: Repository<Assignment>,
     @InjectRepository(Lesson)
     private lessonRepository: Repository<Lesson>,
+    @InjectRepository(Course)
+    private courseRepository: Repository<Course>,
+    @InjectRepository(Enrollment)
+    private enrollmentRepository: Repository<Enrollment>,
   ) {}
 
   async getUserPerformance(userId: string, subjectId?: string): Promise<PerformanceMetric> {
@@ -264,7 +270,7 @@ export class AnalyticsService {
       ? Math.round(recentSessions.reduce((sum, session) => sum + Number(session.score || 0), 0) / recentSessions.length)
       : 0;
 
-    return {
+    const baseResponse = {
       stats,
       weakAreas: weakAreas.slice(0, 5),
       recentInsights: insights.slice(0, 3),
@@ -309,6 +315,39 @@ export class AnalyticsService {
         })),
       ].slice(0, 8),
     };
+
+    if (user?.role === UserRole.TEACHER || user?.role === UserRole.TUTOR) {
+      const teacherCourseCount = await this.courseRepository.count({ where: { teacherId: userId } });
+      const teacherCourses = await this.courseRepository.find({ where: { teacherId: userId } });
+      const courseIds = teacherCourses.map(c => c.id);
+      
+      let teacherStudentCount = 0;
+      if (courseIds.length > 0) {
+        teacherStudentCount = await this.enrollmentRepository.createQueryBuilder('enrollment')
+          .select('COUNT(DISTINCT enrollment.studentId)', 'count')
+          .where('enrollment.courseId IN (:...courseIds)', { courseIds })
+          .getRawOne()
+          .then(res => parseInt(res.count, 10));
+      }
+
+      const pendingReviewsCount = await this.questionRepository.count({
+        where: { createdBy: userId, status: QuestionStatus.PENDING_REVIEW }
+      });
+
+      const scheduledLessonsCount = await this.lessonRepository.count({
+        where: { teacherId: userId, status: LessonStatus.SCHEDULED }
+      });
+
+      return {
+        ...baseResponse,
+        teacherCourseCount,
+        teacherStudentCount,
+        pendingReviewsCount,
+        scheduledLessonsCount,
+      };
+    }
+
+    return baseResponse;
   }
 
   private getTaskPriority(dueDate: Date): 'high' | 'medium' | 'low' {

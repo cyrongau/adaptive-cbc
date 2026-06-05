@@ -141,10 +141,10 @@ export default function DashboardOverviewPage() {
   /* ─── TEACHER / TUTOR DASHBOARD ─── */
   if (isTeacher || isTutor) {
     const teacherStats = [
-      { label: 'My Courses', value: myCourses.length || '—', icon: BookOpen, color: 'text-blue-600' },
-      { label: 'Total Students', value: schoolInfo?.institution?.totalStudents || '—', icon: Users, color: 'text-green-600' },
-      { label: 'Active Classes', value: '—', icon: Target, color: 'text-purple-600' },
-      { label: 'Pending Reviews', value: '—', icon: FileText, color: 'text-amber-600' },
+      { label: 'My Courses', value: dashboardData?.teacherCourseCount ?? myCourses.length ?? '—', icon: BookOpen, color: 'text-blue-600' },
+      { label: 'Total Students', value: dashboardData?.teacherStudentCount ?? schoolInfo?.institution?.totalStudents ?? '—', icon: Users, color: 'text-green-600' },
+      { label: 'Scheduled Lessons', value: dashboardData?.scheduledLessonsCount ?? '—', icon: Target, color: 'text-purple-600' },
+      { label: 'Pending Reviews', value: dashboardData?.pendingReviewsCount ?? '—', icon: FileText, color: 'text-amber-600' },
     ];
 
     return (

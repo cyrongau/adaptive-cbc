@@ -29,13 +29,8 @@ function VerifyOtpForm() {
     }
 
     // Redirect if no active temporary authentication session exists
-    const tempAuth = useAuthStore.getState().tempAuthData;
-    if (tempAuth) {
-      // Clear any stale tokens so verifyOtp can write fresh ones
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-    } else {
+    const tempEmail = useAuthStore.getState().tempEmail;
+    if (!tempEmail) {
       toast.error('No verification session found. Please log in first.');
       router.push('/login');
     }

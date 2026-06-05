@@ -4,9 +4,12 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { User } from '../users/entities/user.entity';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 import { EmailService } from '../../common/email.service';
 import { RelationshipsService } from '../relationships/relationships.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Otp } from './entities/otp.entity';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +21,8 @@ export class AuthService {
     private configService: ConfigService,
     private emailService: EmailService,
     private relationshipsService: RelationshipsService,
+    @InjectRepository(Otp)
+    private otpRepository: Repository<Otp>,
   ) {}
 
   async validateUser(email: string, password: string): Promise<User | null> {
@@ -42,31 +47,8 @@ export class AuthService {
       throw new UnauthorizedException(`Account is suspended. Reason: ${user.suspensionReason || 'Contact support'}`);
     }
 
-    const tokens = await this.generateTokens(user);
-    await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
-
-    return {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        secondaryRoles: user.secondaryRoles,
-        onboardingStatus: user.onboardingStatus,
-        kycStatus: user.kycStatus,
-        isActive: user.isActive,
-        isSuspended: user.isSuspended,
-        institutionId: user.institutionId,
-        avatar: user.avatar,
-        grade: user.grade,
-        phone: user.phone,
-        term: user.term,
-        stream: user.stream,
-      },
-    };
+    await this.sendOtp(user.email);
+    return { isTwoFactorPending: true, tempEmail: user.email };
   }
 
   async register(registerDto: RegisterDto) {
@@ -76,31 +58,75 @@ export class AuthService {
       await this.relationshipsService.acceptInvitation(registerDto.invitationToken, user.id);
     }
 
-    const tokens = await this.generateTokens(user);
-    await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
+    await this.sendOtp(user.email);
+    return { isTwoFactorPending: true, tempEmail: user.email };
+  }
 
-    return {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        secondaryRoles: user.secondaryRoles,
-        onboardingStatus: user.onboardingStatus,
-        kycStatus: user.kycStatus,
-        isActive: user.isActive,
-        isSuspended: user.isSuspended,
-        institutionId: user.institutionId,
-        avatar: user.avatar,
-        grade: user.grade,
-        phone: user.phone,
-        term: user.term,
-        stream: user.stream,
-      },
-    };
+  async sendOtp(email: string) {
+    const code = process.env.NODE_ENV === 'development' ? '123456' : randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    const otp = this.otpRepository.create({
+      email,
+      code,
+      expiresAt,
+    });
+    await this.otpRepository.save(otp);
+
+    const user = await this.usersService.findByEmail(email);
+    const firstName = user ? user.firstName : 'User';
+
+    const emailHtml = this.emailService.generateOtpEmail(firstName, code, 5);
+
+    const emailResult = await this.emailService.send({
+      to: email,
+      subject: 'Your Verification Code - Adaptive CBC',
+      html: emailHtml,
+    });
+
+    if (!emailResult.success) {
+      this.logger.warn(`Failed to send OTP to ${email}: ${emailResult.message}`);
+    }
+
+    return { message: 'OTP sent successfully' };
+  }
+
+  async verifyOtp(email: string, code: string) {
+    let isValidOtp = false;
+
+    if (process.env.NODE_ENV === 'development' && (code === '123456' || code === '000000')) {
+      isValidOtp = true;
+    } else {
+      const otp = await this.otpRepository.findOne({
+        where: { email, code, isUsed: false },
+        order: { createdAt: 'DESC' },
+      });
+
+      if (!otp) {
+        throw new BadRequestException('Invalid OTP');
+      }
+
+      if (otp.expiresAt < new Date()) {
+        throw new BadRequestException('OTP has expired');
+      }
+
+      otp.isUsed = true;
+      await this.otpRepository.save(otp);
+      isValidOtp = true;
+    }
+
+    if (isValidOtp) {
+      const user = await this.usersService.findByEmail(email);
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
+      const tokens = await this.generateTokens(user);
+      await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
+      return { user, tokens };
+    }
+    
+    throw new BadRequestException('Invalid OTP');
   }
 
   async refreshTokens(refreshTokenDto: RefreshTokenDto) {
@@ -183,7 +209,7 @@ export class AuthService {
     return { message: 'Password reset successfully' };
   }
 
-  private async generateTokens(user: User) {
+  async generateTokens(user: User) {
     const payload = {
       sub: user.id,
       email: user.email,

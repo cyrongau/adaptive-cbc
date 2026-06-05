@@ -6,37 +6,22 @@ const baseURL = process.env.NEXT_PUBLIC_API_URL
 
 const api = axios.create({
   baseURL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor to inject JWT token automatically
-if (typeof window !== 'undefined') {
-  api.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem('token');
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    },
-    (error) => {
-      return Promise.reject(error);
-    }
-  );
-}
-
 // Response interceptor to handle 401 with token refresh
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: any) => void }> = [];
+let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (error: any) => void }> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: any) => {
   failedQueue.forEach((prom) => {
-    if (token) {
-      prom.resolve(token);
-    } else {
+    if (error) {
       prom.reject(error);
+    } else {
+      prom.resolve();
     }
   });
   failedQueue = [];
@@ -52,11 +37,7 @@ if (typeof window !== 'undefined') {
         if (isRefreshing) {
           return new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
-          }).then((token) => {
-            if (!originalRequest.headers) {
-              originalRequest.headers = {};
-            }
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+          }).then(() => {
             return api(originalRequest);
           });
         }
@@ -64,39 +45,15 @@ if (typeof window !== 'undefined') {
         originalRequest._retry = true;
         isRefreshing = true;
 
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          isRefreshing = false;
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
-          return Promise.reject(error);
-        }
-
         try {
-          const response = await axios.post(`${baseURL}/auth/refresh`, {
-            refreshToken,
-          });
-
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
-          localStorage.setItem('token', accessToken);
-          if (newRefreshToken) {
-            localStorage.setItem('refreshToken', newRefreshToken);
-          }
-
-          processQueue(null, accessToken);
-          if (!originalRequest.headers) {
-            originalRequest.headers = {};
-          }
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          // The refresh endpoint will use the refreshToken cookie
+          await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true });
+          
+          processQueue(null);
           return api(originalRequest);
         } catch (refreshError) {
-          processQueue(refreshError, null);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
+          processQueue(refreshError);
+          // If refresh fails, clear auth state and redirect
           localStorage.removeItem('user');
           if (window.location.pathname !== '/login') {
             window.location.href = '/login';
