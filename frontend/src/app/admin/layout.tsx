@@ -36,6 +36,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import Image from 'next/image';
+import NotificationBell from '@/components/NotificationBell';
 
 const SUPER_ADMIN_SIDEBAR = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
@@ -424,10 +425,7 @@ export default function AdminLayout({
               </svg>
               Home
             </Link>
-            <button className="relative p-2 text-[#becabd] hover:bg-[#222a3d] rounded-full transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${isSuperAdmin ? 'bg-amber-400' : 'bg-[#7eda95]'}`}></span>
-            </button>
+            <NotificationBell />
             <div className="w-px h-6 bg-[#2a3a5c]"></div>
             {/* Quick role badge */}
             <div className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${isSuperAdmin ? 'bg-amber-900/30 text-amber-300 border border-amber-700' : 'bg-[#47a263]/20 text-[#7eda95] border border-[#47a263]'}`}>

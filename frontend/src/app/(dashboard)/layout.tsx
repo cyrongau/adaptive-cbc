@@ -16,7 +16,6 @@ import {
   BarChart2,
   Settings,
   LogOut,
-  Bell,
   Menu,
   X,
   User as UserIcon,

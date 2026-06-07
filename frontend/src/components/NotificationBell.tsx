@@ -19,13 +19,19 @@ interface NotificationItem {
   createdAt: string;
 }
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+  dark?: boolean;
+}
+
+export default function NotificationBell({ dark }: NotificationBellProps) {
   const { user } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isDark = dark ?? (user?.role === 'super_admin' || user?.role === 'institution_admin');
 
   useEffect(() => {
     if (!user) return;
@@ -48,7 +54,17 @@ export default function NotificationBell() {
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/notifications?limit=10');
-      setNotifications(res.data);
+      // The API returns { notifications, unreadCount } object structure
+      if (res.data) {
+        if (Array.isArray(res.data)) {
+          setNotifications(res.data);
+        } else if (Array.isArray(res.data.notifications)) {
+          setNotifications(res.data.notifications);
+          if (typeof res.data.unreadCount === 'number') {
+            setUnreadCount(res.data.unreadCount);
+          }
+        }
+      }
     } catch { /* ignore */ }
   };
 
@@ -118,7 +134,11 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => { setIsOpen(!isOpen); if (!isOpen) fetchNotifications(); }}
-        className="relative p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors"
+        className={`relative p-2 rounded-full transition-colors ${
+          isDark
+            ? 'text-[#becabd] hover:text-[#dae2fd] hover:bg-[#222a3d]'
+            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+        }`}
         aria-label="Notifications"
       >
         <Bell className="w-5 h-5" />
@@ -136,18 +156,28 @@ export default function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden"
+            className={`absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl shadow-xl border z-50 overflow-hidden ${
+              isDark
+                ? 'bg-[#171f33] border-[#2a3a5c] text-[#dae2fd]'
+                : 'bg-white border-slate-200 text-slate-900'
+            }`}
           >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+            <div className={`flex items-center justify-between px-5 py-3 border-b ${
+              isDark ? 'border-[#2a3a5c]' : 'border-slate-100'
+            }`}>
               <div>
-                <h3 className="font-extrabold text-slate-900 text-sm">Notifications</h3>
-                <p className="text-[10px] text-slate-400 font-medium">{getRoleLabel()} • {unreadCount} unread</p>
+                <h3 className={`font-extrabold text-sm ${isDark ? 'text-[#dae2fd]' : 'text-slate-900'}`}>Notifications</h3>
+                <p className={`text-[10px] font-medium ${isDark ? 'text-[#becabd]' : 'text-slate-400'}`}>
+                  {getRoleLabel()} • {unreadCount} unread
+                </p>
               </div>
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
                   disabled={loading}
-                  className="flex items-center gap-1 text-xs text-[#47a263] hover:text-[#3d8b55] font-semibold transition-colors disabled:opacity-50"
+                  className={`flex items-center gap-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                    isDark ? 'text-[#7eda95] hover:text-[#5cbf78]' : 'text-[#47a263] hover:text-[#3d8b55]'
+                  }`}
                 >
                   {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3.5 h-3.5" />}
                   Mark all read
@@ -158,31 +188,53 @@ export default function NotificationBell() {
             <div className="max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="px-5 py-12 text-center">
-                  <Bell className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-slate-400">No notifications yet</p>
-                  <p className="text-xs text-slate-300 mt-1">We'll let you know when something arrives</p>
+                  <Bell className={`w-8 h-8 mx-auto mb-3 ${isDark ? 'text-slate-600' : 'text-slate-200'}`} />
+                  <p className={`text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>No notifications yet</p>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-300'}`}>We'll let you know when something arrives</p>
                 </div>
               ) : (
                 notifications.map(n => (
                   <div
                     key={n.id}
                     onClick={() => { if (!n.isRead) handleMarkAsRead(n.id); }}
-                    className={`px-5 py-3 border-b border-slate-50 last:border-b-0 transition-colors cursor-pointer ${!n.isRead ? 'bg-[#47a263]/5 hover:bg-[#47a263]/10' : 'hover:bg-slate-50'}`}
+                    className={`px-5 py-3 border-b last:border-b-0 transition-colors cursor-pointer ${
+                      isDark
+                        ? `border-[#2a3a5c] ${!n.isRead ? 'bg-[#7eda95]/5 hover:bg-[#7eda95]/10' : 'hover:bg-[#1a2540]'}`
+                        : `border-slate-50 ${!n.isRead ? 'bg-[#47a263]/5 hover:bg-[#47a263]/10' : 'hover:bg-slate-50'}`
+                    }`}
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-base leading-none mt-0.5">{getTypeIcon(n.type)}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <p className={`text-xs ${!n.isRead ? 'font-extrabold text-slate-900' : 'font-medium text-slate-600'}`}>
+                          <p className={`text-xs ${
+                            !n.isRead
+                              ? `font-extrabold ${isDark ? 'text-[#dae2fd]' : 'text-slate-900'}`
+                              : `font-medium ${isDark ? 'text-[#becabd]' : 'text-slate-600'}`
+                          }`}>
                             {n.title}
                           </p>
-                          {!n.isRead && <span className="w-2 h-2 rounded-full bg-[#47a263] shrink-0 mt-1" />}
+                          {!n.isRead && (
+                            <span className={`w-2 h-2 rounded-full shrink-0 mt-1 ${
+                              isDark ? 'bg-[#7eda95]' : 'bg-[#47a263]'
+                            }`} />
+                          )}
                         </div>
-                        <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
+                        <p className={`text-xs mt-0.5 line-clamp-2 ${isDark ? 'text-[#becabd]/80' : 'text-slate-400'}`}>
+                          {n.message}
+                        </p>
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className="text-[10px] text-slate-300 font-medium">{timeAgo(n.createdAt)}</span>
+                          <span className={`text-[10px] font-medium ${isDark ? 'text-slate-500' : 'text-slate-300'}`}>
+                            {timeAgo(n.createdAt)}
+                          </span>
                           {n.actionUrl && (
-                            <Link href={n.actionUrl} onClick={e => e.stopPropagation()} className="text-[10px] text-[#47a263] hover:underline font-semibold">
+                            <Link
+                              href={n.actionUrl}
+                              onClick={e => e.stopPropagation()}
+                              className={`text-[10px] font-semibold hover:underline ${
+                                isDark ? 'text-[#7eda95]' : 'text-[#47a263]'
+                              }`}
+                            >
                               View →
                             </Link>
                           )}
