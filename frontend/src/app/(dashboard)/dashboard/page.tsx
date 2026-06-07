@@ -11,6 +11,7 @@ import {
   BookOpen, Clock, TrendingUp, Award, Target, Calendar, ChevronRight,
   Sparkles, Building2, Users, FileText, GraduationCap, MapPin,
   PlayCircle, BarChart3, ArrowRight, RotateCcw, PenTool,
+  ShieldCheck, Activity, UserCheck, AlertCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -58,11 +59,15 @@ export default function DashboardOverviewPage() {
   const [loadingMyCourses, setLoadingMyCourses] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
+  const [platformStats, setPlatformStats] = useState<any>(null);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [loadingAdmin, setLoadingAdmin] = useState(false);
 
   const isTeacher = user?.role === 'teacher';
   const isTutor = user?.role === 'tutor';
   const isStudent = user?.role === 'student';
   const isParent = user?.role === 'parent';
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'institution_admin';
 
   useEffect(() => {
     setIsMounted(true);
@@ -72,7 +77,13 @@ export default function DashboardOverviewPage() {
     if (user?.institutionId) {
       fetchSchoolInfo();
     }
-    if (user?.id) fetchDashboardData();
+    if (user?.id) {
+      if (isAdmin) {
+        fetchAdminDashboard();
+      } else {
+        fetchDashboardData();
+      }
+    }
     if (isStudent) fetchEnrolledCourses();
     if (isTeacher || isTutor) fetchMyCourses();
   }, [user?.id, user?.institutionId]);
@@ -86,6 +97,22 @@ export default function DashboardOverviewPage() {
       setDashboardData(null);
     } finally {
       setLoadingDashboard(false);
+    }
+  };
+
+  const fetchAdminDashboard = async () => {
+    setLoadingAdmin(true);
+    try {
+      const [statsRes, activityRes] = await Promise.allSettled([
+        api.get('/analytics/admin/platform-stats'),
+        api.get('/analytics/admin/recent-activity'),
+      ]);
+      if (statsRes.status === 'fulfilled') setPlatformStats(statsRes.value.data);
+      if (activityRes.status === 'fulfilled') setRecentActivity(activityRes.value.data || []);
+    } catch (err) {
+      console.error('Failed to fetch admin dashboard:', err);
+    } finally {
+      setLoadingAdmin(false);
     }
   };
 
@@ -137,6 +164,217 @@ export default function DashboardOverviewPage() {
   }
 
   const roleLabel = isTeacher ? 'Teacher' : isTutor ? 'Tutor' : isParent ? 'Parent' : isCandidate ? `Grade ${user?.grade} Candidate` : `Grade ${user?.grade || 'N/A'}`;
+
+  /* ─── ADMIN DASHBOARD ─── */
+  if (isAdmin) {
+    const adminStats = [
+      { label: 'Total Users', value: platformStats?.totalUsers ?? '—', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+      { label: 'Active Users', value: platformStats?.activeUsers ?? '—', icon: UserCheck, color: 'text-green-600', bg: 'bg-green-50' },
+      { label: 'Students', value: platformStats?.students ?? '—', icon: GraduationCap, color: 'text-purple-600', bg: 'bg-purple-50' },
+      { label: 'Teachers', value: (platformStats?.teachers ?? 0) + (platformStats?.tutors ?? 0) || '—', icon: Award, color: 'text-amber-600', bg: 'bg-amber-50' },
+    ];
+    const byGrade = platformStats?.usersByGrade || [];
+    const growth = platformStats?.monthlyGrowth || [];
+
+    return (
+      <div className="space-y-8">
+        {/* Welcome Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              Admin Dashboard 🛡️
+            </h1>
+            <p className="text-slate-500 mt-1">
+              {user?.role === 'super_admin' ? 'Super Admin' : 'Institution Admin'} · Platform overview
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-medium text-sm">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Admin Control Panel</span>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        {loadingAdmin ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl p-6 border border-slate-200 animate-pulse">
+                <div className="h-10 w-10 bg-slate-100 rounded-lg mb-4" />
+                <div className="h-7 bg-slate-100 rounded w-16 mb-2" />
+                <div className="h-4 bg-slate-100 rounded w-24" />
+              </div>
+            ))}
+          </div>
+        ) : platformStats ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {adminStats.map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08 }}
+                className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
+                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                <p className="text-sm text-slate-500 mt-1">{stat.label}</p>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-700">Could not load platform statistics. The analytics service may be unavailable.</p>
+            <button onClick={fetchAdminDashboard} className="ml-auto text-sm font-semibold text-amber-700 hover:underline flex items-center gap-1">
+              <RotateCcw className="w-3.5 h-3.5" /> Retry
+            </button>
+          </div>
+        )}
+
+        {/* Sessions + Questions row */}
+        {platformStats && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Practice Sessions</p>
+              <p className="text-3xl font-bold text-slate-900">{platformStats.totalSessions?.toLocaleString() ?? '—'}</p>
+            </div>
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Questions Attempted</p>
+              <p className="text-3xl font-bold text-slate-900">{platformStats.totalQuestionsAttempted?.toLocaleString() ?? '—'}</p>
+            </div>
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Platform Avg Score</p>
+              <p className="text-3xl font-bold text-slate-900">{platformStats.averageScore ? `${platformStats.averageScore}%` : '—'}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Main content: Recent activity + Quick links */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Recent Activity */}
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Recent Activity</h2>
+                <p className="text-sm text-slate-500 mt-0.5">Latest registrations and sessions</p>
+              </div>
+              <Activity className="w-5 h-5 text-slate-400" />
+            </div>
+            <div className="divide-y divide-slate-100">
+              {loadingAdmin ? (
+                <div className="p-8 text-center text-sm text-slate-400">Loading activity...</div>
+              ) : recentActivity.length === 0 ? (
+                <div className="p-8 text-center text-sm text-slate-400">No recent activity found.</div>
+              ) : recentActivity.slice(0, 10).map((item: any, i: number) => (
+                <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      item.type === 'user_created' ? 'bg-green-50' : 'bg-blue-50'
+                    }`}>
+                      {item.type === 'user_created'
+                        ? <Users className="w-4 h-4 text-green-600" />
+                        : <BookOpen className="w-4 h-4 text-blue-600" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                      <p className="text-xs text-slate-500 truncate max-w-xs">{item.description}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 shrink-0 ml-4">
+                    {new Date(item.timestamp).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Links + Grade Breakdown */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Quick Links</h2>
+              <div className="space-y-2">
+                {[
+                  { href: '/school', label: 'School Management', icon: Building2 },
+                  { href: '/analytics', label: 'Full Analytics', icon: BarChart3 },
+                  { href: '/students', label: 'Students', icon: Users },
+                  { href: '/teachers', label: 'Teachers', icon: GraduationCap },
+                ].map(link => (
+                  <Link key={link.href} href={link.href}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 bg-slate-50 hover:border-indigo-200 hover:bg-indigo-50 transition-all group">
+                    <link.icon className="w-4 h-4 text-slate-500 group-hover:text-indigo-600" />
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-700">{link.label}</span>
+                    <ChevronRight className="w-4 h-4 ml-auto text-slate-300 group-hover:text-indigo-400" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {byGrade.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <h2 className="text-sm font-bold text-slate-900 mb-4">Students by Grade</h2>
+                <div className="space-y-2">
+                  {byGrade.map((g: any) => (
+                    <div key={g.grade} className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600">Grade {g.grade}</span>
+                      <span className="text-sm font-bold text-slate-900">{g.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Users Table */}
+        {platformStats?.recentUsers?.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="p-6 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-900">Recent Registrations</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Latest users on the platform</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Joined</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {platformStats.recentUsers.slice(0, 8).map((u: any) => (
+                    <tr key={u.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 font-medium text-slate-900">{u.name}</td>
+                      <td className="px-6 py-4 text-slate-500 text-sm">{u.email}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${
+                          u.role === 'super_admin' ? 'bg-red-100 text-red-700' :
+                          u.role === 'teacher' ? 'bg-blue-100 text-blue-700' :
+                          u.role === 'student' ? 'bg-green-100 text-green-700' :
+                          u.role === 'parent' ? 'bg-purple-100 text-purple-700' :
+                          'bg-slate-100 text-slate-700'
+                        }`}>
+                          {u.role?.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 text-sm">
+                        {new Date(u.createdAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   /* ─── TEACHER / TUTOR DASHBOARD ─── */
   if (isTeacher || isTutor) {

@@ -78,6 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (savedUser) {
         set({
           user: JSON.parse(savedUser),
+          token: 'authenticated',
         });
       }
     }
@@ -166,6 +167,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({
         user: user,
+        token: 'authenticated',
         isTwoFactorPending: false,
         tempEmail: null,
         tempPhone: null,
@@ -229,7 +231,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await api.get('/users/profile');
       const updatedUser = response.data;
-      set({ user: updatedUser });
+      set({ user: updatedUser, token: 'authenticated' });
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(updatedUser));
       }

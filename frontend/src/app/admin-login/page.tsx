@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+
 import { motion } from 'framer-motion';
 import { Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
-import api from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 
 interface LoginForm {
@@ -14,6 +15,7 @@ interface LoginForm {
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { login } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<LoginForm>({
@@ -26,27 +28,19 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', {
-        email: formData.email,
-        password: formData.password,
-      });
+      // authStore.login() triggers /auth/login which returns { isTwoFactorPending, tempEmail }
+      // and stores tempEmail in state. verify-otp will then route admins to /admin/dashboard.
+      const success = await login(formData.email, formData.password);
 
-      if (response.data.accessToken) {
-        localStorage.setItem('token', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        
-        const userRole = response.data.user?.role;
-        if (userRole === 'super_admin' || userRole === 'institution_admin') {
-          toast.success('Welcome to Admin Portal!');
-          router.push('/admin/dashboard');
-        } else {
-          toast.error('Access denied. Admin credentials required.');
-        }
+      if (success) {
+        toast.success('OTP verification required. Check your email.');
+        router.push('/verify-otp');
+      } else {
+        toast.error('Invalid admin credentials. Please try again.');
       }
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Invalid credentials');
+      toast.error(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -138,9 +132,10 @@ export default function AdminLoginPage() {
         >
           <p className="text-sm text-slate-400 font-medium mb-2">Demo Credentials:</p>
           <div className="space-y-1 text-xs text-slate-500">
-            <p><span className="text-amber-400">Super Admin:</span> admin@adaptivecbc.co.ke</p>
-            <p><span className="text-amber-400">Institution Admin:</span> institution@adaptivecbc.com</p>
-            <p><span className="text-slate-400">Password:</span> Password123!</p>
+            <div><span className="text-amber-400">Super Admin:</span> admin@adaptivecbc.co.ke</div>
+            <div><span className="text-amber-400">Institution Admin:</span> institution@adaptivecbc.com</div>
+            <div><span className="text-slate-400">Password:</span> Password123!</div>
+            <div className="mt-2 pt-2 border-t border-slate-700/50"><span className="text-amber-400">OTP Code:</span> 123456</div>
           </div>
         </motion.div>
       </div>

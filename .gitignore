@@ -97,3 +97,13 @@ credentials/
 !/package-lock.json
 /backend/credentials/
 /backend/credentials/*.json
+
+# Local uploads and scratch files
+backend/uploads/
+*.sql
+tmp_*.js
+backend/check_db.js
+backend/query-db.js
+backend/test-minio.ts
+tmp_count_divs.js
+

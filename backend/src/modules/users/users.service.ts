@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, forwardRef, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { User, UserRole, OnboardingStatus, KycStatus } from './entities/user.entity';
@@ -82,6 +82,37 @@ export class UsersService {
     }
 
     return this.usersRepository.find({ where, order: { createdAt: 'DESC' } });
+  }
+
+  async search(
+    query: string,
+    requesterRole: string,
+    requesterInstitutionId?: string,
+  ): Promise<User[]> {
+    if (!query || query.trim() === '') {
+      return [];
+    }
+    const searchTerm = `%${query}%`;
+    const baseWhere: any = { deletedAt: null };
+
+    if (requesterRole !== UserRole.SUPER_ADMIN) {
+      if (!requesterInstitutionId) {
+        return [];
+      }
+      baseWhere.institutionId = requesterInstitutionId;
+    }
+
+    const where = [
+      { ...baseWhere, firstName: ILike(searchTerm) },
+      { ...baseWhere, lastName: ILike(searchTerm) },
+      { ...baseWhere, email: ILike(searchTerm) },
+    ];
+
+    return this.usersRepository.find({
+      where,
+      take: 20,
+      order: { firstName: 'ASC', lastName: 'ASC' },
+    });
   }
 
   async findOne(

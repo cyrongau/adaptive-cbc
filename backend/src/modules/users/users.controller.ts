@@ -10,6 +10,7 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -154,6 +155,15 @@ export class UsersController {
   @ApiOperation({ summary: 'Get all users (admin only)' })
   async findAll(@Request() req) {
     return this.usersService.findAll(req.user.role, req.user.institutionId);
+  }
+
+  @Get('search')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TEACHER, UserRole.STUDENT, UserRole.TUTOR, UserRole.PARENT)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Search users' })
+  async search(@Request() req, @Query('q') query: string) {
+    return this.usersService.search(query, req.user.role, req.user.institutionId);
   }
 
   @Get(':id')

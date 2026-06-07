@@ -8,7 +8,6 @@ import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/lib/theme';
 import { getAvatarUrl } from '@/lib/utils';
 import api from '@/lib/api';
-import SessionGuard from '@/components/SessionGuard';
 import {
   LayoutDashboard,
   BookOpen,
@@ -36,6 +35,8 @@ import {
   Users,
   Wallet,
   CheckCircle,
+  MessageSquare,
+  HelpCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from '@/components/NotificationBell';
@@ -51,6 +52,8 @@ const SIDEBAR_ITEMS_STUDENT = [
   { label: 'Materials', icon: FileText, href: '/materials' },
   { label: 'My Progress', icon: BarChart2, href: '/progress' },
   { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
+  { label: 'Inbox', icon: MessageSquare, href: '/chat' },
+  { label: 'Support Desk', icon: HelpCircle, href: '/support' },
 ];
 
 const SIDEBAR_ITEMS_AFFILIATED_STUDENT = [
@@ -59,12 +62,14 @@ const SIDEBAR_ITEMS_AFFILIATED_STUDENT = [
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
   { label: 'My School', icon: Building2, href: '/school' },
-  { label: 'My Teachers', icon: Users, href: '/school' },
+  { label: 'My Teachers', icon: Users, href: '/teachers' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'School Materials', icon: FileText, href: '/materials' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'My Progress', icon: BarChart2, href: '/progress' },
   { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
+  { label: 'Inbox', icon: MessageSquare, href: '/chat' },
+  { label: 'Support Desk', icon: HelpCircle, href: '/support' },
 ];
 
 const SIDEBAR_ITEMS_PARENT = [
@@ -74,6 +79,8 @@ const SIDEBAR_ITEMS_PARENT = [
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Progress Reports', icon: BarChart2, href: '/progress' },
+  { label: 'Inbox', icon: MessageSquare, href: '/chat' },
+  { label: 'Support Desk', icon: HelpCircle, href: '/support' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
 
@@ -90,6 +97,8 @@ const SIDEBAR_ITEMS_TUTOR = [
   { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
   { label: 'Materials', icon: FileText, href: '/materials' },
   { label: 'Schedule', icon: PenTool, href: '/schedule' },
+  { label: 'Inbox', icon: MessageSquare, href: '/chat' },
+  { label: 'Support Desk', icon: HelpCircle, href: '/support' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
 
@@ -108,6 +117,8 @@ const SIDEBAR_ITEMS_TEACHER = [
   { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
   { label: 'Materials', icon: FileText, href: '/materials' },
   { label: 'Analytics', icon: BarChart2, href: '/analytics' },
+  { label: 'Inbox', icon: MessageSquare, href: '/chat' },
+  { label: 'Support Desk', icon: HelpCircle, href: '/support' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
 
@@ -186,13 +197,17 @@ export default function DashboardLayout({
   const theme = getTheme(user?.role || 'student', isCandidate);
 
   useEffect(() => {
-    if (isMounted && isSuperAdmin) {
-      router.push('/admin/dashboard');
+    if (isMounted) {
+      if (pathname === '/chat' || pathname.startsWith('/chat') || pathname.startsWith('/admin')) {
+        return;
+      }
+      if (isSuperAdmin) {
+        router.push('/admin/dashboard');
+      } else if (isInstitutionAdmin && isKycApproved) {
+        router.push('/admin/dashboard');
+      }
     }
-    if (isMounted && isInstitutionAdmin && isKycApproved) {
-      router.push('/admin/dashboard');
-    }
-  }, [isMounted, isSuperAdmin, isInstitutionAdmin, isKycApproved, router]);
+  }, [isMounted, isSuperAdmin, isInstitutionAdmin, isKycApproved, router, pathname]);
 
   const isAffiliatedStudent = user?.role === 'student' && user?.institutionId;
 
@@ -235,7 +250,6 @@ export default function DashboardLayout({
 
   return (
     <>
-      <SessionGuard />
       <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
 
       {/* Mobile Header */}

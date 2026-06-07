@@ -27,6 +27,7 @@ export class AuthController {
       httpOnly: true,
       secure: isProd,
       sameSite: 'strict',
+      path: '/', // Must be '/' so the cookie is sent to ALL routes, not just /api/v1/auth
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
@@ -34,6 +35,7 @@ export class AuthController {
       httpOnly: true,
       secure: isProd,
       sameSite: 'strict',
+      path: '/', // Must be '/' so the cookie is sent to ALL routes, not just /api/v1/auth
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
@@ -112,8 +114,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout current user' })
   async logout(@Request() req, @Res({ passthrough: true }) res: Response) {
     const isProd = process.env.NODE_ENV === 'production';
-    res.clearCookie('accessToken', { httpOnly: true, secure: isProd, sameSite: 'strict' });
-    res.clearCookie('refreshToken', { httpOnly: true, secure: isProd, sameSite: 'strict' });
+    res.clearCookie('accessToken', { httpOnly: true, secure: isProd, sameSite: 'strict', path: '/' });
+    res.clearCookie('refreshToken', { httpOnly: true, secure: isProd, sameSite: 'strict', path: '/' });
     
     return this.authService.logout(req.user.id);
   }

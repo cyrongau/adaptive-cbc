@@ -6,11 +6,12 @@ import { Institution, InstitutionAdmin, InstitutionStudent, InstitutionTeacher }
 import { SchoolJoinRequest } from './entities/school-join-request.entity';
 import { StudentRegister } from './entities/student-register.entity';
 import { PromotionLog, StudentTransfer } from './entities/promotion-transfer.entity';
+import { TeacherQa } from './entities/teacher-qa.entity';
 import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Institution, InstitutionAdmin, InstitutionStudent, InstitutionTeacher, SchoolJoinRequest, StudentRegister, PromotionLog, StudentTransfer]),
+    TypeOrmModule.forFeature([Institution, InstitutionAdmin, InstitutionStudent, InstitutionTeacher, SchoolJoinRequest, StudentRegister, PromotionLog, StudentTransfer, TeacherQa]),
     forwardRef(() => UsersModule),
   ],
   controllers: [InstitutionsController],

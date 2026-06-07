@@ -53,9 +53,11 @@ if (typeof window !== 'undefined') {
           return api(originalRequest);
         } catch (refreshError) {
           processQueue(refreshError);
-          // If refresh fails, clear auth state and redirect
+          // If refresh fails, clear auth state and redirect.
+          // Do NOT redirect if already on auth pages to avoid infinite loops.
           localStorage.removeItem('user');
-          if (window.location.pathname !== '/login') {
+          const authPages = ['/login', '/verify-otp', '/admin-login'];
+          if (!authPages.includes(window.location.pathname)) {
             window.location.href = '/login';
           }
           return Promise.reject(refreshError);

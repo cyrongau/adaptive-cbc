@@ -5,6 +5,7 @@ import { Institution, InstitutionAdmin, InstitutionStudent, InstitutionTeacher, 
 import { SchoolJoinRequest, JoinRequestStatus } from './entities/school-join-request.entity';
 import { StudentRegister } from './entities/student-register.entity';
 import { PromotionLog, StudentTransfer, PromotionType, TransferStatus } from './entities/promotion-transfer.entity';
+import { TeacherQa } from './entities/teacher-qa.entity';
 import { UsersService } from '../users/users.service';
 import { KycStatus, UserRole, TransitionStatus, OnboardingStatus } from '../users/entities/user.entity';
 
@@ -27,6 +28,8 @@ export class InstitutionsService {
     private promotionLogRepository: Repository<PromotionLog>,
     @InjectRepository(StudentTransfer)
     private studentTransferRepository: Repository<StudentTransfer>,
+    @InjectRepository(TeacherQa)
+    private qaRepository: Repository<TeacherQa>,
     @Inject(forwardRef(() => UsersService))
     private usersService: UsersService,
   ) {}
@@ -1200,5 +1203,57 @@ export class InstitutionsService {
     }
 
     return institution;
+  }
+
+  async createQa(studentId: string, teacherId: string, question: string): Promise<TeacherQa> {
+    const student = await this.usersService.findOne(studentId);
+    const teacher = await this.usersService.findOne(teacherId);
+
+    if (!student.institutionId) {
+      throw new BadRequestException('Student is not associated with an institution');
+    }
+    if (!teacher.institutionId || teacher.institutionId !== student.institutionId) {
+      throw new BadRequestException('Teacher is not in the same institution as the student');
+    }
+
+    const qa = this.qaRepository.create({
+      studentId,
+      teacherId,
+      institutionId: student.institutionId,
+      question,
+      status: 'pending',
+    });
+    return this.qaRepository.save(qa);
+  }
+
+  async getQasForTeacher(teacherId: string): Promise<TeacherQa[]> {
+    return this.qaRepository.find({
+      where: { teacherId },
+      relations: ['student', 'teacher'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getQasForStudent(studentId: string): Promise<TeacherQa[]> {
+    return this.qaRepository.find({
+      where: { studentId },
+      relations: ['student', 'teacher'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async answerQa(teacherId: string, qaId: string, answer: string): Promise<TeacherQa> {
+    const qa = await this.qaRepository.findOne({
+      where: { id: qaId },
+    });
+    if (!qa) {
+      throw new NotFoundException('Q&A not found');
+    }
+    if (qa.teacherId !== teacherId) {
+      throw new BadRequestException('You are not authorized to answer this question');
+    }
+    qa.answer = answer;
+    qa.status = 'answered';
+    return this.qaRepository.save(qa);
   }
 }

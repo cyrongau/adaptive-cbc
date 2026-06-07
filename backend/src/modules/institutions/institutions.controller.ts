@@ -575,4 +575,46 @@ export class InstitutionsController {
     const url = `/uploads/kyc-documents/${file.filename}`;
     return { url, message: 'Document uploaded successfully' };
   }
+
+  @Post('qa')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Submit a question to a teacher' })
+  async createQa(
+    @Request() req,
+    @Body() body: { teacherId: string; question: string },
+  ) {
+    return this.institutionsService.createQa(req.user.id, body.teacherId, body.question);
+  }
+
+  @Get('qa/student')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all questions submitted by the logged-in student' })
+  async getStudentQas(@Request() req) {
+    return this.institutionsService.getQasForStudent(req.user.id);
+  }
+
+  @Get('qa/teacher/:teacherId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all Q&As for a specific teacher' })
+  async getTeacherQas(@Param('teacherId') teacherId: string) {
+    return this.institutionsService.getQasForTeacher(teacherId);
+  }
+
+  @Post('qa/:id/answer')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Answer a question (teachers only)' })
+  async answerQa(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { answer: string },
+  ) {
+    return this.institutionsService.answerQa(req.user.id, id, body.answer);
+  }
 }

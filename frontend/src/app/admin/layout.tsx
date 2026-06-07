@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/lib/theme';
 import { getAvatarUrl } from '@/lib/utils';
-import SessionGuard from '@/components/SessionGuard';
 import {
   LayoutDashboard,
   Users,
@@ -33,6 +32,8 @@ import {
   Wallet,
   ShoppingCart,
   CheckCircle,
+  MessageSquare,
+  HelpCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -47,6 +48,8 @@ const SUPER_ADMIN_SIDEBAR = [
   { label: 'Content Moderation', icon: CheckCircle, href: '/admin/content' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
+  { label: 'Inbox', icon: MessageSquare, href: '/admin/chat' },
+  { label: 'Support Queue', icon: HelpCircle, href: '/admin/support' },
   { label: 'Settings', icon: Settings, href: '/admin/settings' },
 ];
 
@@ -58,6 +61,8 @@ const INSTITUTION_ADMIN_SIDEBAR = [
   { label: 'Teachers', icon: Users, href: '/admin/teachers' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
+  { label: 'Inbox', icon: MessageSquare, href: '/admin/chat' },
+  { label: 'Support Queue', icon: HelpCircle, href: '/admin/support' },
   { label: 'Settings', icon: Settings, href: '/admin/settings' },
 ];
 
@@ -152,7 +157,6 @@ export default function AdminLayout({
 
   return (
     <>
-      <SessionGuard />
       <div className="h-screen bg-[#0b1326] flex overflow-hidden font-sans" style={{ fontFamily: "'Nunito Sans', sans-serif" }}>
 
       {/* Mobile Header */}

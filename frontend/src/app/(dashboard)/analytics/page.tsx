@@ -3,29 +3,55 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell,
 } from 'recharts';
 import {
-  TrendingUp,
-  Users,
-  BookOpen,
-  Award,
+  TrendingUp, Users, BookOpen, Award, BarChart3, Brain, FileText, RotateCcw, AlertCircle,
 } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import api from '@/lib/api';
 
-export default function TeacherAnalyticsPage() {
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+
+export default function AnalyticsPage() {
+  const { user } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
+  const [platformStats, setPlatformStats] = useState<any>(null);
+  const [contentMetrics, setContentMetrics] = useState<any>(null);
+  const [aiUsage, setAiUsage] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [period, setPeriod] = useState<'week' | 'month' | 'year'>('week');
+
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'institution_admin';
+
+  useEffect(() => { setIsMounted(true); }, []);
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
+    if (isMounted) fetchData();
+  }, [isMounted, period]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      if (isAdmin) {
+        const [statsRes, contentRes, aiRes] = await Promise.allSettled([
+          api.get('/analytics/admin/platform-stats'),
+          api.get(`/analytics/admin/content-metrics?period=${period}`),
+          api.get(`/analytics/admin/ai-usage?period=${period}`),
+        ]);
+        if (statsRes.status === 'fulfilled') setPlatformStats(statsRes.value.data);
+        if (contentRes.status === 'fulfilled') setContentMetrics(contentRes.value.data);
+        if (aiRes.status === 'fulfilled') setAiUsage(aiRes.value.data);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isMounted) {
     return (
@@ -35,130 +61,244 @@ export default function TeacherAnalyticsPage() {
     );
   }
 
-  const performanceData = [
-    { subject: 'Math', avgScore: 82, completion: 95 },
-    { subject: 'English', avgScore: 78, completion: 88 },
-    { subject: 'Science', avgScore: 85, completion: 92 },
-    { subject: 'Kiswahili', avgScore: 76, completion: 85 },
-    { subject: 'Social Studies', avgScore: 80, completion: 90 },
-  ];
+  if (!isAdmin) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
+          <p className="text-slate-500 mt-1">Your learning performance</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+          <BarChart3 className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-500">Analytics available for admins</p>
+          <p className="text-xs text-slate-400 mt-1">Check your dashboard for personal stats</p>
+        </div>
+      </div>
+    );
+  }
 
-  const trendData = [
-    { week: 'Week 1', engagement: 65, performance: 72 },
-    { week: 'Week 2', engagement: 70, performance: 75 },
-    { week: 'Week 3', engagement: 68, performance: 78 },
-    { week: 'Week 4', engagement: 75, performance: 80 },
-    { week: 'Week 5', engagement: 80, performance: 82 },
-    { week: 'Week 6', engagement: 85, performance: 85 },
-  ];
+  const userBreakdown = platformStats ? [
+    { name: 'Students', value: platformStats.students || 0 },
+    { name: 'Teachers', value: platformStats.teachers || 0 },
+    { name: 'Tutors', value: platformStats.tutors || 0 },
+    { name: 'Parents', value: platformStats.parents || 0 },
+  ].filter(d => d.value > 0) : [];
 
-  const stats = [
-    { label: 'Total Students', value: '156', icon: Users, change: '+12' },
-    { label: 'Active Classes', value: '8', icon: BookOpen, change: '0' },
-    { label: 'Avg Performance', value: '82%', icon: TrendingUp, change: '+5%' },
-    { label: 'Assignments Given', value: '48', icon: Award, change: '+8' },
+  const questionStatusData = contentMetrics?.byStatus ? [
+    { name: 'Published', value: contentMetrics.byStatus.published || 0 },
+    { name: 'Approved', value: contentMetrics.byStatus.approved || 0 },
+    { name: 'Pending', value: contentMetrics.byStatus.pendingReview || 0 },
+    { name: 'Draft', value: contentMetrics.byStatus.drafts || 0 },
+  ].filter(d => d.value > 0) : [];
+
+  const summaryStats = [
+    { label: 'Total Users', value: platformStats?.totalUsers ?? '—', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Total Questions', value: contentMetrics?.totalQuestions ?? '—', icon: BookOpen, color: 'text-green-600', bg: 'bg-green-50' },
+    { label: 'AI Calls', value: aiUsage?.totalAiCalls ?? '—', icon: Brain, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'Sessions', value: platformStats?.totalSessions ?? '—', icon: Award, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
-        <p className="text-slate-500 mt-1">Track student performance and engagement</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
+          <p className="text-slate-500 mt-1">Platform-wide statistics and insights</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {(['week', 'month', 'year'] as const).map(p => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                period === p
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'
+              }`}
+            >
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+          <button onClick={fetchData} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500">
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Stats Grid */}
+      {error && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-700">Some data could not be loaded. Check that the backend is running.</p>
+          <button onClick={fetchData} className="ml-auto text-sm font-semibold text-amber-700 hover:underline">Retry</button>
+        </div>
+      )}
+
+      {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
+        {summaryStats.map((stat, index) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+            transition={{ delay: index * 0.08 }}
             className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                <stat.icon className="w-5 h-5 text-indigo-600" />
+            {loading ? (
+              <div className="animate-pulse space-y-3">
+                <div className="h-10 w-10 bg-slate-100 rounded-lg" />
+                <div className="h-7 bg-slate-100 rounded w-16" />
+                <div className="h-4 bg-slate-100 rounded w-24" />
               </div>
-              <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                {stat.change}
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-            <p className="text-sm text-slate-500 mt-1">{stat.label}</p>
+            ) : (
+              <>
+                <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center mb-4`}>
+                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}</p>
+                <p className="text-sm text-slate-500 mt-1">{stat.label}</p>
+              </>
+            )}
           </motion.div>
         ))}
       </div>
 
-      {/* Charts */}
+      {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Performance by Subject */}
+        {/* User Breakdown */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-6">Performance by Subject</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={performanceData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="subject" stroke="#64748b" />
-              <YAxis stroke="#64748b" />
-              <Tooltip />
-              <Bar dataKey="avgScore" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <h2 className="text-lg font-bold text-slate-900 mb-6">User Breakdown</h2>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+            </div>
+          ) : userBreakdown.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie data={userBreakdown} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                  {userBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-sm text-slate-400">No user data available</div>
+          )}
         </div>
 
-        {/* Engagement & Performance Trend */}
+        {/* Question Status */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-6">6-Week Trend</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={trendData}>
+          <h2 className="text-lg font-bold text-slate-900 mb-6">Question Status</h2>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+            </div>
+          ) : questionStatusData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={questionStatusData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+                <YAxis stroke="#64748b" fontSize={12} />
+                <Tooltip />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {questionStatusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-sm text-slate-400">No question data available</div>
+          )}
+        </div>
+      </div>
+
+      {/* Content creation trend */}
+      {!loading && contentMetrics?.trend?.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-slate-900 mb-6">Content Creation Trend</h2>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={contentMetrics.trend}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="week" stroke="#64748b" />
-              <YAxis stroke="#64748b" />
+              <XAxis dataKey="date" stroke="#64748b" fontSize={11} />
+              <YAxis stroke="#64748b" fontSize={11} />
               <Tooltip />
-              <Line type="monotone" dataKey="engagement" stroke="#10b981" strokeWidth={2} />
-              <Line type="monotone" dataKey="performance" stroke="#8b5cf6" strokeWidth={2} />
+              <Line type="monotone" dataKey="count" name="Questions Created" stroke="#6366f1" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      )}
 
-      {/* Subject Performance Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="p-6 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900">Detailed Subject Analytics</h2>
+      {/* AI Usage trend */}
+      {!loading && aiUsage?.dailyTrend?.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-slate-900 mb-1">AI Usage Trend</h2>
+          <p className="text-sm text-slate-500 mb-6">Daily AI API calls over the selected period</p>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={aiUsage.dailyTrend}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="date" stroke="#64748b" fontSize={11} />
+              <YAxis stroke="#64748b" fontSize={11} />
+              <Tooltip />
+              <Line type="monotone" dataKey="count" name="AI Calls" stroke="#10b981" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Subject</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Avg Score</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Completion Rate</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {performanceData.map((subject, index) => (
-                <tr key={index} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-900">{subject.subject}</td>
-                  <td className="px-6 py-4 text-slate-600">{subject.avgScore}%</td>
-                  <td className="px-6 py-4 text-slate-600">{subject.completion}%</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      subject.avgScore >= 80 ? 'bg-green-100 text-green-700' :
-                      subject.avgScore >= 70 ? 'bg-amber-100 text-amber-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {subject.avgScore >= 80 ? 'Excellent' : subject.avgScore >= 70 ? 'Good' : 'Needs Attention'}
-                    </span>
-                  </td>
+      )}
+
+      {/* Top Content Creators */}
+      {!loading && contentMetrics?.perTeacher?.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-lg font-bold text-slate-900">Top Content Creators</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">#</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Teacher ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Questions Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {contentMetrics.perTeacher.slice(0, 10).map((t: any, i: number) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 text-slate-500 text-sm">{i + 1}</td>
+                    <td className="px-6 py-4 font-medium text-slate-900 font-mono text-sm">{t.teacher || '—'}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="font-bold text-slate-900">{t.count}</span>
+                        <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-indigo-500 rounded-full"
+                            style={{ width: `${Math.min(100, (t.count / (contentMetrics.perTeacher[0]?.count || 1)) * 100)}%` }}
+                          />
+                        </div>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Monthly Growth */}
+      {!loading && platformStats?.monthlyGrowth?.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-slate-900 mb-6">Monthly User Growth</h2>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={platformStats.monthlyGrowth}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" stroke="#64748b" fontSize={11} />
+              <YAxis stroke="#64748b" fontSize={11} />
+              <Tooltip />
+              <Bar dataKey="count" name="New Users" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }

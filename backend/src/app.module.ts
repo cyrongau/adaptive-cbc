@@ -34,6 +34,9 @@ import { RelationshipsModule } from './modules/relationships/relationships.modul
 import { DatabaseSeeder } from './common/database.seeder';
 import { PromotionTaskService } from './common/promotion-task.service';
 import { User } from './modules/users/entities/user.entity';
+import { ChatModule } from './modules/chat/chat.module';
+import { SupportModule } from './modules/support/support.module';
+
 
 @Module({
   imports: [
@@ -98,6 +101,8 @@ import { User } from './modules/users/entities/user.entity';
     EvaluationModule,
     RelationshipsModule,
     TypeOrmModule.forFeature([User]),
+    ChatModule,
+    SupportModule,
   ],
   controllers: [],
   providers: [DatabaseSeeder, PromotionTaskService],
