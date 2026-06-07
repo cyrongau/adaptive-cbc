@@ -10,15 +10,19 @@ export class NotificationsService {
     private notificationRepository: Repository<Notification>,
   ) {}
 
-  async getUserNotifications(userId: string, limit: number = 20, unreadOnly: boolean = false): Promise<Notification[]> {
+  async getUserNotifications(userId: string, limit: any = 20, unreadOnly: any = false): Promise<Notification[]> {
+    const parsedLimit = typeof limit === 'number' ? limit : parseInt(limit, 10);
+    const takeVal = isNaN(parsedLimit) ? 20 : parsedLimit;
+    const isUnreadOnly = unreadOnly === 'true' || unreadOnly === true;
+
     const where: any = { userId };
-    if (unreadOnly) {
+    if (isUnreadOnly) {
       where.isRead = false;
     }
     return this.notificationRepository.find({
       where,
       order: { createdAt: 'DESC' },
-      take: limit,
+      take: takeVal,
     });
   }
 

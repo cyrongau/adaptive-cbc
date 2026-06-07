@@ -186,7 +186,7 @@ export default function NotificationBell({ dark }: NotificationBellProps) {
             </div>
 
             <div className="max-h-80 overflow-y-auto">
-              {notifications.length === 0 ? (
+              {!Array.isArray(notifications) || notifications.length === 0 ? (
                 <div className="px-5 py-12 text-center">
                   <Bell className={`w-8 h-8 mx-auto mb-3 ${isDark ? 'text-slate-600' : 'text-slate-200'}`} />
                   <p className={`text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>No notifications yet</p>

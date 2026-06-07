@@ -259,12 +259,15 @@ export default function DashboardLayout({
           </div>
           <span className="font-bold text-lg text-slate-900 tracking-tight">Adaptive CBC</span>
         </div>
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-2 bg-slate-100 text-slate-600 rounded-md"
-        >
-          {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 bg-slate-100 text-slate-600 rounded-md"
+          >
+            {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Sidebar Overlay for Mobile */}

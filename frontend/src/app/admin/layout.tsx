@@ -167,15 +167,18 @@ export default function AdminLayout({
             {isSuperAdmin ? <Crown className="w-4 h-4 text-[#0f1729]" /> : <Shield className="w-4 h-4 text-[#003919]" />}
           </div>
           <span className="font-bold text-lg text-[#dae2fd] tracking-tight">
-            {isSuperAdmin ? 'EduAdmin' : 'Institution Admin'}
+            {isSuperAdmin ? 'EduAdmin' : (institutionName || 'Institution Admin')}
           </span>
         </div>
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-2 bg-[#222a3d] text-[#becabd] rounded-md"
-        >
-          {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 bg-[#222a3d] text-[#becabd] rounded-md"
+          >
+            {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Sidebar Overlay for Mobile */}
