@@ -41,6 +41,7 @@ interface ChatMessage {
   id: string;
   message: string;
   attachmentKey?: string;
+  attachmentUrl?: string;
   createdAt: string;
   sender: ChatUser;
   replyToId?: string;
@@ -53,7 +54,7 @@ interface ChatMessage {
 
 interface ChatConversation {
   id: string;
-  type: 'support' | 'direct' | 'admin' | 'community';
+  type: 'support' | 'direct' | 'admin' | 'community' | 'teacher_student' | 'admin_initiated';
   name?: string;
   ticket?: {
     id: string;
@@ -352,8 +353,8 @@ function ChatInterface() {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         setAttachment({
-          url: res.data.url,
-          key: res.data.key,
+          url: res.data.attachmentUrl,
+          key: res.data.attachmentKey,
         });
       } catch (err) {
         console.error('File upload failed', err);
@@ -457,7 +458,16 @@ function ChatInterface() {
   // 8. Filters & Search helper
   const filteredConversations = conversations.filter((c) => {
     // Tab filter
-    if (activeTab !== 'all' && c.type !== activeTab) return false;
+    // Tab filter
+    if (activeTab !== 'all') {
+      if (activeTab === 'direct') {
+        if (c.type !== 'teacher_student' && c.type !== 'admin_initiated' && (c.type as string) !== 'direct') {
+          return false;
+        }
+      } else {
+        if (c.type !== activeTab) return false;
+      }
+    }
 
     // Search query filter
     if (searchQuery.trim()) {
@@ -674,11 +684,12 @@ function ChatInterface() {
                   const isMentioned = isUserMentioned(msg.message);
                   
                   // MinIO URL Helper
-                  const getAttachmentUrl = (key: string) => {
-                    const hostUrl = process.env.NEXT_PUBLIC_API_URL 
-                      ? `${process.env.NEXT_PUBLIC_API_URL}/chat/attachment/${key}`
-                      : `http://localhost:3002/api/v1/chat/attachment/${key}`;
-                    return hostUrl;
+                  const getAttachmentUrl = (msg: ChatMessage) => {
+                    if (msg.attachmentUrl) return msg.attachmentUrl;
+                    const key = msg.attachmentKey;
+                    if (!key) return '';
+                    const minioHost = process.env.NEXT_PUBLIC_MINIO_URL || 'http://localhost:9003';
+                    return `${minioHost}/adaptive-cbc-files/${key}`;
                   };
 
                   const isImage = (key: string) => {
@@ -757,14 +768,14 @@ function ChatInterface() {
                             <div className="mt-2 pt-2 border-t border-slate-100/20">
                               {isImage(msg.attachmentKey) ? (
                                 <img
-                                  src={getAttachmentUrl(msg.attachmentKey)}
+                                  src={getAttachmentUrl(msg)}
                                   alt="Chat upload"
                                   className="max-w-[200px] max-h-[200px] rounded-lg border border-slate-200 shadow-sm"
                                   loading="lazy"
                                 />
                               ) : (
                                 <a
-                                  href={getAttachmentUrl(msg.attachmentKey)}
+                                  href={getAttachmentUrl(msg)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1.5 text-xs font-bold underline text-blue-500 hover:text-blue-600"

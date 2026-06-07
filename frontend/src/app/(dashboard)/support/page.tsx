@@ -117,7 +117,7 @@ export default function SupportDeskPage() {
             'Content-Type': 'multipart/form-data',
           },
         });
-        attachmentKey = uploadRes.data.key;
+        attachmentKey = uploadRes.data.attachmentKey;
       }
 
       await api.post('/support/tickets', {

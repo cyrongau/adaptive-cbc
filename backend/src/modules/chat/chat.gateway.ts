@@ -13,6 +13,7 @@ import { ChatService } from './chat.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
+import { MinioService } from '../../common/minio.service';
 
 @WebSocketGateway({
   namespace: 'chat',
@@ -39,6 +40,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
+    private readonly minioService: MinioService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -118,7 +120,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     // Broadcast message to everyone in the room
-    this.server.to(`conversation_${conversationId}`).emit('messageReceived', chatMessage);
+    const messageWithUrl = {
+      ...chatMessage,
+      attachmentUrl: chatMessage.attachmentKey ? this.minioService.getPublicUrl(chatMessage.attachmentKey) : null,
+    };
+    this.server.to(`conversation_${conversationId}`).emit('messageReceived', messageWithUrl);
 
     // Send unread notifications to other participants in their user-specific rooms
     if (chatMessage.conversation && chatMessage.conversation.participants) {
