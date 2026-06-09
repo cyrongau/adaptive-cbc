@@ -6,6 +6,7 @@ import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as cookieParser from 'cookie-parser';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -78,6 +79,16 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get('PORT') || 3002;
+
+  // Ensure PostgreSQL enum has all required values
+  try {
+    const dataSource = app.get(DataSource);
+    await dataSource.query(`ALTER TYPE "public"."question_status_enum" ADD VALUE IF NOT EXISTS 'rejected'`);
+    await dataSource.query(`ALTER TYPE "public"."question_status_enum" ADD VALUE IF NOT EXISTS 'archived'`);
+  } catch (e) {
+    console.log('Enum sync skipped (may already exist or not applicable):', (e as Error).message);
+  }
+
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);

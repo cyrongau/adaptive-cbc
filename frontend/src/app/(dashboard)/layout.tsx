@@ -44,6 +44,7 @@ const SIDEBAR_ITEMS_STUDENT = [
   { label: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
+  { label: 'Assignments', icon: FileText, href: '/assignments' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
   { label: 'School', icon: Building2, href: '/school' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
@@ -59,6 +60,7 @@ const SIDEBAR_ITEMS_AFFILIATED_STUDENT = [
   { label: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
+  { label: 'Assignments', icon: FileText, href: '/assignments' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
   { label: 'My School', icon: Building2, href: '/school' },
   { label: 'My Teachers', icon: Users, href: '/teachers' },
@@ -115,7 +117,6 @@ const SIDEBAR_ITEMS_TEACHER = [
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
   { label: 'Materials', icon: FileText, href: '/materials' },
-  { label: 'Analytics', icon: BarChart2, href: '/analytics' },
   { label: 'Inbox', icon: MessageSquare, href: '/chat' },
   { label: 'Support Desk', icon: HelpCircle, href: '/support' },
   { label: 'Settings', icon: Settings, href: '/settings' },
@@ -197,7 +198,14 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (isMounted) {
-      if (pathname === '/chat' || pathname.startsWith('/chat') || pathname.startsWith('/admin')) {
+      if (
+        pathname === '/chat' ||
+        pathname.startsWith('/chat') ||
+        pathname.startsWith('/admin') ||
+        pathname.startsWith('/author-studio') ||
+        pathname.startsWith('/library') ||
+        pathname.startsWith('/store')
+      ) {
         return;
       }
       if (isSuperAdmin) {
@@ -209,12 +217,17 @@ export default function DashboardLayout({
   }, [isMounted, isSuperAdmin, isInstitutionAdmin, isKycApproved, router, pathname]);
 
   const isAffiliatedStudent = user?.role === 'student' && user?.institutionId;
+  const isExemptedAdminPath = pathname.startsWith('/author-studio') || pathname.startsWith('/library') || pathname.startsWith('/store');
 
   let SIDEBAR_ITEMS;
   if (isInstitutionAdmin && !isKycApproved) {
     SIDEBAR_ITEMS = [
       { label: 'Application Status', icon: Shield, href: '/onboarding/institution-admin' },
     ];
+  } else if (isInstitutionAdmin && isKycApproved && isExemptedAdminPath) {
+    SIDEBAR_ITEMS = SIDEBAR_ITEMS_TEACHER;
+  } else if (isSuperAdmin && isExemptedAdminPath) {
+    SIDEBAR_ITEMS = SIDEBAR_ITEMS_ADMIN;
   } else if (isTutor) SIDEBAR_ITEMS = SIDEBAR_ITEMS_TUTOR;
   else if (isTeacher) SIDEBAR_ITEMS = SIDEBAR_ITEMS_TEACHER;
   else if (isParent) SIDEBAR_ITEMS = SIDEBAR_ITEMS_PARENT;
@@ -229,7 +242,9 @@ export default function DashboardLayout({
     }
   }, [isMounted, token, router, pathname]);
 
-  if (!isMounted || !token || !user || isSuperAdmin || (isInstitutionAdmin && isKycApproved)) {
+  const shouldShowDashboard = isMounted && token && user && (isExemptedAdminPath || (!isSuperAdmin && (!isInstitutionAdmin || !isKycApproved)));
+
+  if (!shouldShowDashboard) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
@@ -338,7 +353,7 @@ export default function DashboardLayout({
               <div className="min-w-0">
                 <h3 className="font-semibold text-slate-900 text-sm truncate">{user.firstName} {user.lastName}</h3>
                 <p className="text-xs text-slate-500 font-medium truncate">
-                  {isInstitutionAdmin && !isKycApproved ? 'Pending Approval' : isParent ? 'Parent' : isTeacher ? 'Teacher' : isTutor ? 'Tutor' : isAffiliatedStudent ? `Grade ${user.grade} • Affiliated` : isCandidate ? `Grade ${user.grade} Candidate` : `Grade ${user.grade || 'N/A'}`}
+                  {isInstitutionAdmin && !isKycApproved ? 'Pending Approval' : isInstitutionAdmin ? 'Institution Admin' : isParent ? 'Parent' : isTeacher ? 'Teacher' : isTutor ? 'Tutor' : isAffiliatedStudent ? `Grade ${user.grade} • Affiliated` : isCandidate ? `Grade ${user.grade} Candidate` : `Grade ${user.grade || 'N/A'}`}
                 </p>
               </div>
             </div>
@@ -584,7 +599,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Content */}
-        <div className={`flex-1 overflow-y-auto p-4 md:p-8 ${theme.mainContainer}`}>
+        <div className={`flex-1 overflow-y-auto p-4 md:p-8 ${theme.mainContainer} ${isAdmin && isExemptedAdminPath ? 'dark' : ''}`}>
           <div className="max-w-6xl mx-auto">
             {children}
           </div>

@@ -139,7 +139,7 @@ export class DigitalLibraryController {
 
   @Post('papers/:id/publish')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Publish past paper' })
   async publishPaper(@Request() req, @Param('id') id: string) {
@@ -148,7 +148,7 @@ export class DigitalLibraryController {
 
   @Post('papers/:id/archive')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Archive past paper' })
   async archivePaper(@Param('id') id: string) {
@@ -305,7 +305,7 @@ export class DigitalLibraryController {
 
   @Get('papers/:id/review-questions')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get questions pending review' })
   async getQuestionsForReview(@Param('id') id: string) {
@@ -314,7 +314,7 @@ export class DigitalLibraryController {
 
   @Post('papers/:id/review-question')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Review and approve/reject a question' })
   async reviewQuestion(@Request() req, @Param('id') id: string, @Body() reviewDto: ReviewQuestionDto) {

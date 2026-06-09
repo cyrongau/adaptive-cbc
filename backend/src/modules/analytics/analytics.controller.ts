@@ -75,24 +75,27 @@ export class AnalyticsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiOperation({ summary: 'Get platform-wide statistics (admin only)' })
-  async getPlatformStats() {
-    return this.analyticsService.getPlatformStats();
+  async getPlatformStats(@Request() req) {
+    const institutionId = req.user.role === UserRole.INSTITUTION_ADMIN ? req.user.institutionId : undefined;
+    return this.analyticsService.getPlatformStats(institutionId);
   }
 
   @Get('admin/subject-popularity')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiOperation({ summary: 'Get subject popularity metrics (admin only)' })
-  async getSubjectPopularity() {
-    return this.analyticsService.getSubjectPopularity();
+  async getSubjectPopularity(@Request() req) {
+    const institutionId = req.user.role === UserRole.INSTITUTION_ADMIN ? req.user.institutionId : undefined;
+    return this.analyticsService.getSubjectPopularity(institutionId);
   }
 
   @Get('admin/recent-activity')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
   @ApiOperation({ summary: 'Get recent platform activity (admin only)' })
-  async getRecentActivity() {
-    return this.analyticsService.getRecentActivity();
+  async getRecentActivity(@Request() req) {
+    const institutionId = req.user.role === UserRole.INSTITUTION_ADMIN ? req.user.institutionId : undefined;
+    return this.analyticsService.getRecentActivity(institutionId);
   }
 
   @Get('admin/content-metrics')
@@ -103,11 +106,13 @@ export class AnalyticsController {
   @ApiQuery({ name: 'subjectId', required: false })
   @ApiQuery({ name: 'grade', required: false })
   async getContentMetrics(
+    @Request() req,
     @Query('period') period?: 'week' | 'month' | 'year',
     @Query('subjectId') subjectId?: string,
     @Query('grade') grade?: number,
   ) {
-    return this.analyticsService.getContentCreationMetrics({ period, subjectId, grade });
+    const institutionId = req.user.role === UserRole.INSTITUTION_ADMIN ? req.user.institutionId : undefined;
+    return this.analyticsService.getContentCreationMetrics({ period, subjectId, grade, institutionId });
   }
 
   @Get('admin/curriculum-coverage')
@@ -117,10 +122,12 @@ export class AnalyticsController {
   @ApiQuery({ name: 'subjectId', required: false })
   @ApiQuery({ name: 'grade', required: false })
   async getCurriculumCoverage(
+    @Request() req,
     @Query('subjectId') subjectId?: string,
     @Query('grade') grade?: number,
   ) {
-    return this.analyticsService.getCurriculumCoverage({ subjectId, grade });
+    const institutionId = req.user.role === UserRole.INSTITUTION_ADMIN ? req.user.institutionId : undefined;
+    return this.analyticsService.getCurriculumCoverage({ subjectId, grade, institutionId });
   }
 
   @Get('admin/quality-distribution')
@@ -130,10 +137,12 @@ export class AnalyticsController {
   @ApiQuery({ name: 'subjectId', required: false })
   @ApiQuery({ name: 'grade', required: false })
   async getQualityDistribution(
+    @Request() req,
     @Query('subjectId') subjectId?: string,
     @Query('grade') grade?: number,
   ) {
-    return this.analyticsService.getQualityDistribution({ subjectId, grade });
+    const institutionId = req.user.role === UserRole.INSTITUTION_ADMIN ? req.user.institutionId : undefined;
+    return this.analyticsService.getQualityDistribution({ subjectId, grade, institutionId });
   }
 
   @Get('admin/ai-usage')
@@ -142,8 +151,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'AI usage analytics (calls by type, daily trend, top users)' })
   @ApiQuery({ name: 'period', required: false, enum: ['week', 'month', 'year'] })
   async getAiUsage(
+    @Request() req,
     @Query('period') period?: 'week' | 'month' | 'year',
   ) {
-    return this.analyticsService.getAiUsageAnalytics({ period });
+    const institutionId = req.user.role === UserRole.INSTITUTION_ADMIN ? req.user.institutionId : undefined;
+    return this.analyticsService.getAiUsageAnalytics({ period, institutionId });
   }
 }

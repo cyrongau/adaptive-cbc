@@ -9,6 +9,7 @@ import {
   ArrowLeft, Edit3, Clock, History, AlertTriangle, CheckCircle,
   Loader2, ChevronDown, BookOpen, BarChart, FileText,
 } from 'lucide-react';
+import HtmlContent from '@/components/ui/HtmlContent';
 
 interface Version {
   id: string;
@@ -272,7 +273,7 @@ export default function QuestionEditor({ params }: { params: { id: string } }) {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Question Content</h3>
             <div className="prose max-w-none text-slate-800">
-              <p>{displayData.content}</p>
+              <HtmlContent html={displayData.content} />
             </div>
 
             {displayData.options && displayData.options.length > 0 && (
@@ -328,8 +329,8 @@ export default function QuestionEditor({ params }: { params: { id: string } }) {
           {displayData.explanation && (
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Explanation</h3>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <p className="text-slate-700 text-sm">{displayData.explanation}</p>
+              <div className="prose max-w-none text-slate-800">
+                <HtmlContent html={displayData.explanation} className="text-sm text-slate-700" />
               </div>
             </div>
           )}

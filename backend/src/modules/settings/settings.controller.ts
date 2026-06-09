@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
-import { UpdatePlatformSettingsDto, UpdateUserSettingsDto } from './dto/settings.dto';
+import { UpdatePlatformSettingsDto, UpdatePracticeConfigDto, UpdateUserSettingsDto } from './dto/settings.dto';
 
 @ApiTags('settings')
 @Controller('settings')
@@ -25,6 +25,21 @@ export class SettingsController {
   @ApiOperation({ summary: 'Update platform-wide settings (super admin only)' })
   async updatePlatformSettings(@Body() dto: UpdatePlatformSettingsDto) {
     return this.settingsService.updatePlatformSettings(dto);
+  }
+
+  @Get('practice')
+  @ApiOperation({ summary: 'Get practice session defaults and limits' })
+  async getPracticeConfig() {
+    return this.settingsService.getPracticeConfig();
+  }
+
+  @Patch('practice')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update practice session defaults (super admin only)' })
+  async updatePracticeConfig(@Body() dto: UpdatePracticeConfigDto) {
+    return this.settingsService.updatePracticeConfig(dto);
   }
 
   @Get('user/:userId')

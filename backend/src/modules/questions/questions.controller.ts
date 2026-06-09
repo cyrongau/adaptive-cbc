@@ -22,15 +22,19 @@ export class QuestionsController {
   @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'createdBy', required: false })
   @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'ids', required: false })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async findAll(@Query() params: QuestionSearchParams) {
-    return this.questionsService.findAll(params);
+    console.log('--- QuestionsController.findAll params:', params);
+    const result = await this.questionsService.findAll(params);
+    console.log('--- QuestionsController.findAll result total:', result.total);
+    return result;
   }
 
   @Get('random')
   @ApiOperation({ summary: 'Get random questions by criteria' })
-  @ApiQuery({ name: 'subjectId', required: true })
+  @ApiQuery({ name: 'subjectId', required: false })
   @ApiQuery({ name: 'topicId', required: false })
   @ApiQuery({ name: 'grade', required: true, type: Number })
   @ApiQuery({ name: 'difficulty', required: false })
@@ -111,8 +115,8 @@ export class QuestionsController {
   @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create new question' })
-  async create(@Body() questionData: any) {
-    return this.questionsService.create(questionData);
+  async create(@Body() questionData: any, @Request() req: any) {
+    return this.questionsService.create(questionData, req.user.id);
   }
 
   @Post('structured')
@@ -135,11 +139,20 @@ export class QuestionsController {
 
   @Post(':id/require-review')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.TUTOR)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.TUTOR, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Mark question for human review' })
   async requireReview(@Param('id') id: string) {
     return this.questionsService.requireHumanReview(id);
+  }
+
+  @Post(':id/submit-for-review')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.TUTOR, UserRole.INSTITUTION_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Submit a draft question for moderation review' })
+  async submitForReview(@Param('id') id: string, @Request() req: any) {
+    return this.questionsService.submitForReview(id, req.user.id);
   }
 
   @Post(':id/version')
@@ -180,14 +193,6 @@ export class QuestionsController {
   @Get('moderation/queue')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get moderation queue' })
-  @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'subjectId', required: false })
-  @ApiQuery({ name: 'grade', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: QuestionStatus })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
   async getModerationQueue(
     @Query('search') search?: string,
     @Query('subjectId') subjectId?: string,

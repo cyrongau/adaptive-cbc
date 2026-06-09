@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
 import { Question, QuestionType, DifficultyLevel, QuestionStatus, BloomsTaxonomy, QuestionSourceType } from './entities/question.entity';
 import { QuestionVersion } from './entities/question-version.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface QuestionSearchParams {
   subjectId?: string;
@@ -13,6 +14,7 @@ export interface QuestionSearchParams {
   status?: QuestionStatus;
   createdBy?: string;
   search?: string;
+  ids?: string;
   page?: number;
   limit?: number;
 }
@@ -24,16 +26,23 @@ export class QuestionsService {
     private questionsRepository: Repository<Question>,
     @InjectRepository(QuestionVersion)
     private questionVersionRepository: Repository<QuestionVersion>,
+    private notificationsService: NotificationsService,
   ) {}
 
   async findAll(params: QuestionSearchParams): Promise<{ questions: Question[]; total: number }> {
-    const { subjectId, topicId, grade, type, difficulty, status, createdBy, search, page = 1, limit = 20 } = params;
+    const { subjectId, topicId, grade, type, difficulty, status, createdBy, search, ids, page = 1, limit = 20 } = params;
 
     const query = this.questionsRepository.createQueryBuilder('question')
       .leftJoinAndSelect('question.topic', 'topic');
 
     if (status) {
-      query.andWhere('question.status = :status', { status });
+      if (status === QuestionStatus.PUBLISHED) {
+        query.andWhere('(question.status IN (:...statuses) OR question.status IS NULL)', {
+          statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
+        });
+      } else {
+        query.andWhere('question.status = :status', { status });
+      }
     } else {
       query.andWhere('question.status IN (:...statuses)', {
         statuses: [QuestionStatus.DRAFT, QuestionStatus.PENDING_REVIEW, QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
@@ -70,9 +79,16 @@ export class QuestionsService {
       });
     }
 
+    if (ids) {
+      const idList = ids.split(',').map((id) => id.trim()).filter(Boolean);
+      if (idList.length > 0) {
+        query.andWhere('question.id IN (:...idList)', { idList });
+      }
+    }
+
     const total = await query.getCount();
 
-    query.skip((page - 1) * limit).take(limit).orderBy('question.successRate', 'ASC');
+    query.skip((page - 1) * limit).take(limit).orderBy('question.createdAt', 'DESC');
 
     const questions = await query.getMany();
 
@@ -91,7 +107,7 @@ export class QuestionsService {
   }
 
   async findRandomByCriteria(criteria: {
-    subjectId: string;
+    subjectId?: string;
     topicId?: string;
     grade: number;
     difficulty?: DifficultyLevel;
@@ -99,9 +115,12 @@ export class QuestionsService {
     excludeIds?: string[];
   }): Promise<Question[]> {
     const query = this.questionsRepository.createQueryBuilder('question')
-      .where('question.status = :status', { status: QuestionStatus.PUBLISHED })
-      .andWhere('question.subjectId = :subjectId', { subjectId: criteria.subjectId })
+      .where('question.status IN (:...statuses)', { statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED] })
       .andWhere('question.grade = :grade', { grade: criteria.grade });
+
+    if (criteria.subjectId) {
+      query.andWhere('question.subjectId = :subjectId', { subjectId: criteria.subjectId });
+    }
 
     if (criteria.topicId) {
       query.andWhere('question.topicId = :topicId', { topicId: criteria.topicId });
@@ -118,8 +137,11 @@ export class QuestionsService {
     return query.orderBy('RANDOM()').take(criteria.count).getMany();
   }
 
-  async create(questionData: Partial<Question>): Promise<Question> {
-    const question = this.questionsRepository.create(questionData);
+  async create(questionData: Partial<Question>, userId?: string): Promise<Question> {
+    const question = this.questionsRepository.create({
+      ...questionData,
+      createdBy: questionData.createdBy || userId,
+    });
     return this.questionsRepository.save(question);
   }
 
@@ -146,16 +168,32 @@ export class QuestionsService {
     return this.questionsRepository.save(question);
   }
 
+  async submitForReview(id: string, userId: string): Promise<Question> {
+    const question = await this.findOne(id);
+    if (question.createdBy !== userId) {
+      throw new ForbiddenException('You can only submit your own questions for review');
+    }
+    if (question.status !== QuestionStatus.DRAFT) {
+      throw new BadRequestException('Only draft questions can be submitted for review');
+    }
+    question.status = QuestionStatus.PENDING_REVIEW;
+    return this.questionsRepository.save(question);
+  }
+
   async remove(id: string): Promise<void> {
     const question = await this.findOne(id);
     await this.questionsRepository.remove(question);
   }
 
   async createStructured(questionData: Partial<Question>, userId: string): Promise<Question> {
+    const incomingStatus = questionData.status === QuestionStatus.PENDING_REVIEW
+      ? QuestionStatus.PENDING_REVIEW
+      : QuestionStatus.DRAFT;
+
     const question = this.questionsRepository.create({
       ...questionData,
       createdBy: userId,
-      status: QuestionStatus.DRAFT,
+      status: incomingStatus,
       version: 1,
     });
     
@@ -221,6 +259,16 @@ export class QuestionsService {
     if (newStatus === QuestionStatus.APPROVED || newStatus === QuestionStatus.PUBLISHED) {
       question.moderatedBy = userId;
       question.moderatedAt = new Date();
+      
+      if (question.createdBy) {
+        const contentPreview = question.content.replace(/<[^>]*>/g, '').slice(0, 80);
+        this.notificationsService.createAcademicNotification(
+          question.createdBy,
+          'Question Approved',
+          `Your question "${contentPreview}${contentPreview.length >= 80 ? '...' : ''}" has been approved and is now available.`,
+          `/author-studio/${question.id}`,
+        );
+      }
     }
     
     return this.questionsRepository.save(question);
@@ -238,11 +286,16 @@ export class QuestionsService {
 
     const query = this.questionsRepository.createQueryBuilder('question')
       .leftJoinAndSelect('question.topic', 'topic')
-      .where('question.status IN (:...statuses)', {
-        statuses: status
-          ? [status]
-          : [QuestionStatus.PENDING_REVIEW, QuestionStatus.FLAGGED],
-      });
+      .where(
+        status === QuestionStatus.APPROVED
+          ? '(question.status = :status OR question.status IS NULL)'
+          : status
+            ? 'question.status = :status'
+            : 'question.status IN (:...statuses)',
+        status
+          ? { status }
+          : { statuses: [QuestionStatus.PENDING_REVIEW, QuestionStatus.FLAGGED] },
+      );
 
     if (subjectId) {
       query.andWhere('question.subjectId = :subjectId', { subjectId });

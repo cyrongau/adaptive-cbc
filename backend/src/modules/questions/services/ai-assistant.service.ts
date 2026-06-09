@@ -133,8 +133,8 @@ export class AIAssistantService {
 
       return parsed;
     } catch (error) {
-      this.logger.error(`OpenRouter API call failed: ${error.message}`);
-      throw new HttpException('Failed to communicate with AI provider', HttpStatus.SERVICE_UNAVAILABLE);
+      this.logger.error(`OpenRouter API call failed: ${error.message}. Falling back to dummy response.`);
+      return this.dummyResponse(model);
     }
   }
 

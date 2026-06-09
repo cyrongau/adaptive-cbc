@@ -193,7 +193,66 @@ const defaultFormData: FormData = {
 
 
 
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+function RichTextEditor({ value, onChange, placeholder, minHeight = 120 }: { value: string; onChange: (val: string) => void; placeholder?: string; minHeight?: number }) {
+  const [Quill, setQuill] = useState<React.ComponentType<any> | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    import('react-quill')
+      .then((mod) => {
+        const QuillComponent = mod.default || mod;
+        const DynamicQuill = dynamic(() => Promise.resolve(QuillComponent), { ssr: false });
+        setQuill(() => DynamicQuill);
+      })
+      .catch(() => setLoadError(true));
+  }, []);
+
+  const handleChange = (val: string) => {
+    onChange(processHtmlForFormulas(val));
+  };
+
+  if (loadError) {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder={placeholder || 'Enter content...'}
+        className="w-full border border-slate-200 rounded-xl p-4 font-sans text-sm min-h-[120px] focus:outline-none focus:border-[#47a263]"
+        style={{ minHeight: `${minHeight}px` }}
+      />
+    );
+  }
+
+  if (!Quill) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-400" style={{ minHeight: `${minHeight}px` }}>
+        Loading editor...
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden border border-slate-200 focus-within:border-[#47a263] focus-within:ring-1 focus-within:ring-[#47a263] quill-wrapper">
+      <style dangerouslySetInnerHTML={{__html: `
+        .quill-wrapper .ql-toolbar { border: none; border-bottom: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0.75rem 0.75rem 0 0; }
+        .quill-wrapper .ql-container { border: none; font-family: inherit; font-size: 1rem; }
+        .quill-wrapper .ql-editor { min-height: ${minHeight}px; padding: 1rem; }
+        .quill-wrapper .ql-formula { cursor: pointer; padding: 0 2px; }
+        .quill-wrapper strong { font-weight: bold; }
+        .quill-wrapper em { font-style: italic; }
+        .quill-wrapper u { text-decoration: underline; }
+        .quill-wrapper s { text-decoration: line-through; }
+      `}} />
+      <Quill
+        theme="snow"
+        value={value}
+        onChange={handleChange}
+        placeholder={placeholder}
+        modules={quillModules}
+      />
+    </div>
+  );
+}
 
 const HtmlWithMath = ({ html, className = "prose max-w-none text-slate-800 text-sm" }: { html: string, className?: string }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -247,36 +306,6 @@ const processHtmlForFormulas = (html: string) => {
   });
   
   return processed;
-};
-
-const RichTextArea = ({ value, onChange, placeholder, minHeight = 120 }: { value: string, onChange: (val: string) => void, placeholder?: string, minHeight?: number }) => {
-  const handleChange = (val: string) => {
-    // Auto-convert LaTeX delimiters to Quill formula blots as user types or pastes
-    const processedVal = processHtmlForFormulas(val);
-    onChange(processedVal);
-  };
-
-  return (
-    <div className="bg-white rounded-xl overflow-hidden border border-slate-200 focus-within:border-[#47a263] focus-within:ring-1 focus-within:ring-[#47a263] quill-wrapper">
-      <style dangerouslySetInnerHTML={{__html: `
-        .quill-wrapper .ql-toolbar { border: none; border-bottom: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0.75rem 0.75rem 0 0; }
-        .quill-wrapper .ql-container { border: none; font-family: inherit; font-size: 1rem; }
-        .quill-wrapper .ql-editor { min-height: ${minHeight}px; padding: 1rem; }
-        .quill-wrapper .ql-formula { cursor: pointer; padding: 0 2px; }
-        .quill-wrapper strong { font-weight: bold; }
-        .quill-wrapper em { font-style: italic; }
-        .quill-wrapper u { text-decoration: underline; }
-        .quill-wrapper s { text-decoration: line-through; }
-      `}} />
-      <ReactQuill 
-        theme="snow" 
-        value={value} 
-        onChange={handleChange} 
-        placeholder={placeholder}
-        modules={quillModules}
-      />
-    </div>
-  );
 };
 
 function CreateQuestionWizardContent() {
@@ -839,7 +868,7 @@ function CreateQuestionWizardContent() {
                 AI Enhance
               </button>
             </div>
-            <RichTextArea
+            <RichTextEditor
               value={form.content}
               onChange={(val) => updateForm('content', val)}
               placeholder="Type your question here. Use LaTeX with $$...$$ for mathematical expressions."
@@ -1075,7 +1104,7 @@ function CreateQuestionWizardContent() {
               {step.step}
             </div>
             <div className="flex-1">
-              <RichTextArea
+              <RichTextEditor
                 value={step.text}
                 onChange={(val) => updateSolutionStep(idx, val)}
                 placeholder={`Describe step ${step.step}...`}
@@ -1096,7 +1125,7 @@ function CreateQuestionWizardContent() {
 
       <div className="space-y-3">
         <label className="text-sm font-medium text-slate-700">Explanation</label>
-        <RichTextArea
+        <RichTextEditor
           value={form.explanation}
           onChange={(val) => updateForm('explanation', val)}
           placeholder="Provide a detailed explanation of the answer..."
@@ -1106,7 +1135,7 @@ function CreateQuestionWizardContent() {
 
       <div className="space-y-3">
         <label className="text-sm font-medium text-slate-700">Marking Scheme</label>
-        <RichTextArea
+        <RichTextEditor
           value={form.markingScheme}
           onChange={(val) => updateForm('markingScheme', val)}
           placeholder="Describe how marks are allocated..."

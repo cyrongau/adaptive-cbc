@@ -28,6 +28,7 @@ export enum QuestionStatus {
   APPROVED = 'approved',
   PUBLISHED = 'published',
   FLAGGED = 'flagged',
+  REJECTED = 'rejected',
   ARCHIVED = 'archived',
 }
 

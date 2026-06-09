@@ -8,6 +8,7 @@ import { ArrowRight, CheckCircle2, XCircle, HelpCircle, Award, Zap, Loader2, Spa
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
+import HtmlContent from '@/components/ui/HtmlContent';
 
 interface Subject {
   id: string;
@@ -54,6 +55,8 @@ export default function PracticePage() {
   const [selectedTopicId, setSelectedTopicId] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<typeof DIFFICULTIES[number]>('medium');
   const [questionCount, setQuestionCount] = useState(5);
+  const [selectedGrade, setSelectedGrade] = useState<number>(Number(user?.grade) || 4);
+  const [availableCount, setAvailableCount] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<PracticeSession | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -64,8 +67,6 @@ export default function PracticePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
-
-  const grade = user?.grade || 4;
 
   const fetchSubjects = async () => {
     try {
@@ -99,10 +100,37 @@ export default function PracticePage() {
     }
   };
 
+  const fetchPracticeConfig = async () => {
+    try {
+      const res = await api.get('/settings/practice');
+      const config = res.data;
+      if (config?.defaultQuestions) {
+        setQuestionCount(config.defaultQuestions);
+      }
+    } catch (err) {
+      console.error('Failed to load practice settings', err);
+    }
+  };
+
+  const fetchAdaptiveSettings = async () => {
+    try {
+      const res = await api.get('/onboarding/session');
+      const session = res.data;
+      if (session?.adaptiveSettings) {
+        const { difficultyPreference } = session.adaptiveSettings;
+        if (difficultyPreference === 'beginner') setSelectedDifficulty('easy');
+        else if (difficultyPreference === 'advanced') setSelectedDifficulty('hard');
+      }
+    } catch (err) {
+      // Onboarding may not be completed; use defaults
+    }
+  };
+
   const applyQueryParams = () => {
     const subjectId = searchParams?.get('subjectId');
     const topicId = searchParams?.get('topicId');
     const difficulty = searchParams?.get('difficulty') as typeof DIFFICULTIES[number];
+    const gradeParam = searchParams?.get('grade');
 
     if (subjectId && subjects.some((subject) => subject.id === subjectId)) {
       setSelectedSubjectId(subjectId);
@@ -115,10 +143,19 @@ export default function PracticePage() {
     if (difficulty && DIFFICULTIES.includes(difficulty)) {
       setSelectedDifficulty(difficulty);
     }
+
+    if (gradeParam) {
+      const parsed = parseInt(gradeParam, 10);
+      if (!isNaN(parsed)) {
+        setSelectedGrade(parsed);
+      }
+    }
   };
 
   useEffect(() => {
     fetchSubjects();
+    fetchPracticeConfig();
+    fetchAdaptiveSettings();
   }, []);
 
   useEffect(() => {
@@ -132,6 +169,12 @@ export default function PracticePage() {
       fetchTopics(selectedSubjectId);
     }
   }, [selectedSubjectId]);
+
+  useEffect(() => {
+    if (searchParams?.get('subjectId') && selectedSubjectId && !sessionId) {
+      startPractice();
+    }
+  }, [selectedSubjectId, selectedTopicId, sessionId]);
 
   const fetchSession = async (id: string) => {
     try {
@@ -176,13 +219,14 @@ export default function PracticePage() {
       const res = await api.post('/practice/session', {
         subjectId: selectedSubjectId,
         topicId: selectedTopicId || undefined,
-        grade,
+        grade: selectedGrade,
         questionCount,
         difficulty: selectedDifficulty,
       });
 
       const newSession = res.data;
       setSessionId(newSession.id);
+      setAvailableCount(newSession.totalQuestions);
       await fetchSession(newSession.id);
       await fetchCurrentQuestion(newSession.id);
     } catch (err: any) {
@@ -343,6 +387,12 @@ export default function PracticePage() {
               />
             </div>
 
+            {availableCount !== null && availableCount < questionCount && (
+              <p className="text-xs text-amber-600">
+                Only {availableCount} question(s) available for this subject (requested {questionCount}).
+              </p>
+            )}
+
             <button
               onClick={startPractice}
               disabled={isStarting || !selectedSubjectId}
@@ -374,7 +424,10 @@ export default function PracticePage() {
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3 text-sm text-slate-500">
                   <span>Grade {sessionStatus.grade}</span>
-                  <span>{sessionStatus.totalQuestions} questions</span>
+                  <span>{sessionStatus.totalQuestions} of {questionCount} questions</span>
+                  {availableCount !== null && availableCount < questionCount && (
+                    <span className="text-amber-600">({availableCount} available)</span>
+                  )}
                   <span>{progressPercent}% complete</span>
                 </div>
                 <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200">
@@ -425,7 +478,7 @@ export default function PracticePage() {
                     <div className="space-y-6">
                       <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
                         <p className="text-sm uppercase tracking-[0.2em] text-indigo-600">Question {currentQuestionNumber}</p>
-                        <h3 className="mt-4 text-xl font-semibold text-slate-900">{currentQuestion.content}</h3>
+                        <HtmlContent html={currentQuestion.content} className="mt-4 text-xl font-semibold text-slate-900" renderMath={true} />
                       </div>
                       <div className="space-y-4">
                         {currentQuestion.options.map((option) => {
@@ -489,7 +542,7 @@ export default function PracticePage() {
                                   ? `Perfect, ${user?.firstName || 'Student'}!`
                                   : `Not quite right, ${user?.firstName || 'Student'}. Let's review.`}
                               </h4>
-                              <p className="mt-2 text-sm leading-6 text-slate-700">{currentQuestion.explanation || 'Review the explanation and continue with the next question to improve.'}</p>
+                              <HtmlContent html={currentQuestion.explanation} className="mt-2 text-sm leading-6 text-slate-700" renderMath={true} />
                             </div>
                           </div>
                         </div>

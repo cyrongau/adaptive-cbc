@@ -11,6 +11,7 @@ import { AIAssistantController } from './ai-assistant.controller';
 import { DiagramController } from './diagram.controller';
 import { DiagramService } from './services/diagram.service';
 import { GovernanceModule } from '../governance/governance.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { GovernanceModule } from '../governance/governance.module';
     ConfigModule,
     HttpModule,
     GovernanceModule,
+    NotificationsModule,
   ],
   controllers: [QuestionsController, AIAssistantController, DiagramController],
   providers: [QuestionsService, AIAssistantService, DiagramService],

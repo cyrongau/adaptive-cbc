@@ -357,70 +357,119 @@ export class AnalyticsService {
     return 'low';
   }
 
-  async getPlatformStats(): Promise<any> {
+  async getPlatformStats(institutionId?: string): Promise<any> {
     try {
-      const totalUsers = await this.usersRepository.count();
-      const students = await this.usersRepository.count({ where: { role: UserRole.STUDENT } });
-      const teachers = await this.usersRepository.count({ where: { role: UserRole.TEACHER } });
-      const tutors = await this.usersRepository.count({ where: { role: UserRole.TUTOR } });
-      const parents = await this.usersRepository.count({ where: { role: UserRole.PARENT } });
-      const activeUsers = await this.usersRepository.count({ where: { isActive: true } });
-      const legacyStudents = await this.usersRepository.count({
-        where: { role: UserRole.STUDENT, grade: null },
-      });
+      const usersQuery = this.usersRepository.createQueryBuilder('user');
+      if (institutionId) {
+        usersQuery.where('user.institutionId = :institutionId', { institutionId });
+      }
+      const totalUsers = await usersQuery.getCount();
+
+      const getRoleCount = async (role: UserRole) => {
+        const qb = this.usersRepository.createQueryBuilder('user')
+          .where('user.role = :role', { role });
+        if (institutionId) {
+          qb.andWhere('user.institutionId = :institutionId', { institutionId });
+        }
+        return qb.getCount();
+      };
+
+      const students = await getRoleCount(UserRole.STUDENT);
+      const teachers = await getRoleCount(UserRole.TEACHER);
+      const tutors = await getRoleCount(UserRole.TUTOR);
+      const parents = await getRoleCount(UserRole.PARENT);
+
+      const activeUsersQuery = this.usersRepository.createQueryBuilder('user')
+        .where('user.isActive = true');
+      if (institutionId) {
+        activeUsersQuery.andWhere('user.institutionId = :institutionId', { institutionId });
+      }
+      const activeUsers = await activeUsersQuery.getCount();
+
+      const legacyStudentsQuery = this.usersRepository.createQueryBuilder('user')
+        .where('user.role = :role', { role: UserRole.STUDENT })
+        .andWhere('user.grade IS NULL');
+      if (institutionId) {
+        legacyStudentsQuery.andWhere('user.institutionId = :institutionId', { institutionId });
+      }
+      const legacyStudents = await legacyStudentsQuery.getCount();
 
       let totalSessions = 0;
       let totalQuestions = 0;
       let avgScore = 0;
 
       try {
-        totalSessions = await this.sessionRepository.count();
-        const tq = await this.sessionRepository
-          .createQueryBuilder('session')
-          .select('SUM(session.questionsAttempted)', 'total')
-          .getRawOne();
-        totalQuestions = parseInt(tq?.total || '0');
+        const sessionsQuery = this.sessionRepository.createQueryBuilder('session');
+        if (institutionId) {
+          sessionsQuery.innerJoin(User, 'user', 'user.id = session.userId')
+            .where('user.institutionId = :institutionId', { institutionId });
+        }
+        totalSessions = await sessionsQuery.getCount();
 
-        const as = await this.sessionRepository
-          .createQueryBuilder('session')
-          .select('AVG(session.score)', 'avg')
-          .getRawOne();
-        avgScore = parseFloat(as?.avg || '0');
-      } catch {
-        // Tables may not exist yet
+        const tq = this.sessionRepository.createQueryBuilder('session')
+          .select('SUM(session.questionsAttempted)', 'total');
+        if (institutionId) {
+          tq.innerJoin(User, 'user', 'user.id = session.userId')
+            .where('user.institutionId = :institutionId', { institutionId });
+        }
+        const tqResult = await tq.getRawOne();
+        totalQuestions = parseInt(tqResult?.total || '0');
+
+        const as = this.sessionRepository.createQueryBuilder('session')
+          .select('AVG(session.score)', 'avg');
+        if (institutionId) {
+          as.innerJoin(User, 'user', 'user.id = session.userId')
+            .where('user.institutionId = :institutionId', { institutionId });
+        }
+        const asResult = await as.getRawOne();
+        avgScore = parseFloat(asResult?.avg || '0');
+      } catch (err) {
+        console.error('Error in getPlatformStats session subquery:', err);
       }
 
       let usersByGrade: any[] = [];
       try {
-        usersByGrade = await this.usersRepository
+        const ubgQuery = this.usersRepository
           .createQueryBuilder('user')
           .select('user.grade', 'grade')
           .addSelect('COUNT(*)', 'count')
           .where('user.role = :role', { role: UserRole.STUDENT })
-          .andWhere('user.grade IS NOT NULL')
+          .andWhere('user.grade IS NOT NULL');
+        if (institutionId) {
+          ubgQuery.andWhere('user.institutionId = :institutionId', { institutionId });
+        }
+        usersByGrade = await ubgQuery
           .groupBy('user.grade')
           .orderBy('user.grade', 'ASC')
           .getRawMany();
-      } catch {
-        // Ignore if query fails
+      } catch (err) {
+        console.error('Error in usersByGrade:', err);
       }
 
-      const recentUsers = await this.usersRepository.find({
-        order: { createdAt: 'DESC' },
-        take: 10,
-      });
+      const recentUsersQuery = this.usersRepository.createQueryBuilder('user');
+      if (institutionId) {
+        recentUsersQuery.where('user.institutionId = :institutionId', { institutionId });
+      }
+      const recentUsers = await recentUsersQuery
+        .orderBy('user.createdAt', 'DESC')
+        .take(10)
+        .getMany();
 
       let monthlyGrowth: any[] = [];
       try {
-        monthlyGrowth = await this.usersRepository
+        const growthQuery = this.usersRepository
           .createQueryBuilder('user')
           .select("TO_CHAR(user.createdAt, 'YYYY-MM')", 'month')
-          .addSelect('COUNT(*)', 'count')
+          .addSelect('COUNT(*)', 'count');
+        if (institutionId) {
+          growthQuery.where('user.institutionId = :institutionId', { institutionId });
+        }
+        monthlyGrowth = await growthQuery
           .groupBy("TO_CHAR(user.createdAt, 'YYYY-MM')")
           .orderBy('month', 'ASC')
           .getRawMany();
-      } catch {
-        // Ignore if query fails
+      } catch (err) {
+        console.error('Error in monthlyGrowth:', err);
       }
 
       return {
@@ -456,38 +505,55 @@ export class AnalyticsService {
     }
   }
 
-  async getSubjectPopularity(): Promise<any[]> {
+  async getSubjectPopularity(institutionId?: string): Promise<any[]> {
     try {
-      const metrics = await this.metricsRepository
+      const query = this.metricsRepository
         .createQueryBuilder('metric')
         .select('metric.subjectId', 'subject')
         .addSelect('COUNT(*)', 'count')
-        .addSelect('AVG(metric.successRate)', 'avgSuccessRate')
+        .addSelect('AVG(metric.successRate)', 'avgSuccessRate');
+
+      if (institutionId) {
+        query.innerJoin(User, 'user', 'user.id = metric.userId')
+          .where('user.institutionId = :institutionId', { institutionId });
+      }
+
+      const metrics = await query
         .groupBy('metric.subjectId')
         .orderBy('count', 'DESC')
         .getRawMany();
       return metrics;
-    } catch {
+    } catch (err) {
+      console.error('Error in getSubjectPopularity:', err);
       return [];
     }
   }
 
-  async getRecentActivity(): Promise<any[]> {
+  async getRecentActivity(institutionId?: string): Promise<any[]> {
     try {
       let recentSessions: any[] = [];
       try {
-        recentSessions = await this.sessionRepository.find({
-          order: { createdAt: 'DESC' },
-          take: 20,
-        });
-      } catch {
-        // Table may not exist
+        const sessionsQuery = this.sessionRepository.createQueryBuilder('session');
+        if (institutionId) {
+          sessionsQuery.innerJoin(User, 'user', 'user.id = session.userId')
+            .where('user.institutionId = :institutionId', { institutionId });
+        }
+        recentSessions = await sessionsQuery
+          .orderBy('session.createdAt', 'DESC')
+          .take(20)
+          .getMany();
+      } catch (err) {
+        console.error('Error in recentSessions:', err);
       }
 
-      const recentUsers = await this.usersRepository.find({
-        order: { createdAt: 'DESC' },
-        take: 10,
-      });
+      const recentUsersQuery = this.usersRepository.createQueryBuilder('user');
+      if (institutionId) {
+        recentUsersQuery.where('user.institutionId = :institutionId', { institutionId });
+      }
+      const recentUsers = await recentUsersQuery
+        .orderBy('user.createdAt', 'DESC')
+        .take(10)
+        .getMany();
 
       const activities = [
         ...recentUsers.map(u => ({
@@ -515,8 +581,9 @@ export class AnalyticsService {
     period?: 'week' | 'month' | 'year';
     subjectId?: string;
     grade?: number;
+    institutionId?: string;
   }): Promise<any> {
-    const { period = 'week', subjectId, grade } = params;
+    const { period = 'week', subjectId, grade, institutionId } = params;
     const now = new Date();
     let startDate: Date;
 
@@ -532,6 +599,10 @@ export class AnalyticsService {
       .addSelect('COUNT(*)', 'count')
       .where('q.createdAt >= :startDate', { startDate });
 
+    if (institutionId) {
+      query.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .andWhere('user.institutionId = :institutionId', { institutionId });
+    }
     if (subjectId) query.andWhere('q.subjectId = :subjectId', { subjectId });
     if (grade) query.andWhere('q.grade = :grade', { grade });
 
@@ -540,28 +611,50 @@ export class AnalyticsService {
       .orderBy('date', 'ASC')
       .getRawMany();
 
-    const perSubject = await this.questionRepository
+    const perSubjectQuery = this.questionRepository
       .createQueryBuilder('q')
       .select('q.subjectId', 'subject')
-      .addSelect('COUNT(*)', 'count')
+      .addSelect('COUNT(*)', 'count');
+    if (institutionId) {
+      perSubjectQuery.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .where('user.institutionId = :institutionId', { institutionId });
+    }
+    const perSubject = await perSubjectQuery
       .groupBy('q.subjectId')
       .orderBy('count', 'DESC')
       .getRawMany();
 
-    const perTeacher = await this.questionRepository
+    const perTeacherQuery = this.questionRepository
       .createQueryBuilder('q')
       .select('q.createdBy', 'teacher')
-      .addSelect('COUNT(*)', 'count')
+      .addSelect('COUNT(*)', 'count');
+    if (institutionId) {
+      perTeacherQuery.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .where('user.institutionId = :institutionId', { institutionId });
+    }
+    const perTeacher = await perTeacherQuery
       .groupBy('q.createdBy')
       .orderBy('count', 'DESC')
       .limit(20)
       .getRawMany();
 
-    const totalQuestions = await this.questionRepository.count();
-    const totalDrafts = await this.questionRepository.count({ where: { status: QuestionStatus.DRAFT } });
-    const totalPending = await this.questionRepository.count({ where: { status: QuestionStatus.PENDING_REVIEW } });
-    const totalApproved = await this.questionRepository.count({ where: { status: QuestionStatus.APPROVED } });
-    const totalPublished = await this.questionRepository.count({ where: { status: QuestionStatus.PUBLISHED } });
+    const getCountForStatus = async (status?: QuestionStatus) => {
+      const qb = this.questionRepository.createQueryBuilder('q');
+      if (status) {
+        qb.where('q.status = :status', { status });
+      }
+      if (institutionId) {
+        qb.innerJoin(User, 'user', 'user.id = q.createdBy')
+          .andWhere('user.institutionId = :institutionId', { institutionId });
+      }
+      return qb.getCount();
+    };
+
+    const totalQuestions = await getCountForStatus();
+    const totalDrafts = await getCountForStatus(QuestionStatus.DRAFT);
+    const totalPending = await getCountForStatus(QuestionStatus.PENDING_REVIEW);
+    const totalApproved = await getCountForStatus(QuestionStatus.APPROVED);
+    const totalPublished = await getCountForStatus(QuestionStatus.PUBLISHED);
 
     return {
       totalQuestions,
@@ -575,8 +668,9 @@ export class AnalyticsService {
   async getCurriculumCoverage(params: {
     subjectId?: string;
     grade?: number;
+    institutionId?: string;
   }): Promise<any> {
-    const { subjectId, grade } = params;
+    const { subjectId, grade, institutionId } = params;
 
     const query = this.questionRepository
       .createQueryBuilder('q')
@@ -588,6 +682,10 @@ export class AnalyticsService {
         statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
       });
 
+    if (institutionId) {
+      query.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .andWhere('user.institutionId = :institutionId', { institutionId });
+    }
     if (subjectId) query.andWhere('q.subjectId = :subjectId', { subjectId });
     if (grade) query.andWhere('q.grade = :grade', { grade });
 
@@ -595,10 +693,10 @@ export class AnalyticsService {
       .groupBy('q.strandId')
       .addGroupBy('q.grade')
       .orderBy('q.grade', 'ASC')
-      .addOrderBy('count', 'DESC')
+      .addOrderBy('COUNT(*)', 'DESC')
       .getRawMany();
 
-    const subStrandCoverage = await this.questionRepository
+    const subStrandCoverageQuery = this.questionRepository
       .createQueryBuilder('q')
       .select('q.subStrandId', 'subStrand')
       .addSelect('q.strandId', 'strand')
@@ -606,16 +704,27 @@ export class AnalyticsService {
       .where('q.subStrandId IS NOT NULL')
       .andWhere('q.status IN (:...statuses)', {
         statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
-      })
+      });
+
+    if (institutionId) {
+      subStrandCoverageQuery.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .andWhere('user.institutionId = :institutionId', { institutionId });
+    }
+
+    const subStrandCoverage = await subStrandCoverageQuery
       .groupBy('q.subStrandId')
       .addGroupBy('q.strandId')
-      .orderBy('count', 'DESC')
+      .orderBy('COUNT(*)', 'DESC')
       .getRawMany();
 
-    const totalStrands = await this.questionRepository
+    const strandsQuery = this.questionRepository
       .createQueryBuilder('q')
-      .select('DISTINCT q.strandId', 'strand')
-      .getRawMany();
+      .select('DISTINCT q.strandId', 'strand');
+    if (institutionId) {
+      strandsQuery.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .where('user.institutionId = :institutionId', { institutionId });
+    }
+    const totalStrands = await strandsQuery.getRawMany();
 
     return {
       coverage,
@@ -628,8 +737,9 @@ export class AnalyticsService {
   async getQualityDistribution(params: {
     subjectId?: string;
     grade?: number;
+    institutionId?: string;
   }): Promise<any> {
-    const { subjectId, grade } = params;
+    const { subjectId, grade, institutionId } = params;
 
     const diffQuery = this.questionRepository
       .createQueryBuilder('q')
@@ -639,6 +749,10 @@ export class AnalyticsService {
         statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
       });
 
+    if (institutionId) {
+      diffQuery.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .andWhere('user.institutionId = :institutionId', { institutionId });
+    }
     if (subjectId) diffQuery.andWhere('q.subjectId = :subjectId', { subjectId });
     if (grade) diffQuery.andWhere('q.grade = :grade', { grade });
 
@@ -655,12 +769,16 @@ export class AnalyticsService {
         statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
       });
 
+    if (institutionId) {
+      bloomQuery.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .andWhere('user.institutionId = :institutionId', { institutionId });
+    }
     if (subjectId) bloomQuery.andWhere('q.subjectId = :subjectId', { subjectId });
     if (grade) bloomQuery.andWhere('q.grade = :grade', { grade });
 
     const bloomSpread = await bloomQuery
       .groupBy('q.bloomsTaxonomy')
-      .orderBy('count', 'DESC')
+      .orderBy('COUNT(*)', 'DESC')
       .getRawMany();
 
     const typeQuery = this.questionRepository
@@ -671,12 +789,16 @@ export class AnalyticsService {
         statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED],
       });
 
+    if (institutionId) {
+      typeQuery.innerJoin(User, 'user', 'user.id = q.createdBy')
+        .andWhere('user.institutionId = :institutionId', { institutionId });
+    }
     if (subjectId) typeQuery.andWhere('q.subjectId = :subjectId', { subjectId });
     if (grade) typeQuery.andWhere('q.grade = :grade', { grade });
 
     const typeDistribution = await typeQuery
       .groupBy('q.type')
-      .orderBy('count', 'DESC')
+      .orderBy('COUNT(*)', 'DESC')
       .getRawMany();
 
     return { difficultySpread, bloomSpread, typeDistribution };
@@ -684,8 +806,9 @@ export class AnalyticsService {
 
   async getAiUsageAnalytics(params: {
     period?: 'week' | 'month' | 'year';
+    institutionId?: string;
   }): Promise<any> {
-    const { period = 'week' } = params;
+    const { period = 'week', institutionId } = params;
     const now = new Date();
     let startDate: Date;
 
@@ -695,35 +818,57 @@ export class AnalyticsService {
       default: startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     }
 
-    const totalAiCalls = await this.usageLogRepository.count({
-      where: { createdAt: { $gte: startDate } as any },
-    });
+    const totalAiCallsQuery = this.usageLogRepository.createQueryBuilder('log')
+      .where('log.createdAt >= :startDate', { startDate });
 
-    const byType = await this.usageLogRepository
+    if (institutionId) {
+      totalAiCallsQuery.andWhere('log.institutionId = :institutionId', { institutionId });
+    }
+    const totalAiCalls = await totalAiCallsQuery.getCount();
+
+    const byTypeQuery = this.usageLogRepository
       .createQueryBuilder('log')
-      .select('log.serviceType', 'type')
+      .select('log.service', 'type')
       .addSelect('COUNT(*)', 'count')
-      .where('log.createdAt >= :startDate', { startDate })
-      .groupBy('log.serviceType')
-      .orderBy('count', 'DESC')
+      .where('log.createdAt >= :startDate', { startDate });
+
+    if (institutionId) {
+      byTypeQuery.andWhere('log.institutionId = :institutionId', { institutionId });
+    }
+
+    const byType = await byTypeQuery
+      .groupBy('log.service')
+      .orderBy('COUNT(*)', 'DESC')
       .getRawMany();
 
-    const dailyTrend = await this.usageLogRepository
+    const dailyTrendQuery = this.usageLogRepository
       .createQueryBuilder('log')
       .select("TO_CHAR(log.createdAt, 'YYYY-MM-DD')", 'date')
       .addSelect('COUNT(*)', 'count')
-      .where('log.createdAt >= :startDate', { startDate })
+      .where('log.createdAt >= :startDate', { startDate });
+
+    if (institutionId) {
+      dailyTrendQuery.andWhere('log.institutionId = :institutionId', { institutionId });
+    }
+
+    const dailyTrend = await dailyTrendQuery
       .groupBy("TO_CHAR(log.createdAt, 'YYYY-MM-DD')")
       .orderBy('date', 'ASC')
       .getRawMany();
 
-    const byUser = await this.usageLogRepository
+    const byUserQuery = this.usageLogRepository
       .createQueryBuilder('log')
       .select('log.userId', 'user')
       .addSelect('COUNT(*)', 'count')
-      .where('log.createdAt >= :startDate', { startDate })
+      .where('log.createdAt >= :startDate', { startDate });
+
+    if (institutionId) {
+      byUserQuery.andWhere('log.institutionId = :institutionId', { institutionId });
+    }
+
+    const byUser = await byUserQuery
       .groupBy('log.userId')
-      .orderBy('count', 'DESC')
+      .orderBy('COUNT(*)', 'DESC')
       .limit(10)
       .getRawMany();
 

@@ -23,6 +23,24 @@ export class AssignmentsController {
     return this.assignmentsService.findAllByTeacher(req.user.id);
   }
 
+  @Get('student')
+  @ApiOperation({ summary: 'Get published assignments for student grade' })
+  async findForStudent(@Request() req) {
+    return this.assignmentsService.findForStudent(Number(req.user.grade));
+  }
+
+  @Get('submissions/my')
+  @ApiOperation({ summary: 'Get my submissions as a student' })
+  async getMySubmissions(@Request() req) {
+    return this.assignmentsService.getMySubmissions(req.user.id);
+  }
+
+  @Get('stats/summary')
+  @ApiOperation({ summary: 'Get assignment statistics' })
+  async getStats(@Request() req) {
+    return this.assignmentsService.getStats(req.user.id);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all assignments' })
   async findAll() {
@@ -47,9 +65,39 @@ export class AssignmentsController {
     return this.assignmentsService.remove(id);
   }
 
-  @Get('stats/summary')
-  @ApiOperation({ summary: 'Get assignment statistics' })
-  async getStats(@Request() req) {
-    return this.assignmentsService.getStats(req.user.id);
+  @Post(':id/submit')
+  @ApiOperation({ summary: 'Submit answers for an assignment' })
+  async submit(
+    @Param('id') id: string,
+    @Body() body: { answers: { questionId: string; answer: string }[] },
+    @Request() req,
+  ) {
+    return this.assignmentsService.submitAssignment(id, req.user.id, body.answers);
+  }
+
+  @Get(':id/submissions')
+  @ApiOperation({ summary: 'Get all submissions for an assignment (teacher)' })
+  async getSubmissions(@Param('id') id: string) {
+    return this.assignmentsService.getSubmissionsForAssignment(id);
+  }
+
+  @Post(':id/submissions/:submissionId/auto-grade')
+  @ApiOperation({ summary: 'Auto-grade a submission' })
+  async autoGrade(
+    @Param('id') id: string,
+    @Param('submissionId') submissionId: string,
+  ) {
+    return this.assignmentsService.autoGradeSubmission(id, submissionId);
+  }
+
+  @Post(':id/submissions/:submissionId/grade')
+  @ApiOperation({ summary: 'Manually grade a submission' })
+  async grade(
+    @Param('id') id: string,
+    @Param('submissionId') submissionId: string,
+    @Body() body: { score: number },
+    @Request() req,
+  ) {
+    return this.assignmentsService.gradeSubmission(id, submissionId, req.user.id, body.score);
   }
 }

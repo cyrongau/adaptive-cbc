@@ -43,6 +43,7 @@ interface AiUsage {
 export default function AdminAnalyticsPage() {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [tabLoading, setTabLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<any>(null);
   const [institutionData, setInstitutionData] = useState<any>(null);
@@ -51,55 +52,74 @@ export default function AdminAnalyticsPage() {
   const [qualityDistribution, setQualityDistribution] = useState<QualityDistribution | null>(null);
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
   const [period, setPeriod] = useState<'week' | 'month' | 'year'>('week');
+  const [fetchErrors, setFetchErrors] = useState<Record<string, boolean>>({});
 
   const isSuperAdmin = user?.role === 'super_admin';
 
   useEffect(() => {
-    fetchOverview();
-    fetchAllData();
+    fetchAll();
   }, [period]);
 
-  const fetchOverview = async () => {
-    try {
-      if (isSuperAdmin) {
-        const response = await api.get('/analytics/admin/platform-stats');
-        setStats(response.data);
-      } else {
-        const [usersRes, institutionsRes] = await Promise.all([
-          api.get('/users'),
-          api.get('/institutions'),
-        ]);
-        const teachers = usersRes.data.filter((u: any) => u.role === 'teacher');
-        const students = usersRes.data.filter((u: any) => u.role === 'student');
+  const fetchAll = async () => {
+    setLoading(true);
+    setTabLoading(true);
+    setFetchErrors({});
+
+    const [statsRes, contentRes, curriculumRes, qualityRes, aiRes] = await Promise.allSettled([
+      api.get('/analytics/admin/platform-stats'),
+      api.get(`/analytics/admin/content-metrics?period=${period}`),
+      api.get('/analytics/admin/curriculum-coverage'),
+      api.get('/analytics/admin/quality-distribution'),
+      api.get(`/analytics/admin/ai-usage?period=${period}`),
+    ]);
+
+    if (statsRes.status === 'fulfilled') {
+      const data = statsRes.value.data;
+      setStats(data);
+      if (!isSuperAdmin && data) {
         setInstitutionData({
-          totalTeachers: teachers.length,
-          totalStudents: students.length,
-          activeTeachers: teachers.filter((t: any) => t.isActive).length,
-          activeStudents: students.filter((s: any) => s.isActive).length,
+          totalTeachers: data.teachers || 0,
+          totalStudents: data.students || 0,
+          activeTeachers: data.teachers || 0,
+          activeStudents: data.students || 0,
         });
       }
-    } catch {
-      toast.error('Failed to load analytics');
-    } finally {
-      setLoading(false);
+    } else {
+      console.error('Failed to load platform stats:', statsRes.reason);
+      toast.error('Failed to load overview analytics');
+      setStats({
+        totalUsers: 0, totalSessions: 0, averageScore: '0.0',
+        totalQuestionsAttempted: 0, monthlyGrowth: [], recentUsers: []
+      });
+      setFetchErrors(prev => ({ ...prev, overview: true }));
     }
-  };
 
-  const fetchAllData = async () => {
-    try {
-      const [contentRes, curriculumRes, qualityRes, aiRes] = await Promise.all([
-        api.get(`/analytics/admin/content-metrics?period=${period}`),
-        api.get('/analytics/admin/curriculum-coverage'),
-        api.get('/analytics/admin/quality-distribution'),
-        api.get(`/analytics/admin/ai-usage?period=${period}`),
-      ]);
-      setContentMetrics(contentRes.data);
-      setCurriculumCoverage(curriculumRes.data);
-      setQualityDistribution(qualityRes.data);
-      setAiUsage(aiRes.data);
-    } catch {
-      // Phase 8 endpoints may not be available yet
+    if (contentRes.status === 'fulfilled') setContentMetrics(contentRes.value.data);
+    else {
+      console.error('Failed to load content metrics:', contentRes.reason);
+      setFetchErrors(prev => ({ ...prev, content: true }));
     }
+
+    if (curriculumRes.status === 'fulfilled') setCurriculumCoverage(curriculumRes.value.data);
+    else {
+      console.error('Failed to load curriculum coverage:', curriculumRes.reason);
+      setFetchErrors(prev => ({ ...prev, curriculum: true }));
+    }
+
+    if (qualityRes.status === 'fulfilled') setQualityDistribution(qualityRes.value.data);
+    else {
+      console.error('Failed to load quality distribution:', qualityRes.reason);
+      setFetchErrors(prev => ({ ...prev, quality: true }));
+    }
+
+    if (aiRes.status === 'fulfilled') setAiUsage(aiRes.value.data);
+    else {
+      console.error('Failed to load AI usage:', aiRes.reason);
+      setFetchErrors(prev => ({ ...prev, ai: true }));
+    }
+
+    setLoading(false);
+    setTabLoading(false);
   };
 
   const TABS: { key: Tab; label: string; icon: any }[] = [
@@ -250,7 +270,11 @@ export default function AdminAnalyticsPage() {
         </>
       )}
 
-      {activeTab === 'content' && contentMetrics && (
+      {activeTab === 'content' && (tabLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-12 h-12 border-4 border-[#7eda95] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : contentMetrics ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
@@ -324,9 +348,18 @@ export default function AdminAnalyticsPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : (
+        <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6 text-center">
+          <p className="text-sm text-[#becabd]">Failed to load content metrics.</p>
+          <button onClick={fetchAll} className="mt-2 text-xs text-[#7eda95] hover:underline">Retry</button>
+        </div>
+      ))}
 
-      {activeTab === 'curriculum' && curriculumCoverage && (
+      {activeTab === 'curriculum' && (tabLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-12 h-12 border-4 border-[#7eda95] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : curriculumCoverage ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6">
             <h3 className="text-lg font-bold text-[#dae2fd] mb-4">Strand Coverage</h3>
@@ -381,9 +414,18 @@ export default function AdminAnalyticsPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : (
+        <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6 text-center">
+          <p className="text-sm text-[#becabd]">Failed to load curriculum coverage.</p>
+          <button onClick={fetchAll} className="mt-2 text-xs text-[#7eda95] hover:underline">Retry</button>
+        </div>
+      ))}
 
-      {activeTab === 'quality' && qualityDistribution && (
+      {activeTab === 'quality' && (tabLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-12 h-12 border-4 border-[#7eda95] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : qualityDistribution ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6">
             <h3 className="text-sm font-semibold text-[#dae2fd] mb-4">Difficulty Spread</h3>
@@ -437,9 +479,18 @@ export default function AdminAnalyticsPage() {
             })}
           </div>
         </div>
-      )}
+      ) : (
+        <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6 text-center">
+          <p className="text-sm text-[#becabd]">Failed to load quality distribution.</p>
+          <button onClick={fetchAll} className="mt-2 text-xs text-[#7eda95] hover:underline">Retry</button>
+        </div>
+      ))}
 
-      {activeTab === 'ai-usage' && aiUsage && (
+      {activeTab === 'ai-usage' && (tabLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-12 h-12 border-4 border-[#7eda95] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : aiUsage ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
@@ -517,7 +568,12 @@ export default function AdminAnalyticsPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : (
+        <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6 text-center">
+          <p className="text-sm text-[#becabd]">Failed to load AI usage data.</p>
+          <button onClick={fetchAll} className="mt-2 text-xs text-[#7eda95] hover:underline">Retry</button>
+        </div>
+      ))}
     </div>
   );
 }

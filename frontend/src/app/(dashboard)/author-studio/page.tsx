@@ -16,8 +16,10 @@ import {
   Filter,
   BarChart,
   Loader2,
+  Send,
 } from 'lucide-react';
 import api from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface QuestionSummary {
   id: string;
@@ -191,27 +193,49 @@ export default function AuthorStudioDashboard() {
             ) : filteredQuestions.length > 0 ? (
               <div className="divide-y divide-slate-100">
                 {filteredQuestions.map((q) => (
-                  <Link href={`/author-studio/${q.id}`} key={q.id} className="block p-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-xs font-medium px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">
-                            Grade {q.grade}
-                          </span>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor(q.status)}`}>
-                            {statusLabel(q.status)}
-                          </span>
-                          <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full capitalize">
-                            {q.difficulty}
-                          </span>
+                  <div key={q.id} className="group p-4 hover:bg-slate-50 transition-colors">
+                    <Link href={`/author-studio/${q.id}`} className="block">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-xs font-medium px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">
+                              Grade {q.grade}
+                            </span>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor(q.status)}`}>
+                              {statusLabel(q.status)}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full capitalize">
+                              {q.difficulty}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-800 font-medium line-clamp-2">
+                            {q.content.replace(/<[^>]*>?/gm, '')}
+                          </p>
                         </div>
-                        <p className="text-sm text-slate-800 font-medium line-clamp-2">
-                          {q.content.replace(/<[^>]*>?/gm, '')}
-                        </p>
+                        <ChevronRight className="w-5 h-5 text-slate-300 flex-shrink-0 ml-2" />
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 flex-shrink-0 ml-2" />
-                    </div>
-                  </Link>
+                    </Link>
+                    {q.status === 'draft' && (
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            try {
+                              await api.post(`/questions/${q.id}/submit-for-review`);
+                              toast.success('Question submitted for review');
+                              fetchData();
+                            } catch (err: any) {
+                              toast.error(err?.response?.data?.message || 'Failed to submit question');
+                            }
+                          }}
+                          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Submit for Review
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             ) : (

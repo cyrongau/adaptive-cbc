@@ -5,6 +5,13 @@ export class UpdatePlatformSettingsDto {
   allowRegistration?: boolean;
 }
 
+export class UpdatePracticeConfigDto {
+  defaultQuestions?: number;
+  allowStudentOverride?: boolean;
+  minQuestions?: number;
+  maxQuestions?: number;
+}
+
 export class UpdateInstitutionSettingsDto {
   allowSelfRegistration?: boolean;
   requireApproval?: boolean;

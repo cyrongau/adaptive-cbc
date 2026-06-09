@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import Link from 'next/link';
 import { Search, Loader2, BookOpen, ChevronRight } from 'lucide-react';
+import HtmlContent, { stripHtml } from '@/components/ui/HtmlContent';
 
 interface Subject {
   id: string;
@@ -36,7 +37,7 @@ export default function QuestionBankPage() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [selectedTopicId, setSelectedTopicId] = useState('');
-  const [selectedGrade, setSelectedGrade] = useState(user?.grade || 4);
+  const [selectedGrade, setSelectedGrade] = useState<number | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,9 +51,6 @@ export default function QuestionBankPage() {
     try {
       const res = await api.get('/subjects');
       setSubjects(res.data || []);
-      if (!selectedSubjectId && res.data?.length) {
-        setSelectedSubjectId(res.data[0].id);
-      }
     } catch (error) {
       console.error('Failed to load subjects', error);
       setSubjects([]);
@@ -85,8 +83,8 @@ export default function QuestionBankPage() {
         status: 'published',
         page,
         limit,
-        grade: selectedGrade,
       };
+      if (selectedGrade !== '') params.grade = selectedGrade;
       if (selectedSubjectId) params.subjectId = selectedSubjectId;
       if (selectedTopicId) params.topicId = selectedTopicId;
       if (searchTerm) params.search = searchTerm;
@@ -108,9 +106,7 @@ export default function QuestionBankPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedSubjectId) {
-      fetchTopics(selectedSubjectId);
-    }
+    fetchTopics(selectedSubjectId);
   }, [selectedSubjectId]);
 
   useEffect(() => {
@@ -151,6 +147,7 @@ export default function QuestionBankPage() {
                 onChange={(e) => setSelectedSubjectId(e.target.value)}
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               >
+                <option value="">All subjects</option>
                 {subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>{subject.name}</option>
                 ))}
@@ -173,9 +170,10 @@ export default function QuestionBankPage() {
               <label className="block text-sm font-medium text-slate-700">Grade</label>
               <select
                 value={selectedGrade}
-                onChange={(e) => setSelectedGrade(Number(e.target.value))}
+                onChange={(e) => setSelectedGrade(e.target.value === '' ? '' : Number(e.target.value))}
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               >
+                <option value="">All grades</option>
                 {GRADES.map((grade) => (
                   <option key={grade} value={grade}>Grade {grade}</option>
                 ))}
@@ -231,14 +229,14 @@ export default function QuestionBankPage() {
                         <span>{question.difficulty ? question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1) : 'Medium'}</span>
                         {question.topic && <span>{question.topic.name}</span>}
                       </div>
-                      <p className="text-base font-semibold text-slate-900">{question.content}</p>
+                      <HtmlContent html={question.content} className="text-base font-semibold text-slate-900" renderMath={true} />
                     </div>
                     <div className="flex flex-col items-start gap-3 sm:items-end">
                       <Link
-                        href={`/practice?subjectId=${encodeURIComponent(selectedSubjectId)}&topicId=${encodeURIComponent(question.topic?.id || '')}`}
+                        href={`/practice?subjectId=${encodeURIComponent(question.subjectId)}&topicId=${encodeURIComponent(question.topic?.id || '')}&grade=${question.grade}`}
                         className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
                       >
-                        Practice this topic
+                        Attempt
                         <ChevronRight className="w-4 h-4" />
                       </Link>
                       <button
@@ -277,7 +275,7 @@ export default function QuestionBankPage() {
                       {question.explanation && (
                         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                           <div className="font-semibold text-slate-900">Explanation</div>
-                          <p className="mt-2 text-slate-700">{question.explanation}</p>
+                          <HtmlContent html={question.explanation} className="mt-2 text-sm text-slate-700" renderMath={true} />
                         </div>
                       )}
                     </div>

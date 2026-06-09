@@ -34,6 +34,9 @@ import {
   CheckCircle,
   MessageSquare,
   HelpCircle,
+  PenTool,
+  FolderOpen,
+  ShoppingBag,
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from '@/components/NotificationBell';
@@ -46,7 +49,8 @@ const SUPER_ADMIN_SIDEBAR = [
   { label: 'Institutions', icon: Building2, href: '/admin/institutions' },
   { label: 'Financial Oversight', icon: Wallet, href: '/admin/financial' },
   { label: 'Store Management', icon: ShoppingCart, href: '/admin/store' },
-  { label: 'Content Moderation', icon: CheckCircle, href: '/admin/content' },
+  { label: 'Question Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
+  { label: 'Papers Moderation', icon: FileText, href: '/admin/content' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
   { label: 'Inbox', icon: MessageSquare, href: '/admin/chat' },
@@ -60,6 +64,10 @@ const INSTITUTION_ADMIN_SIDEBAR = [
   { label: 'Student Register', icon: GraduationCap, href: '/admin/students' },
   { label: 'Join Requests', icon: UserPlus, href: '/admin/join-requests' },
   { label: 'Teachers', icon: Users, href: '/admin/teachers' },
+  { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
+  { label: 'Question Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
+  { label: 'Digital Library', icon: FolderOpen, href: '/library' },
+  { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
   { label: 'Inbox', icon: MessageSquare, href: '/admin/chat' },

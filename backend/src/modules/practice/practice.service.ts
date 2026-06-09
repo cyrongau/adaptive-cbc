@@ -32,7 +32,9 @@ export class PracticeService {
     questionCount: number;
     difficulty?: string;
   }): Promise<PracticeSession> {
-    const questions = await this.questionsService.findRandomByCriteria({
+    const MIN_QUESTIONS = 3;
+
+    let questions = await this.questionsService.findRandomByCriteria({
       subjectId: data.subjectId,
       topicId: data.topicId,
       grade: data.grade,
@@ -40,8 +42,31 @@ export class PracticeService {
       count: data.questionCount,
     });
 
+    if (questions.length === 0 && data.topicId) {
+      questions = await this.questionsService.findRandomByCriteria({
+        subjectId: data.subjectId,
+        grade: data.grade,
+        difficulty: data.difficulty as any,
+        count: data.questionCount,
+      });
+    }
+
     if (questions.length === 0) {
-      throw new BadRequestException('No questions available for the selected criteria');
+      questions = await this.questionsService.findRandomByCriteria({
+        subjectId: data.subjectId,
+        grade: data.grade,
+        count: data.questionCount,
+      });
+    }
+
+    if (questions.length === 0) {
+      throw new BadRequestException('No questions available for the selected criteria. Try a different subject or ask your teacher to publish more questions.');
+    }
+
+    if (questions.length < MIN_QUESTIONS) {
+      throw new BadRequestException(
+        `Only ${questions.length} question(s) available for this subject. At least ${MIN_QUESTIONS} are needed to start a practice session. Please ask your teacher to publish more questions.`
+      );
     }
 
     const session = this.sessionRepository.create({

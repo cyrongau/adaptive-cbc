@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -15,6 +16,7 @@ import api from '@/lib/api';
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 export default function AnalyticsPage() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
   const [platformStats, setPlatformStats] = useState<any>(null);
@@ -29,8 +31,14 @@ export default function AnalyticsPage() {
   useEffect(() => { setIsMounted(true); }, []);
 
   useEffect(() => {
-    if (isMounted) fetchData();
-  }, [isMounted, period]);
+    if (isMounted && !isAdmin) {
+      router.replace('/dashboard');
+    }
+  }, [isMounted, isAdmin, router]);
+
+  useEffect(() => {
+    if (isMounted && isAdmin) fetchData();
+  }, [isMounted, isAdmin, period]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -62,19 +70,7 @@ export default function AnalyticsPage() {
   }
 
   if (!isAdmin) {
-    return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
-          <p className="text-slate-500 mt-1">Your learning performance</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-          <BarChart3 className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-          <p className="text-sm font-semibold text-slate-500">Analytics available for admins</p>
-          <p className="text-xs text-slate-400 mt-1">Check your dashboard for personal stats</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const userBreakdown = platformStats ? [
