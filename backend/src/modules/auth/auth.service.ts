@@ -58,6 +58,11 @@ export class AuthService {
       await this.relationshipsService.acceptInvitation(registerDto.invitationToken, user.id);
     }
 
+    // Auto-link parent to any students who have this parent's email in their student register record
+    if (user.role === 'parent') {
+      await this.relationshipsService.autoLinkParentByEmail(user.id);
+    }
+
     await this.sendOtp(user.email);
     return { isTwoFactorPending: true, tempEmail: user.email };
   }
@@ -121,6 +126,11 @@ export class AuthService {
         throw new BadRequestException('User not found');
       }
 
+      // Auto-link parent to any students who have this parent's email in their student register record
+      if (user.role === 'parent') {
+        await this.relationshipsService.autoLinkParentByEmail(user.id);
+      }
+
       const tokens = await this.generateTokens(user);
       await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
       return { user, tokens };
@@ -152,6 +162,14 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+  }
+
+  async autoLinkParent(userId: string) {
+    const user = await this.usersService.findOne(userId);
+    if (user.role !== 'parent') {
+      return { linked: 0, message: 'User is not a parent' };
+    }
+    return this.relationshipsService.autoLinkParentByEmail(userId);
   }
 
   async logout(userId: string) {

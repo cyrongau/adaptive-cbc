@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AssignmentsService } from './assignments.service';
 import { CreateAssignmentDto, UpdateAssignmentDto } from './dto/assignment.dto';
@@ -47,6 +47,12 @@ export class AssignmentsController {
     return this.assignmentsService.findAll();
   }
 
+  @Get('pending-approval')
+  @ApiOperation({ summary: 'Get assignments by status (default: pending_approval)' })
+  async findPendingApproval(@Request() req, @Query('status') status?: string) {
+    return this.assignmentsService.findPendingApproval(req.user.institutionId, status);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get assignment by ID' })
   async findOne(@Param('id') id: string) {
@@ -73,6 +79,24 @@ export class AssignmentsController {
     @Request() req,
   ) {
     return this.assignmentsService.submitAssignment(id, req.user.id, body.answers);
+  }
+
+  @Post(':id/submit-for-approval')
+  @ApiOperation({ summary: 'Submit assignment for admin approval' })
+  async submitForApproval(@Param('id') id: string, @Request() req) {
+    return this.assignmentsService.submitForApproval(id, req.user.id);
+  }
+
+  @Post(':id/approve')
+  @ApiOperation({ summary: 'Approve a pending assignment as admin' })
+  async approveAssignment(@Param('id') id: string) {
+    return this.assignmentsService.approveAssignment(id);
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ summary: 'Reject a pending assignment back to draft' })
+  async rejectAssignment(@Param('id') id: string) {
+    return this.assignmentsService.rejectAssignment(id);
   }
 
   @Get(':id/submissions')

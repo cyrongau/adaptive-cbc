@@ -12,6 +12,7 @@ import { DiagramController } from './diagram.controller';
 import { DiagramService } from './services/diagram.service';
 import { GovernanceModule } from '../governance/governance.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     HttpModule,
     GovernanceModule,
     NotificationsModule,
+    UsersModule,
   ],
   controllers: [QuestionsController, AIAssistantController, DiagramController],
   providers: [QuestionsService, AIAssistantService, DiagramService],

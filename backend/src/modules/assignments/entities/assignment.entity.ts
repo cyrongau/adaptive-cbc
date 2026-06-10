@@ -18,6 +18,12 @@ export class Assignment {
   @Column()
   topic: string;
 
+  @Column({ nullable: true })
+  strand: string;
+
+  @Column({ nullable: true })
+  subStrand: string;
+
   @Column({ type: 'int' })
   grade: number;
 
@@ -28,7 +34,7 @@ export class Assignment {
   dueDate: Date;
 
   @Column({ default: 'draft' })
-  status: string; // draft, published, closed
+  status: string; // draft, published, closed, pending_approval, approved, rejected
 
   @Column({ default: 'multiple_choice' })
   questionType: string;

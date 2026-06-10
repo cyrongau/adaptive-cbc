@@ -7,7 +7,7 @@ import 'react-quill/dist/quill.snow.css';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { FileText, Plus, Clock, Users, CheckCircle, XCircle, ArrowRight, Edit2, Trash2, BookOpen, Star } from 'lucide-react';
+import { FileText, Plus, Clock, Users, CheckCircle, XCircle, ArrowRight, Edit2, Trash2, BookOpen, Star, Send } from 'lucide-react';
 import HtmlContent from '@/components/ui/HtmlContent';
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
@@ -18,6 +18,8 @@ interface Assignment {
   description: string;
   subject: string;
   topic: string;
+  strand: string;
+  subStrand: string;
   grade: number;
   totalPoints: number;
   dueDate: string;
@@ -26,6 +28,12 @@ interface Assignment {
   submittedCount: number;
   gradedCount: number;
   createdAt: string;
+}
+
+interface CurriculumStrand {
+  id: string;
+  name: string;
+  subStrands: { id: string; name: string }[];
 }
 
 interface Submission {
@@ -118,7 +126,9 @@ export default function AssignmentsPage() {
     title: '',
     description: '',
     subject: 'Mathematics',
-    topic: 'Fractions',
+    topic: '',
+    strand: '',
+    subStrand: '',
     grade: 4,
     dueDate: '',
     totalPoints: 10,
@@ -126,8 +136,8 @@ export default function AssignmentsPage() {
   });
 
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
-  const [availableTopics, setAvailableTopics] = useState<{ id: string; name: string }[]>([]);
-  const [topicsLoading, setTopicsLoading] = useState(false);
+  const [curriculumTree, setCurriculumTree] = useState<CurriculumStrand[]>([]);
+  const [curriculumLoading, setCurriculumLoading] = useState(false);
 
   const isStudent = user?.role === 'student';
   const isTeacher = user?.role === 'teacher';
@@ -145,28 +155,25 @@ export default function AssignmentsPage() {
 
   useEffect(() => {
     if (!isTeacher || !formData.subject || !formData.grade) {
-      setAvailableTopics([]);
+      setCurriculumTree([]);
       return;
     }
     const subject = subjects.find((s) => s.name === formData.subject);
     if (!subject) {
-      setAvailableTopics([]);
+      setCurriculumTree([]);
       return;
     }
-    setTopicsLoading(true);
-    api.get('/topics/by-grade-subject', { params: { grade: formData.grade, subjectId: subject.id } })
+    setCurriculumLoading(true);
+    api.get('/curriculum/tree', { params: { subjectId: subject.id, grade: formData.grade } })
       .then((res) => {
-        const topics: { id: string; name: string }[] = res.data || [];
-        setAvailableTopics(topics);
-        if (topics.length > 0 && !topics.some((t) => t.name === formData.topic)) {
-          setFormData((prev) => ({ ...prev, topic: topics[0].name }));
-        }
-        if (topics.length === 0 && formData.topic) {
-          setFormData((prev) => ({ ...prev, topic: '' }));
+        const strands: CurriculumStrand[] = res.data || [];
+        setCurriculumTree(strands);
+        if (strands.length > 0 && formData.strand && !strands.some((s) => s.name === formData.strand)) {
+          setFormData((prev) => ({ ...prev, strand: '', subStrand: '' }));
         }
       })
-      .catch(() => setAvailableTopics([]))
-      .finally(() => setTopicsLoading(false));
+      .catch(() => setCurriculumTree([]))
+      .finally(() => setCurriculumLoading(false));
   }, [isTeacher, formData.subject, formData.grade, subjects]);
 
   const fetchStudentAssignments = async () => {
@@ -212,15 +219,24 @@ export default function AssignmentsPage() {
     e.preventDefault();
     try {
       await api.post('/assignments', {
-        ...formData,
+        title: formData.title,
+        description: formData.description,
+        subject: formData.subject,
+        topic: formData.subStrand || formData.strand || formData.topic,
+        strand: formData.strand,
+        subStrand: formData.subStrand,
+        grade: formData.grade,
+        totalPoints: formData.totalPoints,
         dueDate: new Date(formData.dueDate),
+        questionCount: formData.questionCount,
       });
       toast.success('Assignment created successfully!');
       setShowModal(false);
       resetForm();
       fetchTeacherAssignments();
-    } catch (error) {
-      toast.error('Failed to create assignment');
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to create assignment';
+      toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     }
   };
 
@@ -228,18 +244,22 @@ export default function AssignmentsPage() {
     e.preventDefault();
     if (!editingAssignment) return;
     try {
-      await api.put(`/assignments/${editingAssignment.id}`, {
+      const updatePayload: Record<string, any> = {
         title: formData.title,
         description: formData.description,
         totalPoints: formData.totalPoints,
         dueDate: new Date(formData.dueDate),
-      });
+      };
+      if (formData.strand) updatePayload.strand = formData.strand;
+      if (formData.subStrand) updatePayload.subStrand = formData.subStrand;
+      await api.put(`/assignments/${editingAssignment.id}`, updatePayload);
       toast.success('Assignment updated successfully!');
       setEditingAssignment(null);
       resetForm();
       fetchTeacherAssignments();
-    } catch (error) {
-      toast.error('Failed to update assignment');
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to update assignment';
+      toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     }
   };
 
@@ -251,6 +271,17 @@ export default function AssignmentsPage() {
       fetchTeacherAssignments();
     } catch (error) {
       toast.error('Failed to delete assignment');
+    }
+  };
+
+  const handleSubmitForApproval = async (id: string) => {
+    try {
+      await api.post(`/assignments/${id}/submit-for-approval`);
+      toast.success('Assignment submitted for admin approval');
+      fetchTeacherAssignments();
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || 'Failed to submit for approval';
+      toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     }
   };
 
@@ -272,6 +303,8 @@ export default function AssignmentsPage() {
       description: assignment.description || '',
       subject: assignment.subject,
       topic: assignment.topic,
+      strand: assignment.strand || '',
+      subStrand: assignment.subStrand || '',
       grade: assignment.grade,
       dueDate: assignment.dueDate.split('T')[0],
       totalPoints: assignment.totalPoints,
@@ -286,6 +319,8 @@ export default function AssignmentsPage() {
       description: '',
       subject: defaultSubject,
       topic: '',
+      strand: '',
+      subStrand: '',
       grade: 4,
       dueDate: '',
       totalPoints: 10,
@@ -296,7 +331,10 @@ export default function AssignmentsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'published': return 'bg-green-100 text-green-700';
+      case 'approved': return 'bg-emerald-100 text-emerald-700';
       case 'draft': return 'bg-amber-100 text-amber-700';
+      case 'pending_approval': return 'bg-yellow-100 text-yellow-700';
+      case 'rejected': return 'bg-red-100 text-red-700';
       case 'closed': return 'bg-slate-100 text-slate-700';
       default: return 'bg-slate-100 text-slate-700';
     }
@@ -344,7 +382,8 @@ export default function AssignmentsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-slate-500 mb-3">{assignment.subject} &bull; {assignment.topic} &bull; Grade {assignment.grade}</p>
+                      <p className="text-sm text-slate-500 mb-1">{assignment.subject} &bull; {assignment.subStrand || assignment.topic} &bull; Grade {assignment.grade}</p>
+                      {assignment.strand && <p className="text-xs text-slate-400 mb-1">Strand: {assignment.strand}</p>}
                       {assignment.description && (
                         <HtmlContent html={assignment.description} className="text-sm text-slate-600 mb-3" renderMath={true} />
                       )}
@@ -441,7 +480,8 @@ export default function AssignmentsPage() {
                       {assignment.status}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-500 mb-3">{assignment.subject} &bull; {assignment.topic} &bull; Grade {assignment.grade}</p>
+                  <p className="text-sm text-slate-500 mb-1">{assignment.subject} &bull; {assignment.subStrand || assignment.topic} &bull; Grade {assignment.grade}</p>
+                  {assignment.strand && <p className="text-xs text-slate-400 mb-1">Strand: {assignment.strand} &bull; Sub-Strand: {assignment.subStrand}</p>}
                   {assignment.description && (
                     <HtmlContent html={assignment.description} className="text-sm text-slate-600 mb-3" renderMath={true} />
                   )}
@@ -481,15 +521,39 @@ export default function AssignmentsPage() {
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => handlePublishToggle(assignment)}
-                    className={`p-2 rounded-xl hover:bg-slate-100 ${
-                      assignment.status === 'published' ? 'text-amber-500 hover:text-amber-600' : 'text-green-500 hover:text-green-600'
-                    }`}
-                    title={assignment.status === 'published' ? 'Unpublish' : 'Publish'}
-                  >
-                    {assignment.status === 'published' ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                  </button>
+                  {(assignment.status === 'draft' || assignment.status === 'rejected') && (
+                    <button
+                      onClick={() => handleSubmitForApproval(assignment.id)}
+                      className="flex items-center gap-1 px-3 py-2 bg-yellow-500 text-white rounded-xl text-sm font-medium hover:bg-yellow-600"
+                      title="Submit for admin approval"
+                    >
+                      <Send className="w-4 h-4" />
+                      Submit for Approval
+                    </button>
+                  )}
+                  {assignment.status === 'pending_approval' && (
+                    <span className="px-3 py-2 text-xs font-medium text-yellow-700 bg-yellow-50 rounded-xl">
+                      Awaiting Review
+                    </span>
+                  )}
+                  {assignment.status === 'published' && (
+                    <button
+                      onClick={() => handlePublishToggle(assignment)}
+                      className="p-2 rounded-xl hover:bg-slate-100 text-amber-500 hover:text-amber-600"
+                      title="Unpublish"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  )}
+                  {assignment.status === 'approved' && (
+                    <button
+                      onClick={() => handlePublishToggle(assignment)}
+                      className="p-2 rounded-xl hover:bg-slate-100 text-amber-500 hover:text-amber-600"
+                      title="Unpublish"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(assignment.id)}
                     className="p-2 text-slate-400 hover:text-red-500 rounded-xl hover:bg-slate-100"
@@ -536,7 +600,7 @@ export default function AssignmentsPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
                   <select
                     value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value, topic: '' })}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value, topic: '', strand: '', subStrand: '' })}
                     className="w-full px-4 py-2 border border-slate-200 rounded-xl"
                     disabled={!!editingAssignment}
                   >
@@ -549,7 +613,7 @@ export default function AssignmentsPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Grade</label>
                   <select
                     value={formData.grade}
-                    onChange={(e) => setFormData({ ...formData, grade: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, grade: parseInt(e.target.value), strand: '', subStrand: '' })}
                     className="w-full px-4 py-2 border border-slate-200 rounded-xl"
                     disabled={!!editingAssignment}
                   >
@@ -559,22 +623,39 @@ export default function AssignmentsPage() {
                   </select>
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Strand</label>
+                <select
+                  value={formData.strand}
+                  onChange={(e) => setFormData({ ...formData, strand: e.target.value, subStrand: '' })}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl"
+                  disabled={!!editingAssignment || curriculumLoading}
+                >
+                  {curriculumLoading ? (
+                    <option value="">Loading strands...</option>
+                  ) : curriculumTree.length === 0 ? (
+                    <option value="">No strands available</option>
+                  ) : (
+                    curriculumTree.map((s) => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))
+                  )}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Topic</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Sub-Strand</label>
                   <select
-                    value={formData.topic}
-                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                    value={formData.subStrand}
+                    onChange={(e) => setFormData({ ...formData, subStrand: e.target.value })}
                     className="w-full px-4 py-2 border border-slate-200 rounded-xl"
-                    disabled={!!editingAssignment || topicsLoading}
+                    disabled={!!editingAssignment || !formData.strand}
                   >
-                    {topicsLoading ? (
-                      <option value="">Loading topics...</option>
-                    ) : availableTopics.length === 0 ? (
-                      <option value="">No topics available</option>
+                    {!formData.strand ? (
+                      <option value="">Select a strand first</option>
                     ) : (
-                      availableTopics.map((t) => (
-                        <option key={t.id} value={t.name}>{t.name}</option>
+                      (curriculumTree.find((s) => s.name === formData.strand)?.subStrands || []).map((ss) => (
+                        <option key={ss.id} value={ss.name}>{ss.name}</option>
                       ))
                     )}
                   </select>

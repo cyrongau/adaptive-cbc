@@ -11,6 +11,9 @@ import {
   UseInterceptors,
   UploadedFile,
   Query,
+  HttpCode,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -58,6 +61,12 @@ class CreateTeacherDto {
   @IsArray()
   @IsString({ each: true })
   streams?: string[];
+}
+
+class FindByEmailDto {
+  @ApiProperty()
+  @IsEmail()
+  email: string;
 }
 
 class AddRoleDto {
@@ -164,6 +173,23 @@ export class UsersController {
   @ApiOperation({ summary: 'Search users' })
   async search(@Request() req, @Query('q') query: string) {
     return this.usersService.search(query, req.user.role, req.user.institutionId);
+  }
+
+  @Post('find-by-email')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(200)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Find user by email' })
+  async findByEmail(@Request() req, @Body() dto: FindByEmailDto) {
+    const user = await this.usersService.findByEmail(dto.email);
+    if (!user) {
+      throw new NotFoundException('User not found with that email');
+    }
+    if (user.role !== UserRole.STUDENT) {
+      throw new BadRequestException('That user is not a student');
+    }
+    const { password, refreshToken, ...result } = user;
+    return result;
   }
 
   @Get(':id')

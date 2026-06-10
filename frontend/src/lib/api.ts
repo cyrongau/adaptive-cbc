@@ -1,12 +1,9 @@
 import axios from 'axios';
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL 
-  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1` 
-  : 'http://localhost:3002/api/v1';
+const baseURL = '/api/v1';
 
 const api = axios.create({
   baseURL,
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -47,7 +44,7 @@ if (typeof window !== 'undefined') {
 
         try {
           // The refresh endpoint will use the refreshToken cookie
-          await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true });
+          await axios.post(`${baseURL}/auth/refresh`);
           
           processQueue(null);
           return api(originalRequest);

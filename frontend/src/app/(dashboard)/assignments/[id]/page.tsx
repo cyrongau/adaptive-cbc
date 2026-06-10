@@ -14,11 +14,19 @@ interface Assignment {
   description: string;
   subject: string;
   topic: string;
+  strand: string;
+  subStrand: string;
   grade: number;
   totalPoints: number;
   dueDate: string;
   status: string;
   questionCount: number;
+}
+
+interface CurriculumStrand {
+  id: string;
+  name: string;
+  subStrands: { id: string; name: string }[];
 }
 
 interface Question {
@@ -80,17 +88,24 @@ export default function AssignmentDetailPage() {
     }
   };
 
-  const findTopicId = async (subjectId: string, topicName: string): Promise<string | null> => {
+  const findCurriculumIds = async (subjectId: string, strandName: string, subStrandName: string): Promise<{ strandId?: string; subStrandId?: string }> => {
     try {
-      const res = await api.get(`/subjects/${subjectId}/topics`);
-      const topics: TopicItem[] = res.data;
-      const match = topics.find(
-        (t) => t.name.toLowerCase() === topicName.toLowerCase(),
-      );
-      return match?.id || null;
+      const res = await api.get('/curriculum/tree', {
+        params: { subjectId, grade: assignment?.grade },
+      });
+      const strands: CurriculumStrand[] = res.data || [];
+      const strand = strands.find((s) => s.name === strandName);
+      if (strand) {
+        const subStrand = strand.subStrands.find((ss) => ss.name === subStrandName);
+        return {
+          strandId: strand.id,
+          subStrandId: subStrand?.id,
+        };
+      }
     } catch {
-      return null;
+      // Fall back to no curriculum filter
     }
+    return {};
   };
 
   const startAssignment = async () => {
@@ -98,19 +113,24 @@ export default function AssignmentDetailPage() {
     setQuestionLoading(true);
 
     try {
-      let subjectId = await findSubjectId(assignment.subject);
-      let topicId: string | null = null;
+      const subjectId = await findSubjectId(assignment.subject);
 
-      if (subjectId) {
-        topicId = await findTopicId(subjectId, assignment.topic);
-      }
-
-      const params: Record<string, string | number> = {
+      const params: Record<string, string | number | undefined> = {
         grade: assignment.grade,
         count: assignment.questionCount,
       };
       if (subjectId) params.subjectId = subjectId;
-      if (topicId) params.topicId = topicId;
+
+      if (assignment.strand && subjectId) {
+        const { strandId, subStrandId } = await findCurriculumIds(subjectId, assignment.strand, assignment.subStrand);
+        if (strandId) params.strandId = strandId;
+        if (subStrandId) params.subStrandId = subStrandId;
+      } else if (subjectId) {
+        const res = await api.get(`/subjects/${subjectId}/topics`);
+        const topics: TopicItem[] = res.data;
+        const topic = topics.find((t) => t.name.toLowerCase() === (assignment.subStrand || assignment.topic).toLowerCase());
+        if (topic) params.topicId = topic.id;
+      }
 
       const res = await api.get('/questions/random', { params });
       const fetched = res.data;
@@ -201,8 +221,11 @@ export default function AssignmentDetailPage() {
         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
           <span className="flex items-center gap-1">
             <FileText className="w-4 h-4" />
-            {assignment.subject} &bull; {assignment.topic}
+            {assignment.subject} &bull; {assignment.subStrand || assignment.topic}
           </span>
+          {assignment.strand && (
+            <span className="text-xs text-slate-400">{assignment.strand}</span>
+          )}
           <span className="flex items-center gap-1">
             <Star className="w-4 h-4" />
             Grade {assignment.grade}
@@ -232,7 +255,8 @@ export default function AssignmentDetailPage() {
               <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-600 text-lg mb-2">Ready to start this assignment?</p>
               <p className="text-slate-400 text-sm mb-6">
-                Questions will be selected from the question bank matching {assignment.subject}, Grade {assignment.grade}.
+                Questions will be selected from {assignment.subject}, Grade {assignment.grade}
+                {assignment.subStrand ? ` — ${assignment.subStrand}` : ''}.
               </p>
               <button
                 onClick={startAssignment}

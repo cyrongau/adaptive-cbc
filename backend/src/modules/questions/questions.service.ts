@@ -4,6 +4,7 @@ import { Repository, Like, In } from 'typeorm';
 import { Question, QuestionType, DifficultyLevel, QuestionStatus, BloomsTaxonomy, QuestionSourceType } from './entities/question.entity';
 import { QuestionVersion } from './entities/question-version.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { UsersService } from '../users/users.service';
 
 export interface QuestionSearchParams {
   subjectId?: string;
@@ -27,6 +28,7 @@ export class QuestionsService {
     @InjectRepository(QuestionVersion)
     private questionVersionRepository: Repository<QuestionVersion>,
     private notificationsService: NotificationsService,
+    private usersService: UsersService,
   ) {}
 
   async findAll(params: QuestionSearchParams): Promise<{ questions: Question[]; total: number }> {
@@ -109,6 +111,8 @@ export class QuestionsService {
   async findRandomByCriteria(criteria: {
     subjectId?: string;
     topicId?: string;
+    strandId?: string;
+    subStrandId?: string;
     grade: number;
     difficulty?: DifficultyLevel;
     count: number;
@@ -124,6 +128,14 @@ export class QuestionsService {
 
     if (criteria.topicId) {
       query.andWhere('question.topicId = :topicId', { topicId: criteria.topicId });
+    }
+
+    if (criteria.strandId) {
+      query.andWhere('question.strandId = :strandId', { strandId: criteria.strandId });
+    }
+
+    if (criteria.subStrandId) {
+      query.andWhere('question.subStrandId = :subStrandId', { subStrandId: criteria.subStrandId });
     }
 
     if (criteria.difficulty) {
@@ -159,6 +171,45 @@ export class QuestionsService {
     question.successRate = (totalCorrect / question.timesAttempted) * 100;
 
     await this.questionsRepository.save(question);
+  }
+
+  async checkAnswer(
+    id: string,
+    answer: string,
+    selectedOptionIds: string | undefined,
+    userId: string,
+  ): Promise<{ correct: boolean; correctAnswer: string; explanation?: string; xpAwarded: number }> {
+    const question = await this.findOne(id);
+
+    let isCorrect = false;
+    let xpAwarded = 0;
+
+    if (question.options && question.options.length > 0) {
+      const correctOption = question.options.find((opt) => opt.isCorrect);
+      if (correctOption) {
+        const submittedIds = (selectedOptionIds || answer)
+          .split(',')
+          .map((s) => s.trim().toLowerCase());
+        isCorrect = submittedIds.includes(correctOption.id.toLowerCase());
+      }
+    } else if (question.correctAnswer) {
+      isCorrect = answer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase();
+    }
+
+    if (isCorrect) {
+      xpAwarded = question.marks * 10;
+      await this.usersService.addXpPoints(userId, xpAwarded);
+      await this.usersService.updateStreak(userId);
+    }
+
+    await this.updateSuccessRate(id, isCorrect);
+
+    return {
+      correct: isCorrect,
+      correctAnswer: question.correctAnswer || question.options?.find((opt) => opt.isCorrect)?.id || '',
+      explanation: question.explanation,
+      xpAwarded,
+    };
   }
 
   async requireHumanReview(id: string): Promise<Question> {

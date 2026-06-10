@@ -220,6 +220,11 @@ export class CreateOrderDto {
   @IsEnum(PaymentMethod)
   paymentMethod?: PaymentMethod;
 
+  @ApiPropertyOptional({ example: '254712345678' })
+  @IsOptional()
+  @IsString()
+  mpesaPhoneNumber?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()

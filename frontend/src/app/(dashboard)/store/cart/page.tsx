@@ -85,6 +85,7 @@ export default function CartPage() {
     );
   }
 
+  const cartTotal = Number(cart?.totalAmount || 0);
   const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   return (
@@ -140,7 +141,7 @@ export default function CartPage() {
                       </button>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="font-bold text-[#47a263]">KES {(item.unitPrice * item.quantity).toFixed(2)}</span>
+                      <span className="font-bold text-[#47a263]">KES {(Number(item.unitPrice) * item.quantity).toFixed(2)}</span>
                       <button
                         onClick={() => removeFromCart(item.id)}
                         className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
@@ -159,15 +160,15 @@ export default function CartPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-slate-600">
                 <span>Subtotal ({cartItemCount} items)</span>
-                <span>KES {cart.totalAmount.toFixed(2)}</span>
+                <span>KES {cartTotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>VAT (16%)</span>
-                <span>KES {(cart.totalAmount * 0.16).toFixed(2)}</span>
+                <span>KES {(cartTotal * 0.16).toFixed(2)}</span>
               </div>
               <div className="border-t border-slate-200 pt-2 flex justify-between font-bold text-lg">
                 <span>Total</span>
-                <span className="text-[#47a263]">KES {(cart.totalAmount * 1.16).toFixed(2)}</span>
+                <span className="text-[#47a263]">KES {(cartTotal * 1.16).toFixed(2)}</span>
               </div>
             </div>
 

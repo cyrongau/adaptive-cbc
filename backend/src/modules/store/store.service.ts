@@ -1,18 +1,22 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import {
   Product, Cart, CartItem, Order, OrderItem,
-  ProductStatus, OrderStatus,
+  ProductStatus, OrderStatus, PaymentMethod,
 } from './entities/store.entity';
 import {
   CreateProductDto, UpdateProductDto, AddToCartDto, UpdateCartItemDto, CreateOrderDto, UpdateOrderStatusDto,
 } from './dto/store.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { FinancialService } from '../financial/financial.service';
+import { IntegrationsService } from '../integrations/integrations.service';
+import { IntegrationType } from '../integrations/entities/integration.entity';
 
 @Injectable()
 export class StoreService {
+  private readonly logger = new Logger(StoreService.name);
+
   constructor(
     @InjectRepository(Product)
     private productRepo: Repository<Product>,
@@ -25,6 +29,7 @@ export class StoreService {
     @InjectRepository(OrderItem)
     private orderItemRepo: Repository<OrderItem>,
     private financialService: FinancialService,
+    private integrationsService: IntegrationsService,
   ) {}
 
   async createProduct(dto: CreateProductDto, userId: string): Promise<Product> {
@@ -88,6 +93,7 @@ export class StoreService {
       tags: dto.tags === undefined ? product.tags : dto.tags || [],
       images: dto.images === undefined ? product.images : dto.images || [],
       variants: dto.variants === undefined ? product.variants : dto.variants || [],
+      thumbnailUrl: dto.thumbnailUrl === undefined ? product.thumbnailUrl : dto.thumbnailUrl || null,
     });
     return this.productRepo.save(product);
   }
@@ -183,7 +189,7 @@ export class StoreService {
     return cart;
   }
 
-  async createOrder(userId: string, dto: CreateOrderDto): Promise<Order> {
+  async createOrder(userId: string, dto: CreateOrderDto): Promise<any> {
     const cart = await this.getCart(userId);
     if (!cart.items || cart.items.length === 0) {
       throw new BadRequestException('Cart is empty');
@@ -203,7 +209,7 @@ export class StoreService {
       taxAmount,
       discountAmount,
       totalAmount,
-      paymentMethod: dto.paymentMethod,
+      paymentMethod: dto.paymentMethod || PaymentMethod.M_PESA,
       shippingAddress: dto.shippingAddress,
       notes: dto.notes,
     });
@@ -229,10 +235,95 @@ export class StoreService {
 
     await this.clearCart(userId);
 
-    return this.orderRepo.findOne({
+    const orderWithRelations = await this.orderRepo.findOne({
       where: { id: savedOrder.id },
       relations: ['items', 'items.product', 'user'],
     });
+
+    let paymentResult: any = { initiated: false };
+
+    if (order.paymentMethod === PaymentMethod.M_PESA && dto.mpesaPhoneNumber) {
+      paymentResult = await this.initiateMpesaPayment(order, dto.mpesaPhoneNumber);
+      if (paymentResult.initiated) {
+        savedOrder.paymentReference = paymentResult.checkoutRequestId;
+        await this.orderRepo.save(savedOrder);
+      }
+    }
+
+    return {
+      ...orderWithRelations,
+      payment: paymentResult,
+    };
+  }
+
+  private async initiateMpesaPayment(
+    order: Order,
+    phoneNumber: string,
+  ): Promise<{ initiated: boolean; checkoutRequestId?: string; message?: string }> {
+    try {
+      const integration = await this.integrationsService.getIntegrationByType(IntegrationType.MPESA);
+      if (!integration || !integration.config) {
+        this.logger.warn('M-Pesa integration not configured. Order created without payment.');
+        return { initiated: false, message: 'M-Pesa not configured' };
+      }
+
+      const config = integration.config as any;
+      const baseUrl = config.environment === 'sandbox'
+        ? 'https://sandbox.safaricom.co.ke'
+        : 'https://api.safaricom.co.ke';
+
+      const authResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString('base64')}`,
+        },
+      });
+
+      const authData = await authResponse.json();
+      if (!authResponse.ok) {
+        this.logger.error(`M-Pesa auth failed: ${authData.errorDescription}`);
+        return { initiated: false, message: 'M-Pesa authentication failed' };
+      }
+
+      const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+      const password = Buffer.from(`${config.shortcode}${config.passkey}${timestamp}`).toString('base64');
+
+      const stkResponse = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authData.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          BusinessShortCode: config.shortcode,
+          Password: password,
+          Timestamp: timestamp,
+          TransactionType: 'CustomerPayBillOnline',
+          Amount: Math.round(Number(order.totalAmount)),
+          PartyA: phoneNumber.replace(/[^0-9]/g, ''),
+          PartyB: config.shortcode,
+          PhoneNumber: phoneNumber.replace(/[^0-9]/g, ''),
+          CallBackURL: config.callbackUrl || 'https://your-domain.com/api/v1/integrations/mpesa/callback',
+          AccountReference: order.orderNumber,
+          TransactionDesc: `Payment for order ${order.orderNumber}`,
+        }),
+      });
+
+      const stkData = await stkResponse.json();
+
+      if (stkResponse.ok && stkData.ResponseCode === '0') {
+        return {
+          initiated: true,
+          checkoutRequestId: stkData.CheckoutRequestID,
+          message: 'M-Pesa STK Push sent. Check your phone and enter PIN.',
+        };
+      }
+
+      return { initiated: false, message: stkData.errorMessage || 'Failed to initiate M-Pesa payment' };
+    } catch (error) {
+      this.logger.error(`M-Pesa payment initiation failed: ${error.message}`);
+      return { initiated: false, message: 'M-Pesa service unavailable' };
+    }
   }
 
   async getUserOrders(userId: string): Promise<Order[]> {
@@ -296,5 +387,78 @@ export class StoreService {
     const items = await this.cartItemRepo.find({ where: { cartId } });
     const total = items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
     await this.cartRepo.update(cartId, { totalAmount: total });
+  }
+
+  async handleMpesaCallback(body: any): Promise<{ ResultCode: number; ResultDesc: string }> {
+    this.logger.log('M-Pesa callback received', JSON.stringify(body));
+
+    try {
+      const stkCallback = body?.Body?.stkCallback;
+      if (!stkCallback) {
+        return { ResultCode: 1, ResultDesc: 'Invalid callback body' };
+      }
+
+      const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = stkCallback;
+
+      if (ResultCode === 0) {
+        const items = CallbackMetadata?.Item || [];
+        const getItem = (name: string) => items.find((i: any) => i.Name === name)?.Value;
+        const receiptNumber = getItem('MpesaReceiptNumber');
+        const phoneNumber = getItem('PhoneNumber');
+
+        const order = await this.orderRepo.findOne({ where: { paymentReference: CheckoutRequestID } });
+        if (order) {
+          order.status = OrderStatus.PROCESSING;
+          order.paidAt = new Date();
+          order.paymentReference = receiptNumber || CheckoutRequestID;
+          await this.orderRepo.save(order);
+          this.logger.log(`Order ${order.orderNumber} marked as paid. Receipt: ${receiptNumber}`);
+
+          for (const item of order.items || []) {
+            const product = await this.productRepo.findOne({ where: { id: item.productId } });
+            if (product) {
+              product.salesCount += item.quantity;
+              await this.productRepo.save(product);
+              if (product.createdBy) {
+                await this.financialService.recordSale({
+                  sellerId: product.createdBy,
+                  amount: Number(item.unitPrice) * item.quantity,
+                  orderId: order.id,
+                  productTitle: product.title,
+                });
+              }
+            }
+          }
+        } else {
+          this.logger.warn(`No order found for checkout request: ${CheckoutRequestID}`);
+        }
+      } else {
+        this.logger.warn(`M-Pesa payment failed: ${ResultDesc}`);
+        const order = await this.orderRepo.findOne({ where: { paymentReference: CheckoutRequestID } });
+        if (order) {
+          order.status = OrderStatus.CANCELLED;
+          await this.orderRepo.save(order);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error handling M-Pesa callback: ${error.message}`);
+    }
+
+    return { ResultCode: 0, ResultDesc: 'Success' };
+  }
+
+  async getOrderPaymentStatus(id: string, userId: string, userRole: string): Promise<{ status: string; paid: boolean; paidAt?: Date; paymentReference?: string }> {
+    const order = await this.orderRepo.findOne({ where: { id } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.userId !== userId && userRole !== UserRole.SUPER_ADMIN && userRole !== UserRole.INSTITUTION_ADMIN) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return {
+      status: order.status,
+      paid: order.status === OrderStatus.PROCESSING || order.status === OrderStatus.COMPLETED,
+      paidAt: order.paidAt,
+      paymentReference: order.paymentReference,
+    };
   }
 }

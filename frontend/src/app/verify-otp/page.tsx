@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../store/authStore';
+import api from '@/lib/api';
 import { GraduationCap, ArrowRight, Loader2, Sparkles, ShieldCheck, ShieldAlert, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -13,6 +14,7 @@ function VerifyOtpForm() {
   const searchParams = useSearchParams();
   const { verifyOtp, loading, error, clearError, tempEmail, tempPhone, initialize } = useAuthStore();
   const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
   
   const [otp, setOtp] = useState<string[]>(new Array(6).fill(''));
   const [resendTimer, setResendTimer] = useState(59);
@@ -26,6 +28,11 @@ function VerifyOtpForm() {
     const cbUrl = searchParams.get('callbackUrl');
     if (cbUrl) {
       setCallbackUrl(decodeURIComponent(cbUrl));
+    }
+
+    const inviteToken = searchParams.get('invitationToken');
+    if (inviteToken) {
+      setInvitationToken(inviteToken);
     }
 
     // Redirect if no active temporary authentication session exists
@@ -95,7 +102,17 @@ function VerifyOtpForm() {
     const success = await verifyOtp(fullCode);
     if (success) {
       toast.success('Two-Factor Authentication succeeded! Logging in...');
-      
+
+      // Accept invitation if token present
+      if (invitationToken) {
+        try {
+          await api.put(`/relationships/invitation/${invitationToken}/accept`);
+          toast.success('Child linked successfully!');
+        } catch {
+          // silently fail - the invite may already be accepted
+        }
+      }
+
       if (callbackUrl) {
         router.push(callbackUrl);
         return;

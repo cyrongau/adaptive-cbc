@@ -24,15 +24,20 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
   const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
 
   useEffect(() => {
     initialize();
     clearError();
     const isAuthRequired = searchParams.get('authRequired') === 'true';
     const cbUrl = searchParams.get('callbackUrl');
+    const inviteToken = searchParams.get('invitationToken');
     if (isAuthRequired) {
       setAuthRequired(true);
       setCallbackUrl(cbUrl ? decodeURIComponent(cbUrl) : null);
+    }
+    if (inviteToken) {
+      setInvitationToken(inviteToken);
     }
   }, [searchParams]);
 
@@ -47,7 +52,15 @@ function LoginForm() {
     const success = await login(email, password);
     if (success) {
       toast.success('Credentials verified. Initiating Two-Factor Authentication.');
-      const verifyUrl = callbackUrl ? `/verify-otp?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/verify-otp';
+
+      // Build verify URL with invitationToken if present
+      let verifyUrl = '/verify-otp';
+      const params = new URLSearchParams();
+      if (callbackUrl) params.set('callbackUrl', callbackUrl);
+      if (invitationToken) params.set('invitationToken', invitationToken);
+      const qs = params.toString();
+      if (qs) verifyUrl += '?' + qs;
+
       router.push(verifyUrl);
     } else {
       toast.error(error || 'Invalid credentials');

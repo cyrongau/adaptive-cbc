@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/lib/theme';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
+import toast from 'react-hot-toast';
 import {
   Calendar, Clock, BookOpen, Video, Users, GraduationCap, ArrowRight,
-  ChevronRight, PlayCircle, Sparkles, MapPin, Target, Monitor,
+  ChevronRight, PlayCircle, Sparkles, MapPin, Target, Monitor, LogIn, Copy, Check, ExternalLink, X,
 } from 'lucide-react';
 
 interface Lesson {
@@ -53,6 +54,13 @@ export default function CourseHubPage() {
   const [activeDay, setActiveDay] = useState<string>('');
   const [myCourses, setMyCourses] = useState<any[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [myEnrollments, setMyEnrollments] = useState<any[]>([]);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
 
   const isTeacher = user?.role === 'teacher';
   const isTutor = user?.role === 'tutor';
@@ -68,6 +76,7 @@ export default function CourseHubPage() {
     if (isMounted) {
       fetchHubData();
       if (isTeacher || isTutor) fetchMyCourses();
+      if (isStudent) fetchEnrollments();
     }
   }, [isMounted]);
 
@@ -100,6 +109,34 @@ export default function CourseHubPage() {
       setMyCourses([]);
     } finally {
       setLoadingCourses(false);
+    }
+  };
+
+  const fetchEnrollments = async () => {
+    setLoadingEnrollments(true);
+    try {
+      const res = await api.get('/classes/my-enrollments');
+      setMyEnrollments(res.data || []);
+    } catch {
+      setMyEnrollments([]);
+    } finally {
+      setLoadingEnrollments(false);
+    }
+  };
+
+  const handleJoinClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinCode.trim()) return;
+    setJoining(true);
+    try {
+      await api.post('/classes/join', { code: joinCode.trim().toUpperCase() });
+      setShowJoinModal(false);
+      setJoinCode('');
+      fetchEnrollments();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to join class');
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -148,13 +185,24 @@ export default function CourseHubPage() {
               : 'Your central place for timetable, live classes, and lessons'}
           </p>
         </div>
-        <Link
-          href={isTeacher || isTutor ? '/my-courses' : '/courses'}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#47a263] text-white font-semibold text-sm rounded-xl hover:bg-[#3d8b55] transition-all"
-        >
-          <BookOpen className="w-4 h-4" />
-          {isTeacher || isTutor ? 'My Courses' : 'Browse Courses'}
-        </Link>
+        <div className="flex items-center gap-3">
+          {isStudent && (
+            <button
+              onClick={() => setShowJoinModal(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-semibold text-sm rounded-xl hover:bg-indigo-700 transition-all"
+            >
+              <LogIn className="w-4 h-4" />
+              Join Class
+            </button>
+          )}
+          <Link
+            href={isTeacher || isTutor ? '/my-courses' : '/courses'}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#47a263] text-white font-semibold text-sm rounded-xl hover:bg-[#3d8b55] transition-all"
+          >
+            <BookOpen className="w-4 h-4" />
+            {isTeacher || isTutor ? 'My Courses' : 'Browse Courses'}
+          </Link>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -313,6 +361,61 @@ export default function CourseHubPage() {
             )}
           </motion.div>
 
+          {/* My Enrolled Classes */}
+          {isStudent && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.08 }}
+              className={`${theme.cardBg} rounded-xl border ${theme.cardBorder} shadow-sm`}
+            >
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900">My Classes</h2>
+                {myEnrollments.length > 0 && (
+                  <span className="text-xs text-slate-400">{myEnrollments.length} enrolled</span>
+                )}
+              </div>
+              {loadingEnrollments ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-3 border-[#47a263]/30 border-t-[#47a263] rounded-full animate-spin" />
+                </div>
+              ) : myEnrollments.length > 0 ? (
+                <div className="divide-y divide-slate-100">
+                  {myEnrollments.slice(0, 5).map((enr: any) => {
+                    const cls = enr.class;
+                    const dayText = cls?.schedule ? (() => { try {
+                      const slots = JSON.parse(cls.schedule);
+                      return slots.map((s: any) => `${s.day} ${s.startTime}`).join(', ');
+                    } catch { return ''; } })() : '';
+                    return (
+                      <div key={enr.id} className="p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                            <GraduationCap className="w-5 h-5 text-indigo-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-900 truncate">{cls?.name || 'Unknown Class'}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{cls?.subject} • Grade {cls?.grade}{cls?.stream ? ` • ${cls.stream}` : ''}</p>
+                            {dayText && <p className="text-xs text-slate-400 mt-1">{dayText}</p>}
+                            {cls?.teacher && (
+                              <p className="text-xs text-slate-400 mt-0.5">Teacher: {cls.teacher.firstName} {cls.teacher.lastName}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <GraduationCap className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-slate-400">No classes yet</p>
+                  <p className="text-xs text-slate-300 mt-1">Ask your teacher for a class code</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* Live Classes Widget */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -439,7 +542,8 @@ export default function CourseHubPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.05 }}
-                          className="group flex items-start gap-4 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-100 hover:border-slate-200"
+                          onClick={() => setSelectedLesson(lesson)}
+                          className="group flex items-start gap-4 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-100 hover:border-slate-200 cursor-pointer"
                         >
                           <div className="flex flex-col items-center min-w-[60px]">
                             <span className="text-lg font-bold text-slate-900 leading-tight">
@@ -455,16 +559,19 @@ export default function CourseHubPage() {
                                 <p className="font-bold text-slate-900">{lesson.title}</p>
                                 <p className="text-sm text-slate-500 mt-0.5">{lesson.subject} • Grade {lesson.grade}{lesson.stream ? ` • ${lesson.stream}` : ''}</p>
                               </div>
-                              {lesson.isLive && lesson.meetingLink && (
-                                <a
-                                  href={lesson.meetingLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="shrink-0 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
-                                >
-                                  <Video className="w-3.5 h-3.5" /> Join
-                                </a>
-                              )}
+                              <div className="shrink-0 flex items-center gap-2">
+                                {lesson.isLive && lesson.meetingLink && (
+                                  <a
+                                    href={lesson.meetingLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                                  >
+                                    <Video className="w-3.5 h-3.5" /> Join
+                                  </a>
+                                )}
+                              </div>
                             </div>
                             {lesson.teacher && (
                               <div className="flex items-center gap-2 mt-2">
@@ -494,6 +601,141 @@ export default function CourseHubPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Lesson Detail Modal */}
+      <AnimatePresence>
+        {selectedLesson && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedLesson(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  {selectedLesson.isLive && (
+                    <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-bold rounded-full animate-pulse">LIVE</span>
+                  )}
+                  <span className="text-xs font-medium text-slate-400 uppercase">{selectedLesson.subject}</span>
+                </div>
+                <button onClick={() => setSelectedLesson(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 mb-4">{selectedLesson.title}</h2>
+
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center gap-3 text-sm text-slate-600">
+                  <Calendar className="w-4 h-4 text-slate-400" />
+                  <span className="capitalize">{DAY_LABELS[selectedLesson.dayOfWeek] || selectedLesson.dayOfWeek}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-slate-600">
+                  <Clock className="w-4 h-4 text-slate-400" />
+                  <span>{selectedLesson.startTime} - {selectedLesson.endTime}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-slate-600">
+                  <GraduationCap className="w-4 h-4 text-slate-400" />
+                  <span>Grade {selectedLesson.grade}{selectedLesson.stream ? ` • ${selectedLesson.stream}` : ''}</span>
+                </div>
+                {selectedLesson.description && (
+                  <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">{selectedLesson.description}</p>
+                )}
+                {selectedLesson.teacher && (
+                  <div className="flex items-center gap-3 text-sm text-slate-600">
+                    <div className="w-8 h-8 rounded-full bg-[#47a263]/10 flex items-center justify-center text-xs font-bold text-[#47a263]">
+                      {selectedLesson.teacher.firstName[0]}{selectedLesson.teacher.lastName[0]}
+                    </div>
+                    <span>{selectedLesson.teacher.firstName} {selectedLesson.teacher.lastName}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSelectedLesson(null)}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-medium hover:bg-slate-50"
+                >
+                  Close
+                </button>
+                {selectedLesson.meetingLink && (
+                  <a
+                    href={selectedLesson.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 text-center flex items-center justify-center gap-2"
+                  >
+                    <Video className="w-4 h-4" /> Join Class
+                  </a>
+                )}
+                {selectedLesson.recordingUrl && (
+                  <a
+                    href={selectedLesson.recordingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 text-center flex items-center justify-center gap-2"
+                  >
+                    <PlayCircle className="w-4 h-4" /> Recording
+                  </a>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Join Class Modal */}
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-slate-900 mb-4">Join a Class</h2>
+            <p className="text-sm text-slate-500 mb-4">Enter the class code provided by your teacher to enroll.</p>
+            <form onSubmit={handleJoinClass} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Class Code</label>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-center text-lg font-bold tracking-widest uppercase"
+                  placeholder="MATH101"
+                  maxLength={20}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowJoinModal(false); setJoinCode(''); }}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-medium hover:bg-slate-50"
+                  disabled={joining}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={joining || !joinCode.trim()}
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {joining ? (
+                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Joining...</>
+                  ) : (
+                    <><LogIn className="w-4 h-4" /> Join Class</>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

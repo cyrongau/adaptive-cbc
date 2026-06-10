@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
 import { Tournament, TournamentParticipant, UserBadge, Leaderboard, TournamentStatus } from './entities/gamification.entity';
 import { UsersService } from '../users/users.service';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class GamificationService {
@@ -153,6 +154,7 @@ export class GamificationService {
   async getGlobalLeaderboard(limit: number = 50): Promise<any[]> {
     const users = await this.usersService.findAll();
     const leaderboard = users
+      .filter((user) => user.role === UserRole.STUDENT)
       .sort((a, b) => b.xpPoints - a.xpPoints)
       .slice(0, limit)
       .map((user, index) => ({
@@ -175,7 +177,7 @@ export class GamificationService {
   async getGradeLeaderboard(grade: number, limit: number = 20): Promise<any[]> {
     const users = await this.usersService.findAll();
     const gradeLeaderboard = users
-      .filter((user) => user.grade === grade)
+      .filter((user) => user.role === UserRole.STUDENT && user.grade === grade)
       .sort((a, b) => b.xpPoints - a.xpPoints)
       .slice(0, limit)
       .map((user, index) => ({

@@ -1,8 +1,9 @@
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { UserRelationship, RelationshipType, VerificationStatus } from './entities/relationship.entity';
 import { User } from '../users/entities/user.entity';
+import { StudentRegister } from '../institutions/entities/student-register.entity';
 import { EmailService } from '../../common/email.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -15,6 +16,8 @@ export class RelationshipsService {
     private relationshipRepository: Repository<UserRelationship>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(StudentRegister)
+    private studentRegisterRepository: Repository<StudentRegister>,
     private emailService: EmailService,
   ) {}
 
@@ -191,6 +194,69 @@ export class RelationshipsService {
     relationship.verifiedBy = parentUserId;
     relationship.invitationToken = null;
     return this.relationshipRepository.save(relationship);
+  }
+
+  async autoLinkParentByEmail(parentUserId: string): Promise<{ linked: number }> {
+    const parent = await this.usersRepository.findOne({ where: { id: parentUserId } });
+    if (!parent || parent.role !== 'parent') {
+      return { linked: 0 };
+    }
+
+    const registers = await this.studentRegisterRepository.find({
+      where: { parentEmail: parent.email, isActive: true },
+    });
+
+    let linked = 0;
+    for (const reg of registers) {
+      if (!reg.userId) continue;
+
+      const existing = await this.relationshipRepository.findOne({
+        where: {
+          userId: reg.userId,
+          relatedUserId: parentUserId,
+          relationshipType: In([
+            RelationshipType.PARENT, RelationshipType.MOTHER,
+            RelationshipType.FATHER, RelationshipType.GUARDIAN,
+          ]),
+          isActive: true,
+        },
+      });
+      if (existing) continue;
+
+      const pendingByEmail = await this.relationshipRepository.findOne({
+        where: {
+          userId: reg.userId,
+          relatedUserEmail: parent.email,
+          isActive: true,
+        },
+      });
+      if (pendingByEmail) {
+        pendingByEmail.relatedUserId = parentUserId;
+        pendingByEmail.verificationStatus = VerificationStatus.INSTITUTIONAL_VERIFIED;
+        pendingByEmail.invitationToken = null;
+        pendingByEmail.verifiedBy = parentUserId;
+        await this.relationshipRepository.save(pendingByEmail);
+        linked++;
+        continue;
+      }
+
+      const relationship = this.relationshipRepository.create({
+        userId: reg.userId,
+        relatedUserId: parentUserId,
+        relatedUserEmail: parent.email,
+        relationshipType: RelationshipType.PARENT,
+        verificationStatus: VerificationStatus.INSTITUTIONAL_VERIFIED,
+        verifiedBy: parentUserId,
+        permissions: this.getDefaultPermissions(RelationshipType.PARENT),
+      });
+      await this.relationshipRepository.save(relationship);
+      linked++;
+    }
+
+    if (linked > 0) {
+      this.logger.log(`Auto-linked parent ${parent.email} to ${linked} student(s) via student register`);
+    }
+    return { linked };
   }
 
   async removeRelationship(id: string): Promise<void> {

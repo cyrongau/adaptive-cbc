@@ -41,8 +41,9 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-  const [step, setStep] = useState<'address' | 'payment' | 'review'>('address');
+  const [step, setStep] = useState<'address' | 'payment' | 'review' | 'processing'>('address');
   const [selectedPayment, setSelectedPayment] = useState<string>('m_pesa');
+  const [mpesaPhone, setMpesaPhone] = useState(user?.phone || '');
   
   // Form states
   const [shippingAddress, setShippingAddress] = useState({
@@ -53,6 +54,12 @@ export default function CheckoutPage() {
     county: '',
     postalCode: ''
   });
+
+  // Order result state
+  const [placedOrder, setPlacedOrder] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<{ status: string; paid: boolean } | null>(null);
+  const [pollingPayment, setPollingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   useEffect(() => {
     setIsMounted(true);
@@ -93,21 +100,66 @@ export default function CheckoutPage() {
   };
 
   const placeOrder = async () => {
+    if (selectedPayment === 'm_pesa' && !mpesaPhone.replace(/[^0-9]/g, '')) {
+      toast.error('Please enter your M-Pesa phone number');
+      return;
+    }
+
     setCheckoutLoading(true);
+    setPaymentError('');
     try {
       const payload: any = { paymentMethod: selectedPayment };
+      if (selectedPayment === 'm_pesa') {
+        payload.mpesaPhoneNumber = mpesaPhone;
+      }
       if (hasPhysicalItems) {
         payload.shippingAddress = shippingAddress;
       }
       
       const res = await api.post('/store/orders', payload);
-      toast.success('Order placed successfully!');
-      router.push('/store?tab=orders');
+      setPlacedOrder(res.data);
+
+      if (selectedPayment === 'm_pesa' && res.data.payment?.initiated) {
+        setStep('processing');
+        toast.success(res.data.payment.message || 'M-Pesa STK Push sent!');
+        startPollingPayment(res.data.id);
+      } else if (selectedPayment === 'm_pesa' && !res.data.payment?.initiated) {
+        toast.success('Order placed! Payment will be processed manually.');
+        router.push('/store?tab=orders');
+      } else {
+        toast.success('Order placed successfully!');
+        router.push('/store?tab=orders');
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Checkout failed');
     } finally {
       setCheckoutLoading(false);
     }
+  };
+
+  const startPollingPayment = (orderId: string) => {
+    setPollingPayment(true);
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/store/orders/${orderId}/payment-status`);
+        const data = res.data;
+        setPaymentStatus(data);
+        if (data.paid) {
+          clearInterval(interval);
+          setPollingPayment(false);
+          toast.success('Payment confirmed!');
+          setTimeout(() => router.push('/store?tab=orders'), 2000);
+        }
+      } catch {
+        clearInterval(interval);
+        setPollingPayment(false);
+      }
+    }, 3000);
+    setTimeout(() => {
+      clearInterval(interval);
+      setPollingPayment(false);
+      setPaymentError('Payment confirmation timeout. Please check your order status.');
+    }, 120000);
   };
 
   if (!isMounted) return null;
@@ -132,7 +184,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const subtotal = cart.totalAmount;
+  const subtotal = Number(cart.totalAmount);
   const vat = subtotal * 0.16;
   // Basic shipping cost logic
   const shippingCost = hasPhysicalItems ? 500 : 0; 
@@ -244,6 +296,27 @@ export default function CheckoutPage() {
                   );
                 })}
               </div>
+
+              {selectedPayment === 'm_pesa' && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <label className="block text-sm font-bold text-slate-700 mb-2">M-Pesa Phone Number</label>
+                  <div className="flex gap-2">
+                    <span className="inline-flex items-center px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-500">+254</span>
+                    <input
+                      type="tel"
+                      value={mpesaPhone.replace('+254', '')}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        setMpesaPhone(val ? `+254${val}` : '');
+                      }}
+                      placeholder="712345678"
+                      className="flex-1 px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#47a263]/30 bg-white"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">Enter the M-Pesa registered phone number to receive the payment prompt.</p>
+                </div>
+              )}
+
               <div className="flex gap-4 pt-4">
                 {hasPhysicalItems && (
                   <button onClick={() => setStep('address')} className="px-6 py-3 border border-slate-200 text-slate-700 rounded-lg font-bold hover:bg-slate-50 transition-all">
@@ -254,6 +327,45 @@ export default function CheckoutPage() {
                   Review Order
                 </button>
               </div>
+            </div>
+          )}
+
+          {step === 'processing' && (
+            <div className={`p-6 rounded-xl border ${theme.cardBorder} ${theme.cardBg} space-y-6 text-center`}>
+              {paymentStatus?.paid ? (
+                <div className="py-8">
+                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-10 h-10 text-green-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Payment Confirmed!</h2>
+                  <p className="text-slate-500">Your order has been paid successfully.</p>
+                </div>
+              ) : (
+                <div className="py-8">
+                  <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    {pollingPayment ? (
+                      <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                    ) : (
+                      <Smartphone className="w-10 h-10 text-blue-600" />
+                    )}
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Complete Payment on M-Pesa</h2>
+                  <p className="text-slate-600 max-w-md mx-auto">
+                    An M-Pesa STK Push has been sent to <strong>{mpesaPhone}</strong>.
+                    Please check your phone and enter your M-Pesa PIN to complete the payment.
+                  </p>
+                  <div className="mt-6 flex items-center justify-center gap-2 text-sm text-amber-600 bg-amber-50 px-4 py-3 rounded-xl max-w-md mx-auto">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Waiting for payment confirmation...
+                  </div>
+                  {paymentError && (
+                    <div className="mt-4 text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl max-w-md mx-auto">
+                      {paymentError}
+                      <Link href="/store?tab=orders" className="block mt-2 font-semibold underline">View your orders</Link>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -270,7 +382,7 @@ export default function CheckoutPage() {
                         <span className="font-medium">{item.quantity}x</span>
                         <span className="text-slate-700">{item.product.title}</span>
                       </div>
-                      <span className="font-medium text-slate-900">KES {(item.unitPrice * item.quantity).toFixed(2)}</span>
+                      <span className="font-medium text-slate-900">KES {(Number(item.unitPrice) * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>

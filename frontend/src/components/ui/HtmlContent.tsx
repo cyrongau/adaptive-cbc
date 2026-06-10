@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import 'katex/dist/katex.min.css';
+// @ts-ignore
+import renderMathInElement from 'katex/dist/contrib/auto-render.mjs';
 
 export function stripHtml(html: string): string {
   if (!html) return '';
@@ -12,16 +15,17 @@ export default function HtmlContent({ html, className = '', renderMath = false }
 
   useEffect(() => {
     if (!renderMath || !containerRef.current || !html) return;
-    // @ts-ignore
-    import('katex/dist/contrib/auto-render.mjs').then((renderMathInElement) => {
-      renderMathInElement.default(containerRef.current, {
+    try {
+      renderMathInElement(containerRef.current, {
         delimiters: [
           { left: '$$', right: '$$', display: true },
           { left: '\\(', right: '\\)', display: false },
         ],
         throwOnError: false,
       });
-    }).catch(() => {});
+    } catch {
+      console.warn('KaTeX auto-render failed');
+    }
   }, [html, renderMath]);
 
   if (!html) return null;

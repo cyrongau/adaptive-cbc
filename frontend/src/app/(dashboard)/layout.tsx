@@ -36,6 +36,9 @@ import {
   CheckCircle,
   MessageSquare,
   HelpCircle,
+  UserCheck,
+  ShoppingCart,
+  UserPlus,
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from '@/components/NotificationBell';
@@ -43,6 +46,8 @@ import NotificationBell from '@/components/NotificationBell';
 const SIDEBAR_ITEMS_STUDENT = [
   { label: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
+  { label: 'My Classes', icon: GraduationCap, href: '/classes' },
+  { label: 'Schedule', icon: Calendar, href: '/schedule' },
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
   { label: 'Assignments', icon: FileText, href: '/assignments' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
@@ -59,6 +64,8 @@ const SIDEBAR_ITEMS_STUDENT = [
 const SIDEBAR_ITEMS_AFFILIATED_STUDENT = [
   { label: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
+  { label: 'My Classes', icon: GraduationCap, href: '/classes' },
+  { label: 'Schedule', icon: Calendar, href: '/schedule' },
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
   { label: 'Assignments', icon: FileText, href: '/assignments' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
@@ -124,12 +131,36 @@ const SIDEBAR_ITEMS_TEACHER = [
 
 const SIDEBAR_ITEMS_ADMIN = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
-  { label: 'Users', icon: GraduationCap, href: '/admin/users' },
-  { label: 'Institutions', icon: BookOpen, href: '/admin/institutions' },
-  { label: 'Content Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
+  { label: 'Users', icon: Users, href: '/admin/users' },
+  { label: 'KYC Applications', icon: UserCheck, href: '/admin/kyc-applications' },
+  { label: 'KYC Verification', icon: Shield, href: '/admin/verification' },
+  { label: 'Institutions', icon: Building2, href: '/admin/institutions' },
+  { label: 'Financial Oversight', icon: Wallet, href: '/admin/financial' },
+  { label: 'Store Management', icon: ShoppingCart, href: '/admin/store' },
+  { label: 'Question Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
+  { label: 'Papers Moderation', icon: FileText, href: '/admin/content' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
-  { label: 'Content', icon: PenTool, href: '/admin/content' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
+  { label: 'Inbox', icon: MessageSquare, href: '/admin/chat' },
+  { label: 'Support Queue', icon: HelpCircle, href: '/admin/support' },
+  { label: 'Settings', icon: Settings, href: '/admin/settings' },
+];
+
+const SIDEBAR_ITEMS_INSTITUTION_ADMIN = [
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
+  { label: 'My Institution', icon: Building2, href: '/admin/institution' },
+  { label: 'Student Register', icon: GraduationCap, href: '/admin/students' },
+  { label: 'Join Requests', icon: UserPlus, href: '/admin/join-requests' },
+  { label: 'Teachers', icon: Users, href: '/admin/teachers' },
+  { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
+  { label: 'Question Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
+  { label: 'Assignment Review', icon: FileText, href: '/admin/assignments/pending' },
+  { label: 'Digital Library', icon: FolderOpen, href: '/library' },
+  { label: 'Store', icon: ShoppingBag, href: '/store' },
+  { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
+  { label: 'Reports', icon: FileText, href: '/admin/reports' },
+  { label: 'Inbox', icon: MessageSquare, href: '/admin/chat' },
+  { label: 'Support Queue', icon: HelpCircle, href: '/admin/support' },
   { label: 'Settings', icon: Settings, href: '/admin/settings' },
 ];
 
@@ -225,7 +256,7 @@ export default function DashboardLayout({
       { label: 'Application Status', icon: Shield, href: '/onboarding/institution-admin' },
     ];
   } else if (isInstitutionAdmin && isKycApproved && isExemptedAdminPath) {
-    SIDEBAR_ITEMS = SIDEBAR_ITEMS_TEACHER;
+    SIDEBAR_ITEMS = SIDEBAR_ITEMS_INSTITUTION_ADMIN;
   } else if (isSuperAdmin && isExemptedAdminPath) {
     SIDEBAR_ITEMS = SIDEBAR_ITEMS_ADMIN;
   } else if (isTutor) SIDEBAR_ITEMS = SIDEBAR_ITEMS_TUTOR;

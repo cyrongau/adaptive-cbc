@@ -107,6 +107,16 @@ export class AuthController {
     return { message: 'Tokens refreshed' };
   }
 
+  @Post('link-parent')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Auto-link parent to children via student register email match' })
+  async linkParent(@Request() req) {
+    const result = await this.authService.autoLinkParent(req.user.id);
+    return result;
+  }
+
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')

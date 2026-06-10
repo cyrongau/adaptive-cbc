@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import Link from 'next/link';
-import { Search, Loader2, BookOpen, ChevronRight } from 'lucide-react';
+import { Search, Loader2, BookOpen, ChevronRight, CheckCircle, XCircle, Zap } from 'lucide-react';
 import HtmlContent, { stripHtml } from '@/components/ui/HtmlContent';
 
 interface Subject {
@@ -44,6 +44,9 @@ export default function QuestionBankPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [revealedQuestionIds, setRevealedQuestionIds] = useState<string[]>([]);
+  const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
+  const [questionResults, setQuestionResults] = useState<Record<string, { correct: boolean; xpAwarded: number } | null>>({});
+  const [submittingQuestions, setSubmittingQuestions] = useState<Record<string, boolean>>({});
 
   const limit = 12;
 
@@ -120,6 +123,23 @@ export default function QuestionBankPage() {
         : [...current, questionId]
     );
   };
+
+  const submitAnswer = async (questionId: string) => {
+    const answer = (questionAnswers[questionId] || '').trim();
+    if (!answer) return;
+
+    setSubmittingQuestions((prev) => ({ ...prev, [questionId]: true }));
+    try {
+      const res = await api.post(`/questions/${questionId}/check`, { answer });
+      setQuestionResults((prev) => ({ ...prev, [questionId]: res.data }));
+    } catch (err) {
+      console.error('Failed to check answer', err);
+    } finally {
+      setSubmittingQuestions((prev) => ({ ...prev, [questionId]: false }));
+    }
+  };
+
+  const isStudent = user?.role === 'student';
 
   if (!user) return null;
 
@@ -232,6 +252,41 @@ export default function QuestionBankPage() {
                       <HtmlContent html={question.content} className="text-base font-semibold text-slate-900" renderMath={true} />
                     </div>
                     <div className="flex flex-col items-start gap-3 sm:items-end">
+                      {isStudent && (
+                        <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                          {!questionResults[question.id] ? (
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                              <input
+                                type="text"
+                                value={questionAnswers[question.id] || ''}
+                                onChange={(e) => setQuestionAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))}
+                                placeholder="Type your answer..."
+                                className="w-40 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => submitAnswer(question.id)}
+                                disabled={submittingQuestions[question.id]}
+                                className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                              >
+                                {submittingQuestions[question.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                                Submit
+                              </button>
+                            </div>
+                          ) : (
+                            <div className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold ${questionResults[question.id]?.correct ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                              {questionResults[question.id]?.correct ? (
+                                <><CheckCircle className="w-4 h-4" /> Correct!</>
+                              ) : (
+                                <><XCircle className="w-4 h-4" /> Incorrect</>
+                              )}
+                              {questionResults[question.id] && (
+                                <span className="ml-1 text-xs opacity-75">+{questionResults[question.id]!.xpAwarded} XP</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <Link
                         href={`/practice?subjectId=${encodeURIComponent(question.subjectId)}&topicId=${encodeURIComponent(question.topic?.id || '')}&grade=${question.grade}`}
                         className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"

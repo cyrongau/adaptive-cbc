@@ -41,7 +41,10 @@ export class AssignmentsService {
 
   async findForStudent(grade: number): Promise<Assignment[]> {
     return this.assignmentsRepository.find({
-      where: { grade, status: 'published' },
+      where: [
+        { grade, status: 'published' },
+        { grade, status: 'approved' },
+      ],
       order: { dueDate: 'ASC' },
     });
   }
@@ -69,9 +72,53 @@ export class AssignmentsService {
     const assignments = await this.findAllByTeacher(teacherId);
     return {
       total: assignments.length,
-      pending: assignments.filter(a => a.status === 'published').length,
+      pending: assignments.filter(a => a.status === 'published' || a.status === 'pending_approval').length,
       completed: assignments.filter(a => a.status === 'closed').length,
     };
+  }
+
+  async submitForApproval(id: string, teacherId: string): Promise<Assignment> {
+    const assignment = await this.findOne(id);
+    if (assignment.teacherId !== teacherId) {
+      throw new ForbiddenException('You can only submit your own assignments for approval');
+    }
+    if (assignment.status !== 'draft' && assignment.status !== 'rejected') {
+      throw new BadRequestException('Only draft or rejected assignments can be submitted for approval');
+    }
+    assignment.status = 'pending_approval';
+    return this.assignmentsRepository.save(assignment);
+  }
+
+  async approveAssignment(id: string): Promise<Assignment> {
+    const assignment = await this.findOne(id);
+    if (assignment.status !== 'pending_approval') {
+      throw new BadRequestException('Only pending approval assignments can be approved');
+    }
+    assignment.status = 'approved';
+    return this.assignmentsRepository.save(assignment);
+  }
+
+  async rejectAssignment(id: string): Promise<Assignment> {
+    const assignment = await this.findOne(id);
+    if (assignment.status !== 'pending_approval') {
+      throw new BadRequestException('Only pending approval assignments can be rejected');
+    }
+    assignment.status = 'rejected';
+    return this.assignmentsRepository.save(assignment);
+  }
+
+  async findPendingApproval(institutionId: string, status?: string): Promise<Assignment[]> {
+    try {
+      const statusFilter = status || 'pending_approval';
+      return await this.assignmentsRepository.find({
+        where: { status: statusFilter },
+        order: { createdAt: 'DESC' },
+        relations: ['teacher'],
+      });
+    } catch (error) {
+      console.error('findPendingApproval error:', error);
+      throw error;
+    }
   }
 
   async getStudentSubmission(assignmentId: string, studentId: string): Promise<AssignmentSubmission | null> {
@@ -87,7 +134,7 @@ export class AssignmentsService {
   ): Promise<AssignmentSubmission> {
     const assignment = await this.findOne(assignmentId);
 
-    if (assignment.status !== 'published') {
+    if (assignment.status !== 'published' && assignment.status !== 'approved') {
       throw new BadRequestException('This assignment is not open for submissions');
     }
 
@@ -165,6 +212,7 @@ export class AssignmentsService {
 
     const xpAwarded = correctCount * 10;
     await this.usersService.addXpPoints(submission.studentId, xpAwarded);
+    await this.usersService.updateStreak(submission.studentId);
 
     await this.assignmentsRepository.update(assignmentId, {
       gradedCount: () => '"gradedCount" + 1',
@@ -200,6 +248,7 @@ export class AssignmentsService {
     const percentage = assignment.totalPoints > 0 ? (score / assignment.totalPoints) * 100 : 0;
     const xpAwarded = Math.floor(percentage / 10);
     await this.usersService.addXpPoints(submission.studentId, xpAwarded);
+    await this.usersService.updateStreak(submission.studentId);
 
     await this.assignmentsRepository.update(assignmentId, {
       gradedCount: () => '"gradedCount" + 1',

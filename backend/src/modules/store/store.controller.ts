@@ -1,9 +1,9 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request,
-  UseInterceptors, UploadedFile, BadRequestException,
+  Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, Headers,
+  UseInterceptors, UploadedFile, BadRequestException, HttpCode,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { MinioService } from '../../common/minio.service';
@@ -200,5 +200,19 @@ export class StoreController {
   @ApiOperation({ summary: 'Update order status (admin only)' })
   async updateOrderStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto, @Request() req) {
     return this.storeService.updateOrderStatus(id, dto, req.user.role);
+  }
+
+  @Post('mpesa/callback')
+  @HttpCode(200)
+  @ApiExcludeEndpoint()
+  async mpesaCallback(@Body() body: any, @Headers() headers: any) {
+    return this.storeService.handleMpesaCallback(body);
+  }
+
+  @Get('orders/:id/payment-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Check payment status of an order' })
+  async getPaymentStatus(@Param('id') id: string, @Request() req) {
+    return this.storeService.getOrderPaymentStatus(id, req.user.id, req.user.role);
   }
 }

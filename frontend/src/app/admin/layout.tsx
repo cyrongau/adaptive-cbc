@@ -50,6 +50,7 @@ const SUPER_ADMIN_SIDEBAR = [
   { label: 'Financial Oversight', icon: Wallet, href: '/admin/financial' },
   { label: 'Store Management', icon: ShoppingCart, href: '/admin/store' },
   { label: 'Question Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
+  { label: 'Assignment Review', icon: FileText, href: '/admin/assignments/pending' },
   { label: 'Papers Moderation', icon: FileText, href: '/admin/content' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
@@ -66,6 +67,7 @@ const INSTITUTION_ADMIN_SIDEBAR = [
   { label: 'Teachers', icon: Users, href: '/admin/teachers' },
   { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
   { label: 'Question Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
+  { label: 'Assignment Review', icon: FileText, href: '/admin/assignments/pending' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
@@ -289,7 +291,7 @@ export default function AdminLayout({
               >
                 <item.icon className={`w-5 h-5 shrink-0 ${isActive ? theme.sidebarIcon : 'opacity-70'}`} />
                 {!sidebarCollapsed && (
-                  <span className="text-xs font-semibold uppercase tracking-wider truncate flex-1">{item.label}</span>
+                  <span className="text-xs font-semibold truncate flex-1">{item.label}</span>
                 )}
                 {showBadge && !sidebarCollapsed && (
                   <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">

@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../store/authStore';
+import api from '@/lib/api';
 import { GraduationCap, ArrowRight, Loader2, Sparkles, User, Mail, Phone, ShieldAlert, Building2, Shield, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -13,7 +14,7 @@ type RoleType = 'student' | 'parent' | 'tutor' | 'institution_admin';
 function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { register, loading, error, clearError, initialize } = useAuthStore();
+  const { user, register, loading, error, clearError, initialize } = useAuthStore();
   
   const [selectedRole, setSelectedRole] = useState<RoleType>('student');
   const [fullName, setFullName] = useState('');
@@ -24,6 +25,7 @@ function RegisterPageContent() {
   const [institutionType, setInstitutionType] = useState('basic_education');
   const [county, setCounty] = useState('');
   const [address, setAddress] = useState('');
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
 
   useEffect(() => {
     initialize();
@@ -31,6 +33,20 @@ function RegisterPageContent() {
     const invitationToken = searchParams.get('invitationToken');
     if (invitationToken) {
       setSelectedRole('parent');
+      // If user is already authenticated, accept invitation directly
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        setAcceptingInvite(true);
+        api.put(`/relationships/invitation/${invitationToken}/accept`)
+          .then(() => {
+            toast.success('Child linked successfully!');
+            router.push('/children');
+          })
+          .catch(() => {
+            toast.error('Failed to link child. The invite may be expired.');
+            setAcceptingInvite(false);
+          });
+      }
     }
   }, [searchParams]);
 
@@ -175,6 +191,27 @@ function RegisterPageContent() {
             </p>
           </div>
 
+          {acceptingInvite && (
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start space-x-3 text-indigo-700 text-sm font-semibold">
+              <Loader2 className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5 animate-spin" />
+              <span>Linking your child's account...</span>
+            </div>
+          )}
+
+          {!acceptingInvite && searchParams.get('invitationToken') && (
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl space-y-3">
+              <p className="text-sm font-semibold text-amber-800">
+                You've been invited to monitor a child's progress! Fill in your details below or log in if you already have an account.
+              </p>
+              <Link
+                href={`/login?invitationToken=${searchParams.get('invitationToken')}`}
+                className="inline-flex items-center gap-2 text-sm font-bold text-amber-700 hover:text-amber-800 underline"
+              >
+                Already have an account? Log in here
+              </Link>
+            </div>
+          )}
+
           {error && (
             <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start space-x-3 text-red-700 text-xs font-semibold animate-shake">
               <ShieldAlert className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
@@ -183,6 +220,7 @@ function RegisterPageContent() {
           )}
 
           {/* Role Selection */}
+          {!acceptingInvite && (
           <div className="grid grid-cols-2 gap-3">
             {roles.map((role) => (
               <button
@@ -203,7 +241,9 @@ function RegisterPageContent() {
               </button>
             ))}
           </div>
+          )}
 
+          {!acceptingInvite && (
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Full Name */}
             <div className="space-y-1">
@@ -352,13 +392,16 @@ function RegisterPageContent() {
               )}
             </button>
           </form>
+          )}
 
+          {!acceptingInvite && (
           <p className="text-center text-sm font-semibold text-gray-500 mt-6">
             Already have an account?{' '}
-            <Link href="/login" className="text-primary hover:underline font-extrabold">
+            <Link href={searchParams.get('invitationToken') ? `/login?invitationToken=${searchParams.get('invitationToken')}` : '/login'} className="text-primary hover:underline font-extrabold">
               Log In Here
             </Link>
           </p>
+          )}
         </div>
       </div>
     </div>

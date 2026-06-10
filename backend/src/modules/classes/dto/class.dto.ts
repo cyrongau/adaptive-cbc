@@ -28,6 +28,11 @@ export class CreateClassDto {
   @IsOptional()
   @IsString()
   schedule?: string;
+
+  @ApiPropertyOptional({ example: 'MATH101' })
+  @IsOptional()
+  @IsString()
+  code?: string;
 }
 
 export class UpdateClassDto {

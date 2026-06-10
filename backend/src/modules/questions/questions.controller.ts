@@ -1,11 +1,23 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request, HttpCode } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiProperty } from '@nestjs/swagger';
 import { QuestionsService, QuestionSearchParams } from './questions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { QuestionStatus } from './entities/question.entity';
+import { IsString, IsOptional } from 'class-validator';
+
+class CheckAnswerDto {
+  @ApiProperty({ description: 'The student\'s answer' })
+  @IsString()
+  answer: string;
+
+  @ApiProperty({ description: 'Selected option IDs (comma-separated for multi-select)', required: false })
+  @IsString()
+  @IsOptional()
+  selectedOptionIds?: string;
+}
 
 @ApiTags('questions')
 @Controller('questions')
@@ -36,12 +48,16 @@ export class QuestionsController {
   @ApiOperation({ summary: 'Get random questions by criteria' })
   @ApiQuery({ name: 'subjectId', required: false })
   @ApiQuery({ name: 'topicId', required: false })
+  @ApiQuery({ name: 'strandId', required: false })
+  @ApiQuery({ name: 'subStrandId', required: false })
   @ApiQuery({ name: 'grade', required: true, type: Number })
   @ApiQuery({ name: 'difficulty', required: false })
   @ApiQuery({ name: 'count', required: false, type: Number })
   async findRandom(
     @Query('subjectId') subjectId: string,
     @Query('topicId') topicId: string,
+    @Query('strandId') strandId: string,
+    @Query('subStrandId') subStrandId: string,
     @Query('grade') grade: number,
     @Query('difficulty') difficulty: string,
     @Query('count') count: number = 10,
@@ -49,6 +65,8 @@ export class QuestionsController {
     return this.questionsService.findRandomByCriteria({
       subjectId,
       topicId,
+      strandId,
+      subStrandId,
       grade,
       difficulty: difficulty as any,
       count,
@@ -108,6 +126,19 @@ export class QuestionsController {
   @ApiOperation({ summary: 'Get question by ID' })
   async findOne(@Param('id') id: string) {
     return this.questionsService.findOne(id);
+  }
+
+  @Post(':id/check')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Check answer and award XP for correct answers' })
+  async checkAnswer(
+    @Param('id') id: string,
+    @Body() dto: CheckAnswerDto,
+    @Request() req: any,
+  ) {
+    return this.questionsService.checkAnswer(id, dto.answer, dto.selectedOptionIds, req.user.id);
   }
 
   @Post()

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getTheme } from '@/lib/theme';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'next/navigation';
 import ProductVariantEditor, { ProductVariant, normalizeProductVariants } from '@/components/store/ProductVariantEditor';
 import {
   ShoppingBag, Search, Filter, ShoppingCart, Plus, Minus, Trash2,
@@ -88,6 +89,7 @@ const GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export default function StorePage() {
   const { user } = useAuthStore();
+  const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
   const isCandidate = user?.role === 'student' && (Number(user?.grade) === 6 || Number(user?.grade) === 9);
   const theme = getTheme(user?.role || 'student', isCandidate);
@@ -98,7 +100,9 @@ export default function StorePage() {
   const [loading, setLoading] = useState(true);
   const [cartLoading, setCartLoading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'browse' | 'cart' | 'orders' | 'my-products'>('browse');
+  const tabParam = searchParams.get('tab');
+  const initialTab = tabParam === 'orders' || tabParam === 'my-products' ? tabParam : 'browse';
+  const [activeTab, setActiveTab] = useState<'browse' | 'cart' | 'orders' | 'my-products'>(initialTab as any);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
@@ -107,8 +111,6 @@ export default function StorePage() {
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<string>('m_pesa');
 
   const isSeller = ['teacher', 'tutor', 'institution_admin', 'super_admin'].includes(user?.role || '');
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -146,6 +148,7 @@ export default function StorePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
 
   useEffect(() => { setIsMounted(true); }, []);
   useEffect(() => {
@@ -299,22 +302,6 @@ export default function StorePage() {
       toast.error(err.response?.data?.message || 'Failed to delete product');
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const checkout = async () => {
-    setCheckoutLoading(true);
-    try {
-      const res = await api.post('/store/orders', { paymentMethod: selectedPayment });
-      setCart(res.data);
-      loadCart();
-      loadOrders();
-      setActiveTab('orders');
-      toast.success('Order placed successfully!');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Checkout failed');
-    } finally {
-      setCheckoutLoading(false);
     }
   };
 
@@ -605,8 +592,13 @@ export default function StorePage() {
                     className={`rounded-xl border ${theme.cardBorder} ${theme.cardBg} overflow-hidden hover:shadow-lg transition-all group`}
                   >
                     <div className="relative h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                      {product.thumbnailUrl ? (
-                        <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover" />
+                      {product.thumbnailUrl && !brokenImages.has(product.id) ? (
+                        <img
+                          src={product.thumbnailUrl}
+                          alt={product.title}
+                          className="w-full h-full object-cover"
+                          onError={() => setBrokenImages(prev => new Set(prev).add(product.id))}
+                        />
                       ) : (
                         <TypeIcon className="w-16 h-16 text-slate-400" />
                       )}
@@ -714,7 +706,7 @@ export default function StorePage() {
                         <span className="text-slate-700">{item.product.title}</span>
                         <span className="text-slate-400">x{item.quantity}</span>
                       </div>
-                      <span className="font-medium">KES {(item.unitPrice * item.quantity).toFixed(2)}</span>
+                      <span className="font-medium">KES {(Number(item.unitPrice) * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -989,7 +981,7 @@ export default function StorePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setImageUploadMode('upload'); setProductForm({ ...productForm, thumbnailUrl: '' }); }}
+                        onClick={() => { setImageUploadMode('upload'); }}
                         className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                           imageUploadMode === 'upload'
                             ? 'bg-white text-slate-800 shadow-sm'
@@ -1151,7 +1143,7 @@ export default function StorePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setEditImageMode('upload'); setEditForm({ ...editForm, thumbnailUrl: '' }); }}
+                        onClick={() => { setEditImageMode('upload'); }}
                         className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                           editImageMode === 'upload'
                             ? 'bg-white text-slate-800 shadow-sm'

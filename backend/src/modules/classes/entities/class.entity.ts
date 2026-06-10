@@ -25,7 +25,10 @@ export class Class {
   isActive: boolean;
 
   @Column({ nullable: true })
-  schedule: string; // JSON string for schedule
+  schedule: string; // JSON string for timetable slots e.g. [{"day":"monday","startTime":"09:00","endTime":"10:00"}]
+
+  @Column({ nullable: true })
+  code: string; // unique join code for students
 
   @ManyToOne(() => User, { nullable: true })
   teacher: User;

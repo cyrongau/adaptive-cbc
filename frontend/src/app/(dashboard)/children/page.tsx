@@ -42,6 +42,9 @@ export default function ChildrenPage() {
     if (isParent && user?.id) {
       const fetchChildren = async () => {
         try {
+          // Auto-link parent to any students registered with matching parent email
+          await api.post('/auth/link-parent').catch(() => {});
+
           const res = await api.get(`/relationships/parent/${user.id}/children`);
           setChildren(res.data || []);
         } catch (error) {

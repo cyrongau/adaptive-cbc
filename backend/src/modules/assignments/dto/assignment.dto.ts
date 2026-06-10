@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsNumber, IsDate } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDate, Allow } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAssignmentDto {
@@ -19,6 +20,16 @@ export class CreateAssignmentDto {
   @IsString()
   topic: string;
 
+  @ApiPropertyOptional({ example: 'Numbers' })
+  @IsOptional()
+  @IsString()
+  strand?: string;
+
+  @ApiPropertyOptional({ example: 'Place Value' })
+  @IsOptional()
+  @IsString()
+  subStrand?: string;
+
   @ApiProperty({ example: 4 })
   @IsNumber()
   grade: number;
@@ -29,6 +40,7 @@ export class CreateAssignmentDto {
   totalPoints?: number;
 
   @ApiProperty({ example: '2026-06-01' })
+  @Type(() => Date)
   @IsDate()
   dueDate: Date;
 
@@ -70,7 +82,20 @@ export class UpdateAssignmentDto {
   totalPoints?: number;
 
   @ApiPropertyOptional()
+  @Allow()
   @IsOptional()
+  @IsString()
+  strand?: string;
+
+  @ApiPropertyOptional()
+  @Allow()
+  @IsOptional()
+  @IsString()
+  subStrand?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Date)
   @IsDate()
   dueDate?: Date;
 }
