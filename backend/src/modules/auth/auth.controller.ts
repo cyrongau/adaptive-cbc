@@ -1,6 +1,8 @@
 import {
   Controller,
   Post,
+  Get,
+  Patch,
   Body,
   UseGuards,
   Request,
@@ -8,11 +10,13 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Response, Request as ExpressRequest } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import { SetupTotpDto, VerifyTotpDto, ParentLoginDto, InstitutionLoginDto, UpdateParentProfileDto } from './dto/totp.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('auth')
@@ -22,20 +26,21 @@ export class AuthController {
 
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
     const isProd = process.env.NODE_ENV === 'production';
-    
-    res.cookie('accessToken', accessToken, {
+    const cookieOptions = {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'strict',
-      path: '/', // Must be '/' so the cookie is sent to ALL routes, not just /api/v1/auth
+      sameSite: 'lax' as const,
+      path: '/',
+      ...(isProd ? {} : { domain: 'localhost' }), // Share cookie across ports in dev so WebSocket on :3002 can read it
+    };
+
+    res.cookie('accessToken', accessToken, {
+      ...cookieOptions,
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'strict',
-      path: '/', // Must be '/' so the cookie is sent to ALL routes, not just /api/v1/auth
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
@@ -72,6 +77,7 @@ export class AuthController {
     this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     
     return {
+      accessToken: tokens.accessToken,
       user: {
         id: user.id,
         email: user.email,
@@ -99,12 +105,15 @@ export class AuthController {
   async refresh(
     @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
-    @Body() refreshTokenDto: RefreshTokenDto
+    @Body() body?: { refreshToken?: string },
   ) {
-    const token = req.cookies?.refreshToken || refreshTokenDto.refreshToken;
+    const token = req.cookies?.refreshToken || body?.refreshToken || '';
+    if (!token) {
+      throw new UnauthorizedException('No refresh token provided');
+    }
     const tokens = await this.authService.refreshTokens({ refreshToken: token });
     this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
-    return { message: 'Tokens refreshed' };
+    return { accessToken: tokens.accessToken, message: 'Tokens refreshed' };
   }
 
   @Post('link-parent')
@@ -142,5 +151,54 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password with token' })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Post('totp/setup')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Generate TOTP secret for authenticator app' })
+  async setupTotp(@Request() req) {
+    return this.authService.setupTotp(req.user.id);
+  }
+
+  @Post('totp/verify')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify TOTP token and enable TOTP' })
+  async verifyTotp(@Request() req, @Body() dto: VerifyTotpDto) {
+    return this.authService.verifyTotp(req.user.id, dto.token);
+  }
+
+  @Post('parent-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Parent/staff login with email and password' })
+  async parentLogin(@Body() dto: ParentLoginDto) {
+    return this.authService.parentLogin(dto);
+  }
+
+  @Post('institution-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Institution admin login with email, password, and optional TOTP' })
+  async institutionLogin(@Body() dto: InstitutionLoginDto) {
+    return this.authService.institutionLogin(dto);
+  }
+
+  @Get('parent/profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get parent profile with linked children' })
+  async getParentProfile(@Request() req) {
+    return this.authService.getParentProfile(req.user.id);
+  }
+
+  @Patch('parent/profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update parent profile' })
+  async updateParentProfile(@Request() req, @Body() dto: UpdateParentProfileDto) {
+    return this.authService.updateParentProfile(req.user.id, dto);
   }
 }

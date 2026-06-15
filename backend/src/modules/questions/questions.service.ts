@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, In } from 'typeorm';
+import { Repository, Like, In, Not } from 'typeorm';
 import { Question, QuestionType, DifficultyLevel, QuestionStatus, BloomsTaxonomy, QuestionSourceType } from './entities/question.entity';
 import { QuestionVersion } from './entities/question-version.entity';
+import { QuestionAttempt } from './entities/question-attempt.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 
@@ -27,6 +28,8 @@ export class QuestionsService {
     private questionsRepository: Repository<Question>,
     @InjectRepository(QuestionVersion)
     private questionVersionRepository: Repository<QuestionVersion>,
+    @InjectRepository(QuestionAttempt)
+    private questionAttemptRepository: Repository<QuestionAttempt>,
     private notificationsService: NotificationsService,
     private usersService: UsersService,
   ) {}
@@ -173,12 +176,175 @@ export class QuestionsService {
     await this.questionsRepository.save(question);
   }
 
+  async recordAttempt(
+    userId: string,
+    questionId: string,
+    answer: string,
+    isCorrect: boolean,
+    xpAwarded: number,
+    sessionType?: string,
+    sessionId?: string,
+  ): Promise<QuestionAttempt> {
+    const existingAttempts = await this.questionAttemptRepository.count({
+      where: { userId, questionId },
+    });
+
+    const attempt = this.questionAttemptRepository.create({
+      userId,
+      questionId,
+      answer,
+      isCorrect,
+      attemptNumber: existingAttempts + 1,
+      xpAwarded,
+      sessionType,
+      sessionId,
+    });
+    return this.questionAttemptRepository.save(attempt);
+  }
+
+  async getUserAttempts(userId: string, questionIds?: string[]): Promise<QuestionAttempt[]> {
+    const where: any = { userId };
+    if (questionIds && questionIds.length > 0) {
+      where.questionId = In(questionIds);
+    }
+    return this.questionAttemptRepository.find({
+      where,
+      order: { attemptedAt: 'DESC' },
+    });
+  }
+
+  async getFirstAttemptCorrectCount(userId: string, questionIds?: string[]): Promise<number> {
+    const where: any = { userId, attemptNumber: 1, isCorrect: true };
+    if (questionIds && questionIds.length > 0) {
+      where.questionId = In(questionIds);
+    }
+    return this.questionAttemptRepository.count({ where });
+  }
+
+  async hasAttemptedQuestion(userId: string, questionId: string): Promise<boolean> {
+    const count = await this.questionAttemptRepository.count({
+      where: { userId, questionId },
+    });
+    return count > 0;
+  }
+
+  async getMasteredTopicIds(userId: string, subjectId?: string): Promise<string[]> {
+    const attempts = await this.questionAttemptRepository
+      .createQueryBuilder('attempt')
+      .innerJoinAndSelect('attempt.question', 'question')
+      .where('attempt.userId = :userId', { userId })
+      .andWhere('attempt.isCorrect = true')
+      .andWhere('attempt.attemptNumber = 1')
+      .groupBy('question.topicId')
+      .having('COUNT(DISTINCT attempt.questionId) >= 3')
+      .getRawMany();
+    return attempts.map((a) => a.question_topicId).filter(Boolean);
+  }
+
+  async getRecommendedDifficulty(userId: string, subjectId?: string): Promise<DifficultyLevel> {
+    const recentAttempts = await this.questionAttemptRepository.find({
+      where: { userId, isCorrect: true },
+      order: { attemptedAt: 'DESC' },
+      take: 10,
+    });
+
+    if (recentAttempts.length < 3) return DifficultyLevel.EASY;
+
+    const recentCorrect = recentAttempts.length;
+    const recentTotal = await this.questionAttemptRepository.count({
+      where: { userId },
+      order: { attemptedAt: 'DESC' },
+      take: 10,
+    });
+
+    const rate = recentTotal > 0 ? recentCorrect / recentTotal : 0.5;
+
+    if (rate < 0.4) return DifficultyLevel.EASY;
+    if (rate < 0.75) return DifficultyLevel.MEDIUM;
+    return DifficultyLevel.HARD;
+  }
+
+  async findAdaptiveQuestions(criteria: {
+    userId: string;
+    subjectId?: string;
+    topicId?: string;
+    strandId?: string;
+    subStrandId?: string;
+    grade: number;
+    count: number;
+    currentQuestionId?: string;
+    wasCorrect?: boolean;
+  }): Promise<{ questions: Question[]; difficulty: DifficultyLevel }> {
+    const recommendedDifficulty = criteria.wasCorrect !== undefined
+      ? criteria.wasCorrect
+        ? await this.getRecommendedDifficulty(criteria.userId, criteria.subjectId)
+        : DifficultyLevel.EASY
+      : await this.getRecommendedDifficulty(criteria.userId, criteria.subjectId);
+
+    const attemptedIds = (await this.questionAttemptRepository.find({
+      where: { userId: criteria.userId },
+      select: ['questionId'],
+    })).map((a) => a.questionId);
+
+    const excludeIds = [
+      ...attemptedIds,
+      ...(criteria.currentQuestionId ? [criteria.currentQuestionId] : []),
+    ];
+
+    const questions = await this.findRandomByCriteria({
+      subjectId: criteria.subjectId,
+      topicId: criteria.topicId,
+      strandId: criteria.strandId,
+      subStrandId: criteria.subStrandId,
+      grade: criteria.grade,
+      difficulty: recommendedDifficulty,
+      count: criteria.count,
+      excludeIds,
+    });
+
+    return { questions, difficulty: recommendedDifficulty };
+  }
+
+  async getStreakBreakdown(userId: string): Promise<{
+    currentStreak: number;
+    totalCorrect: number;
+    totalAttempts: number;
+    uniqueQuestionsAttempted: number;
+    bySubject: Record<string, { correct: number; total: number }>;
+  }> {
+    const allAttempts = await this.questionAttemptRepository.find({
+      where: { userId },
+      relations: ['question'],
+      order: { attemptedAt: 'DESC' },
+    });
+
+    const totalAttempts = allAttempts.length;
+    const totalCorrect = allAttempts.filter((a) => a.isCorrect).length;
+    const uniqueQuestions = new Set(allAttempts.map((a) => a.questionId)).size;
+
+    const bySubject: Record<string, { correct: number; total: number }> = {};
+    for (const attempt of allAttempts) {
+      const subjectId = attempt.question?.subjectId || 'unknown';
+      if (!bySubject[subjectId]) bySubject[subjectId] = { correct: 0, total: 0 };
+      bySubject[subjectId].total++;
+      if (attempt.isCorrect) bySubject[subjectId].correct++;
+    }
+
+    return {
+      currentStreak: 0,
+      totalCorrect,
+      totalAttempts,
+      uniqueQuestionsAttempted: uniqueQuestions,
+      bySubject,
+    };
+  }
+
   async checkAnswer(
     id: string,
     answer: string,
     selectedOptionIds: string | undefined,
     userId: string,
-  ): Promise<{ correct: boolean; correctAnswer: string; explanation?: string; xpAwarded: number }> {
+  ): Promise<{ correct: boolean; correctAnswer: string; explanation?: string; xpAwarded: number; isFirstAttempt: boolean }> {
     const question = await this.findOne(id);
 
     let isCorrect = false;
@@ -196,12 +362,15 @@ export class QuestionsService {
       isCorrect = answer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase();
     }
 
-    if (isCorrect) {
+    const isFirstAttempt = !(await this.hasAttemptedQuestion(userId, id));
+
+    if (isCorrect && isFirstAttempt) {
       xpAwarded = question.marks * 10;
       await this.usersService.addXpPoints(userId, xpAwarded);
       await this.usersService.updateStreak(userId);
     }
 
+    await this.recordAttempt(userId, id, answer, isCorrect, xpAwarded, 'question_bank');
     await this.updateSuccessRate(id, isCorrect);
 
     return {
@@ -209,6 +378,7 @@ export class QuestionsService {
       correctAnswer: question.correctAnswer || question.options?.find((opt) => opt.isCorrect)?.id || '',
       explanation: question.explanation,
       xpAwarded,
+      isFirstAttempt,
     };
   }
 

@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import {
   TrendingUp, TrendingDown, Target, Award, BookOpen, Clock, Flame,
-  Star, Calendar, BarChart3, PieChart, Activity, Users, Loader2,
+  Star, Calendar, BarChart3, PieChart, Activity, Users, Loader2, FileText,
 } from 'lucide-react';
 
 interface SubjectPerf {
@@ -15,37 +15,6 @@ interface SubjectPerf {
   score: number;
   trend: string;
 }
-
-interface StatsData {
-  totalSessions: number;
-  totalQuestions: number;
-  totalCorrect: number;
-  totalTimeMinutes: number;
-  averageScore: number;
-  successRate: number;
-}
-
-interface DashboardData {
-  stats: StatsData;
-  weakAreas: { subjectId: string; successRate: number; totalAttempts: number }[];
-  recentInsights: any[];
-  streak: number;
-  metrics: {
-    practiceSessions: number;
-    averageScore: number;
-    recentAverageScore: number;
-    successRate: number;
-    totalTimeMinutes: number;
-    recentTimeMinutes: number;
-    totalQuestions: number;
-    totalCorrect: number;
-    totalAttempted: number;
-  };
-  recentActivities: { id: string; subject: string; topic: string; score: number; date: string }[];
-  upcomingTasks: any[];
-}
-
-interface Badge { id: string; badgeName: string; badgeType: string; description: string }
 
 interface ChildData { id: string; student?: { id: string; firstName: string; lastName: string; grade: number } }
 
@@ -56,13 +25,19 @@ interface Report {
   recommendations: { title: string; description: string; priority: string }[];
 }
 
+interface ProgressSummary {
+  assignments: { total: number; graded: number; pending: number; averageScore: number };
+  questionAttempts: { totalAttempts: number; totalCorrect: number; accuracy: number; subjectBreakdown: { subjectId: string; subjectName: string; accuracy: number; totalAttempts: number; totalCorrect: number; questionsAttempted: number; questionsCorrect: number; firstAttemptCorrect: number }[] };
+  practiceSessions: { total: number; averageScore: number }[];
+  userInfo: { xp: number; level: number; streak: number };
+}
+
 const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function ProgressPage() {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [badges, setBadges] = useState<Badge[]>([]);
+  const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [children, setChildren] = useState<ChildData[]>([]);
   const [selectedChild, setSelectedChild] = useState<string>('');
   const [report, setReport] = useState<Report | null>(null);
@@ -71,25 +46,22 @@ export default function ProgressPage() {
   const isParent = user?.role === 'parent';
   const isCandidate = Number(user?.grade) === 6 || Number(user?.grade) === 9;
   const primaryColor = isCandidate ? 'amber' : 'indigo';
+  const userId = isParent ? selectedChild : user?.id;
 
   useEffect(() => {
     if (!user) return;
     if (isParent) {
       fetchChildren();
     } else {
-      fetchStudentData();
+      fetchProgress(user.id);
     }
   }, [user]);
 
-  const fetchStudentData = async () => {
+  const fetchProgress = async (id: string) => {
     setLoading(true);
     try {
-      const [dashRes, badgesRes] = await Promise.all([
-        api.get('/analytics/dashboard'),
-        api.get('/gamification/badges').catch(() => ({ data: [] })),
-      ]);
-      setDashboard(dashRes.data);
-      setBadges(badgesRes.data || []);
+      const res = await api.get(`/assignments/student/${id}/progress`);
+      setProgress(res.data);
     } catch { /* ignore */ }
     setLoading(false);
   };
@@ -102,9 +74,7 @@ export default function ProgressPage() {
       setChildren(kids);
       if (kids.length > 0) {
         const first = kids[0];
-        if (first.student) {
-          setSelectedChild(first.student.id);
-        }
+        if (first.student) setSelectedChild(first.student.id);
       }
     } catch { /* ignore */ }
     setLoading(false);
@@ -112,6 +82,7 @@ export default function ProgressPage() {
 
   useEffect(() => {
     if (!selectedChild || !isParent) return;
+    fetchProgress(selectedChild);
     generateReportForChild(selectedChild);
   }, [selectedChild]);
 
@@ -127,11 +98,11 @@ export default function ProgressPage() {
   if (!user) return null;
 
   const getWeeklyActivity = (): { day: string; count: number }[] => {
-    if (!dashboard?.recentActivities) return DAYS_SHORT.map(d => ({ day: d, count: 0 }));
+    if (!progress?.practiceSessions) return DAYS_SHORT.map(d => ({ day: d, count: 0 }));
     const dayCount: Record<string, number> = {};
-    for (const act of dashboard.recentActivities) {
+    for (const s of progress.practiceSessions) {
       try {
-        const d = new Date(act.date);
+        const d = new Date((s as any).createdAt || Date.now());
         const dayName = DAYS_SHORT[d.getDay() === 0 ? 6 : d.getDay() - 1];
         dayCount[dayName] = (dayCount[dayName] || 0) + 1;
       } catch { /* ignore */ }
@@ -189,56 +160,64 @@ export default function ProgressPage() {
               </div>
             </motion.div>
 
+            {progress && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'XP', value: (progress.userInfo?.xp || 0).toString(), sub: `Level ${progress.userInfo?.level || 1}`, icon: Star, color: 'bg-amber-50 text-amber-600' },
+                  { label: 'Assignments', value: `${progress.assignments?.graded || 0}/${progress.assignments?.total || 0}`, sub: `${progress.assignments?.averageScore || 0}% avg`, icon: FileText, color: 'bg-indigo-50 text-indigo-600' },
+                  { label: 'Questions Attempted', value: (progress.questionAttempts?.totalAttempts || 0).toString(), sub: `${progress.questionAttempts?.accuracy || 0}% accuracy`, icon: BookOpen, color: 'bg-blue-50 text-blue-600' },
+                  { label: 'Streak', value: `${progress.userInfo?.streak || 0} days`, icon: Flame, color: 'bg-orange-50 text-orange-600' },
+                ].map((stat, i) => (
+                  <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.1 }}
+                    className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div className={`w-12 h-12 rounded-xl ${stat.color} flex items-center justify-center mb-4`}>
+                      <stat.icon className="w-6 h-6" />
+                    </div>
+                    <p className="text-3xl font-black text-slate-900">{stat.value}</p>
+                    <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
+                    {stat.sub && <p className="text-xs text-slate-400 mt-1">{stat.sub}</p>}
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {progress?.questionAttempts?.subjectBreakdown && progress.questionAttempts.subjectBreakdown.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+                className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <BarChart3 className="w-6 h-6 text-emerald-600" />
+                    Subject Performance
+                  </h2>
+                </div>
+                <div className="p-6 space-y-6">
+                  {progress.questionAttempts.subjectBreakdown.map((s) => {
+                    const barColor = s.accuracy >= 70 ? 'bg-green-500' : s.accuracy >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                    return (
+                      <div key={s.subjectId}>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="font-semibold text-slate-700">{s.subjectName}</span>
+                          <span className="font-bold text-slate-900">{s.accuracy}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                          <div className={`${barColor} h-3 rounded-full transition-all duration-1000`} style={{ width: `${s.accuracy}%` }} />
+                        </div>
+                        <div className="flex gap-4 mt-1 text-xs text-slate-400">
+                          <span>{s.totalAttempts} attempts</span>
+                          <span>{s.totalCorrect} correct</span>
+                          <span>{s.firstAttemptCorrect} first-try</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
             {generatingReport ? (
               <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
             ) : report ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {[
-                    { label: 'Overall Progress', value: `${report.summary.overallProgress}%`, icon: TrendingUp, color: 'bg-green-50 text-green-600' },
-                    { label: 'Sessions Completed', value: report.summary.sessionsCompleted.toString(), icon: Award, color: 'bg-amber-50 text-amber-600' },
-                    { label: 'Time Spent', value: `${Math.round(report.summary.totalTimeSpent / 60)}h`, icon: Clock, color: 'bg-blue-50 text-blue-600' },
-                    { label: 'Strong Areas', value: report.summary.strongAreas.length.toString(), icon: Flame, color: 'bg-orange-50 text-orange-600' },
-                  ].map((stat, i) => (
-                    <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.1 }}
-                      className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                      <div className={`w-12 h-12 rounded-xl ${stat.color} flex items-center justify-center mb-4`}>
-                        <stat.icon className="w-6 h-6" />
-                      </div>
-                      <p className="text-3xl font-black text-slate-900">{stat.value}</p>
-                      <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
-                    </motion.div>
-                  ))}
-                </div>
-
-                {report.subjectPerformance.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-100">
-                      <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <BarChart3 className="w-6 h-6 text-emerald-600" />
-                        Subject Performance
-                      </h2>
-                    </div>
-                    <div className="p-6 space-y-6">
-                      {report.subjectPerformance.map((s, i) => {
-                        const barColor = s.score >= 70 ? 'bg-green-500' : s.score >= 50 ? 'bg-amber-500' : 'bg-red-500';
-                        return (
-                          <div key={i}>
-                            <div className="flex justify-between text-sm mb-2">
-                              <span className="font-semibold text-slate-700">{s.subjectName}</span>
-                              <span className="font-bold text-slate-900">{s.score}%</span>
-                            </div>
-                            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                              <div className={`${barColor} h-3 rounded-full transition-all duration-1000`} style={{ width: `${s.score}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-
                 {report.summary.areasForImprovement.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
                     className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
@@ -247,9 +226,9 @@ export default function ProgressPage() {
                   </motion.div>
                 )}
               </>
-            ) : (
+            ) : progress && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
-                <p className="text-slate-500">No report available yet. The student needs to complete some practice sessions first.</p>
+                <p className="text-slate-500">Select a child to view their detailed progress report.</p>
               </div>
             )}
           </>
@@ -263,16 +242,20 @@ export default function ProgressPage() {
     return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
   }
 
-  const stats = dashboard?.stats || { totalSessions: 0, totalQuestions: 0, totalCorrect: 0, totalTimeMinutes: 0, averageScore: 0, successRate: 0 };
-  const metrics = dashboard?.metrics || { ...stats, practiceSessions: stats.totalSessions, recentAverageScore: stats.averageScore, recentTimeMinutes: 0, totalAttempted: 0, totalCorrect: 0 };
-  const weakAreas = dashboard?.weakAreas || [];
-  const recentActivities = dashboard?.recentActivities || [];
+  const subBreakdown = progress?.questionAttempts?.subjectBreakdown || [];
+  const totalAccuracy = progress?.questionAttempts?.accuracy || 0;
+  const totalAttempts = progress?.questionAttempts?.totalAttempts || 0;
+  const totalCorrect = progress?.questionAttempts?.totalCorrect || 0;
+  const avgAssignmentScore = progress?.assignments?.averageScore || 0;
+  const xp = progress?.userInfo?.xp || 0;
+  const level = progress?.userInfo?.level || 1;
+  const streak = progress?.userInfo?.streak || 0;
 
   const statCards = [
-    { label: 'Overall Progress', value: `${metrics.successRate || metrics.averageScore || 0}%`, icon: TrendingUp, sub: `${metrics.recentAverageScore || 0}% recent avg`, trend: 'up' },
-    { label: 'Practice Sessions', value: metrics.practiceSessions?.toString() || '0', icon: Award, sub: `${metrics.totalQuestions || 0} questions`, trend: 'up' },
-    { label: 'Time Spent', value: `${Math.round((metrics.totalTimeMinutes || 0) / 60)}h`, icon: Clock, sub: `${metrics.recentTimeMinutes || 0}min this week`, trend: 'up' },
-    { label: 'Current Streak', value: `${dashboard?.streak || 0} days`, icon: Flame, sub: `${weakAreas.length} areas to improve`, trend: 'neutral' },
+    { label: 'XP', value: xp.toString(), sub: `Level ${level}`, icon: Star, trend: 'up' },
+    { label: 'Accuracy', value: `${totalAccuracy}%`, sub: `${totalCorrect}/${totalAttempts} correct`, icon: Target, trend: 'up' },
+    { label: 'Assignment Avg', value: `${avgAssignmentScore}%`, sub: `${progress?.assignments?.graded || 0} graded`, icon: FileText, trend: 'up' },
+    { label: 'Streak', value: `${streak} days`, icon: Flame, sub: `${progress?.assignments?.pending || 0} pending`, trend: 'neutral' },
   ];
 
   return (
@@ -295,7 +278,6 @@ export default function ProgressPage() {
                 <stat.icon className={`w-6 h-6 ${isCandidate ? 'text-amber-600' : 'text-indigo-600'}`} />
               </div>
               {stat.trend === 'up' && <TrendingUp className="w-5 h-5 text-green-500" />}
-              {stat.trend === 'down' && <TrendingDown className="w-5 h-5 text-red-500" />}
             </div>
             <p className="text-3xl font-black text-slate-900">{stat.value}</p>
             <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
@@ -309,29 +291,6 @@ export default function ProgressPage() {
           className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
             <Activity className={`w-5 h-5 ${isCandidate ? 'text-amber-600' : 'text-indigo-600'}`} />
-            Recent Activity
-          </h2>
-          {recentActivities.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-8">No activity yet. Start practicing!</p>
-          ) : (
-            <div className="space-y-3">
-              {recentActivities.slice(0, 7).map((act) => (
-                <div key={act.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                  <div>
-                    <p className="font-medium text-slate-900 text-sm">{act.subject}</p>
-                    <p className="text-xs text-slate-500">{act.topic}</p>
-                  </div>
-                  <span className="text-sm font-bold text-slate-900">{act.score}%</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-          className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-            <PieChart className={`w-5 h-5 ${isCandidate ? 'text-amber-600' : 'text-indigo-600'}`} />
             Weekly Activity
           </h2>
           <div className="flex items-end justify-between h-40 gap-2">
@@ -345,55 +304,59 @@ export default function ProgressPage() {
             ))}
           </div>
         </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <BarChart3 className={`w-5 h-5 ${isCandidate ? 'text-amber-600' : 'text-indigo-600'}`} />
+            Subject Breakdown
+          </h2>
+          {subBreakdown.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-8">No data yet. Start practicing!</p>
+          ) : (
+            <div className="space-y-4">
+              {subBreakdown.map((s) => {
+                const barColor = s.accuracy >= 70 ? 'bg-green-500' : s.accuracy >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                return (
+                  <div key={s.subjectId}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium text-slate-700">{s.subjectName}</span>
+                      <span className="font-semibold text-slate-900">{s.accuracy}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                      <div className={`${barColor} h-2.5 rounded-full transition-all duration-1000`} style={{ width: `${s.accuracy}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
       </div>
 
-      {recentActivities.length > 0 && (
+      {subBreakdown.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
           className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-6 border-b border-slate-100">
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Target className={`w-6 h-6 ${isCandidate ? 'text-amber-600' : 'text-indigo-600'}`} />
-              Recent Sessions
+              Subject Details
             </h2>
           </div>
           <div className="divide-y divide-slate-100">
-            {recentActivities.slice(0, 10).map((act) => (
-              <div key={act.id} className="p-6 flex items-center justify-between hover:bg-slate-50">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${act.score >= 80 ? 'bg-green-100' : act.score >= 50 ? 'bg-amber-100' : 'bg-red-100'}`}>
-                    <BookOpen className={`w-6 h-6 ${act.score >= 80 ? 'text-green-600' : act.score >= 50 ? 'text-amber-600' : 'text-red-600'}`} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900">{act.subject}</h3>
-                    <p className="text-sm text-slate-500">{act.topic}</p>
-                  </div>
+            {subBreakdown.map((s) => (
+              <div key={s.subjectId} className="p-6 flex items-center justify-between hover:bg-slate-50">
+                <div>
+                  <h3 className="font-bold text-slate-900">{s.subjectName}</h3>
+                  <p className="text-sm text-slate-500">{s.totalAttempts} questions attempted</p>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-slate-900">{act.score}%</span>
-                    {act.score >= 80 && <Star className="w-4 h-4 text-amber-500 fill-amber-500" />}
+                    <span className="font-bold text-slate-900">{s.accuracy}%</span>
+                    {s.accuracy >= 80 && <Star className="w-4 h-4 text-amber-500 fill-amber-500" />}
                   </div>
-                  <p className="text-xs text-slate-500">{new Date(act.date).toLocaleDateString()}</p>
+                  <p className="text-xs text-slate-500">{s.totalCorrect} correct ({s.firstAttemptCorrect} first-try)</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {badges.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
-          className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-            <Award className={`w-5 h-5 ${isCandidate ? 'text-amber-600' : 'text-indigo-600'}`} />
-            Achievements
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {badges.map((badge) => (
-              <div key={badge.id} className={`p-4 rounded-xl text-center ${isCandidate ? 'bg-amber-50' : 'bg-indigo-50'}`}>
-                <span className="text-3xl">🏆</span>
-                <p className="font-bold text-slate-900 mt-2">{badge.badgeName}</p>
-                <p className="text-xs text-slate-500">{badge.description}</p>
               </div>
             ))}
           </div>

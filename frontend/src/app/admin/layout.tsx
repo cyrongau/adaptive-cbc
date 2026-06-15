@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from '@/components/NotificationBell';
+import { useBranding } from '@/components/layout/branding-provider';
 
 const SUPER_ADMIN_SIDEBAR = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
@@ -85,6 +86,7 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, token, initialize, logout } = useAuthStore();
+  const branding = useBranding();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -96,7 +98,17 @@ export default function AdminLayout({
   useEffect(() => {
     initialize();
     setIsMounted(true);
+    const saved = localStorage.getItem('sidebar-collapsed');
+    if (saved !== null) {
+      setSidebarCollapsed(JSON.parse(saved));
+    }
   }, [initialize]);
+
+  const toggleSidebar = () => {
+    const newState = !sidebarCollapsed;
+    setSidebarCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(newState));
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -215,7 +227,7 @@ export default function AdminLayout({
         <div className={`flex items-center py-6 px-4 border-b ${theme.sidebarBorder} ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3 min-w-0">
-              <img src="/logo.svg" alt="Adaptive CBC" className="w-10 h-10 shrink-0" />
+              <img src={branding.logoUrl} alt={branding.platformName} className="w-10 h-10 shrink-0 object-contain" />
               <div className="min-w-0">
                 <h1 className={`font-bold text-sm ${theme.brandText} tracking-tight truncate`}>
                   {isSuperAdmin ? 'EduAdmin' : (institutionName || 'Institution Admin')}
@@ -227,10 +239,10 @@ export default function AdminLayout({
             </div>
           )}
           {sidebarCollapsed && (
-            <img src="/logo.svg" alt="Adaptive CBC" className="w-10 h-10 shrink-0" />
+            <img src={branding.logoUrl} alt={branding.platformName} className="w-10 h-10 shrink-0 object-contain" />
           )}
           <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onClick={toggleSidebar}
             className={`hidden md:flex items-center justify-center w-6 h-6 rounded-full ${theme.toggleBtnBg} ${theme.toggleBtn} hover:shadow-md transition-all shrink-0 ${sidebarCollapsed ? 'absolute -right-3 top-6' : ''}`}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >

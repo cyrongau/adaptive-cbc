@@ -19,8 +19,17 @@ export class CourseLesson {
   @Column()
   title: string;
 
+  @Column({ type: 'text', nullable: true, name: 'learning_objective' })
+  learningObjective: string;
+
   @Column({ type: 'text', nullable: true })
-  description: string;
+  materials: string;
+
+  @Column({ type: 'text', nullable: true, name: 'step_by_step_delivery' })
+  stepByStepDelivery: string;
+
+  @Column({ type: 'text', nullable: true })
+  homework: string;
 
   @Column({ type: 'enum', enum: LessonContentType, default: LessonContentType.VIDEO, name: 'content_type' })
   contentType: LessonContentType;

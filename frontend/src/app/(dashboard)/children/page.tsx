@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
-import { Users, GraduationCap, TrendingUp, BookOpen, Trophy, Flame, BarChart3 } from 'lucide-react';
+import { Users, GraduationCap, TrendingUp, BookOpen, Trophy, Flame, BarChart3, Eye, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface Child {
   id: string;
@@ -37,6 +37,8 @@ export default function ChildrenPage() {
   const isParent = user?.role === 'parent';
   const [children, setChildren] = useState<UserRelationship[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pinChildren, setPinChildren] = useState<any[]>([]);
+  const [showPinList, setShowPinList] = useState(false);
 
   useEffect(() => {
     if (isParent && user?.id) {
@@ -47,6 +49,9 @@ export default function ChildrenPage() {
 
           const res = await api.get(`/relationships/parent/${user.id}/children`);
           setChildren(res.data || []);
+
+          const pinRes = await api.get('/students/parent-pin-list');
+          setPinChildren(pinRes.data || []);
         } catch (error) {
           console.error("Failed to fetch children", error);
         } finally {
@@ -98,6 +103,40 @@ export default function ChildrenPage() {
           </div>
         ))}
       </div>
+
+      {/* Temporary PIN Pending Children */}
+      {pinChildren.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
+          <button
+            onClick={() => setShowPinList(!showPinList)}
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-amber-100/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Eye className="w-5 h-5 text-amber-600" />
+              <span className="text-sm font-bold text-amber-800 uppercase tracking-wider">
+                {pinChildren.length} Child{pinChildren.length > 1 ? 'ren' : ''} Need PIN Setup
+              </span>
+            </div>
+            {showPinList ? <ChevronDown className="w-4 h-4 text-amber-600" /> : <ChevronRight className="w-4 h-4 text-amber-600" />}
+          </button>
+          {showPinList && (
+            <div className="border-t border-amber-200 px-6 py-4 space-y-3">
+              {pinChildren.map((c: any) => (
+                <div key={c.userId} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 shadow-sm border border-amber-100">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{c.firstName} {c.lastName}</p>
+                    <p className="text-xs text-slate-500">Grade {c.grade} • {c.admissionNumber || c.username}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-amber-600 font-mono tracking-widest">{c.temporaryPin}</p>
+                    <p className="text-[10px] text-slate-400 uppercase">Temporary PIN</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Children List */}
       <div className="space-y-4">

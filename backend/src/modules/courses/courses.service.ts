@@ -7,12 +7,15 @@ import { CourseLesson } from './entities/course-lesson.entity';
 import { CourseResource, ResourceType } from './entities/course-resource.entity';
 import { CourseReview } from './entities/course-review.entity';
 import { CourseCertificate } from './entities/course-certificate.entity';
+import { CourseAssessmentAttempt } from './entities/course-assessment-attempt.entity';
+import { CourseQuestion } from './entities/course-question.entity';
 import {
   CreateCourseDto, UpdateCourseDto,
   CreateCourseModuleDto, CreateCourseLessonDto, CreateCourseReviewDto,
 } from './dto/course.dto';
 import { UsersService } from '../users/users.service';
 import { EnrollmentService } from '../enrollment/enrollment.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UserRole } from '../users/entities/user.entity';
 import { EnrollmentStatus } from '../enrollment/entities/enrollment.entity';
 
@@ -31,8 +34,13 @@ export class CoursesService {
     private reviewsRepository: Repository<CourseReview>,
     @InjectRepository(CourseCertificate)
     private certificatesRepository: Repository<CourseCertificate>,
+    @InjectRepository(CourseAssessmentAttempt)
+    private assessmentAttemptsRepository: Repository<CourseAssessmentAttempt>,
+    @InjectRepository(CourseQuestion)
+    private questionsRepo: Repository<CourseQuestion>,
     private usersService: UsersService,
     private enrollmentService: EnrollmentService,
+    private notificationsService: NotificationsService,
   ) {}
 
   private async validateInstructor(userId: string): Promise<void> {
@@ -74,8 +82,31 @@ export class CoursesService {
         throw new ForbiddenException('You can only update your own courses');
       }
     }
+    console.log('[DEBUG] DTO assessmentQuestions length:', dto.assessmentQuestions?.length);
+    if (dto.assessmentQuestions && dto.assessmentQuestions.length > 0) {
+      console.log('[DEBUG] DTO first question options:', dto.assessmentQuestions[0].options?.length);
+      console.log('[DEBUG] DTO last question options:', dto.assessmentQuestions[dto.assessmentQuestions.length - 1].options?.length);
+    }
     Object.assign(course, dto);
-    return this.coursesRepository.save(course);
+    if (dto.assessmentQuestions) {
+      course.assessmentQuestions = dto.assessmentQuestions.map((q: any) => {
+        const qt = q.questionType || 'multiple_choice';
+        const optCount = qt === 'true_false' ? 2 : (qt === 'short_answer' || qt === 'fill_in_blank') ? 1 : 4;
+        const options = Array.isArray(q.options)
+          ? Array.from({ length: optCount }, (_, i) => q.options[i] ?? '')
+          : Array.from({ length: optCount }, () => '');
+        return {
+          questionType: qt,
+          question: q.question || '',
+          options,
+          correctAnswer: typeof q.correctAnswer === 'number' ? q.correctAnswer : 0,
+          marks: typeof q.marks === 'number' ? q.marks : 1,
+        };
+      });
+    }
+    const saved = await this.coursesRepository.save(course);
+    console.log('[DEBUG] Saved assessmentQuestions length:', saved.assessmentQuestions?.length);
+    return saved;
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -327,6 +358,100 @@ export class CoursesService {
     });
   }
 
+  // === ASSESSMENT ATTEMPTS ===
+
+  async submitAssessment(courseId: string, userId: string, answers: { questionIndex: number; answer: any }[]): Promise<CourseAssessmentAttempt> {
+    const course = await this.findOne(courseId);
+    if (!course.assessmentQuestions?.length) {
+      throw new BadRequestException('This course has no assessment questions');
+    }
+
+    const user = await this.usersService.findOne(userId);
+    if (user.role !== UserRole.STUDENT) {
+      throw new ForbiddenException('Only students can submit assessments');
+    }
+
+    const enrollment = await this.enrollmentService.findMyActiveEnrollment(userId, courseId);
+    if (!enrollment) {
+      throw new ForbiddenException('You must be enrolled in the course to submit the assessment');
+    }
+
+    let score = 0;
+    const totalMarks = course.assessmentQuestions.reduce((sum, q) => sum + (q.marks || 0), 0);
+
+    for (const answer of answers) {
+      const q = course.assessmentQuestions[answer.questionIndex];
+      if (!q) continue;
+      let correct = false;
+
+      switch (q.questionType) {
+        case 'multiple_choice':
+        case 'true_false':
+          correct = answer.answer === q.correctAnswer;
+          break;
+        case 'multiple_answer':
+          correct = answer.answer === q.correctAnswer;
+          break;
+        case 'short_answer':
+        case 'fill_in_blank':
+          const strip = (html: string) => (html || '').replace(/<[^>]*>?/gm, '').trim().toLowerCase();
+          correct = strip(answer.answer) === strip(q.options?.[0] || '');
+          break;
+      }
+
+      if (correct) score += q.marks || 0;
+    }
+
+    const attempt = this.assessmentAttemptsRepository.create({
+      courseId,
+      studentId: userId,
+      answers,
+      score,
+      totalMarks,
+      passed: score >= totalMarks * (course.assessmentPassThreshold ?? 50) / 100,
+    });
+
+    const saved = await this.assessmentAttemptsRepository.save(attempt);
+
+    try {
+      const pct = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
+      await this.notificationsService.createAcademicNotification(
+        course.teacherId,
+        `Assessment submitted: ${user.firstName} ${user.lastName}`,
+        `${user.firstName} ${user.lastName} scored ${score}/${totalMarks} (${pct}%) on "${course.title}"`,
+        `/my-courses/${courseId}`,
+      );
+    } catch (err) {
+      console.error('Failed to notify teacher:', err.message);
+    }
+
+    return saved;
+  }
+
+  async getAssessmentAttempts(courseId: string, userId: string): Promise<CourseAssessmentAttempt[]> {
+    return this.assessmentAttemptsRepository.find({
+      where: { courseId, studentId: userId },
+      order: { submittedAt: 'DESC' },
+    });
+  }
+
+  async getLatestAssessmentAttempt(courseId: string, userId: string): Promise<CourseAssessmentAttempt | null> {
+    const attempts = await this.getAssessmentAttempts(courseId, userId);
+    return attempts[0] || null;
+  }
+
+  async getAllAssessmentAttempts(courseId: string, userId: string): Promise<CourseAssessmentAttempt[]> {
+    const course = await this.findOne(courseId);
+    if (course.teacherId !== userId) {
+      throw new ForbiddenException('Only the course instructor can view all attempts');
+    }
+    return this.assessmentAttemptsRepository.find({
+      where: { courseId },
+      relations: ['student'],
+      order: { submittedAt: 'DESC' },
+    });
+  }
+
   // === ANALYTICS ===
 
   async getAnalytics(courseId: string, userId: string): Promise<any> {
@@ -351,6 +476,14 @@ export class CoursesService {
 
     const revenue = enrollments.reduce((s, e) => s + Number(e.amountPaid), 0);
 
+    const attempts = await this.assessmentAttemptsRepository.find({ where: { courseId } });
+    const uniqueStudents = new Set(attempts.map((a) => a.studentId)).size;
+    const avgScore = attempts.length
+      ? Math.round(attempts.reduce((s, a) => s + a.score, 0) / attempts.length)
+      : 0;
+    const passCount = attempts.filter((a) => a.passed).length;
+    const bestScore = attempts.length ? Math.max(...attempts.map((a) => a.score)) : 0;
+
     return {
       course: { id: course.id, title: course.title, status: course.status, price: course.price },
       students: {
@@ -371,6 +504,50 @@ export class CoursesService {
         averageRating: course.averageRating,
         distribution: ratingDistribution,
       },
+      assessment: {
+        totalAttempts: attempts.length,
+        studentsAttempted: uniqueStudents,
+        averageScore: avgScore,
+        passRate: attempts.length ? Math.round((passCount / attempts.length) * 100) : 0,
+        bestScore,
+      },
     };
+  }
+
+  // === Q&A ===
+
+  async getQuestions(courseId: string): Promise<CourseQuestion[]> {
+    return this.questionsRepo.find({
+      where: { courseId },
+      relations: ['student', 'teacher'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async askQuestion(courseId: string, studentId: string, question: string): Promise<CourseQuestion> {
+    const q = this.questionsRepo.create({ courseId, studentId, question });
+    const saved = await this.questionsRepo.save(q);
+
+    try {
+      const course = await this.findOne(courseId);
+      await this.notificationsService.createAcademicNotification(
+        course.teacherId,
+        `New question on "${course.title}"`,
+        `A student asked: ${question.substring(0, 100)}${question.length > 100 ? '...' : ''}`,
+        `/my-courses/${courseId}`,
+      );
+    } catch {}
+
+    return saved;
+  }
+
+  async answerQuestion(questionId: string, teacherId: string, answer: string): Promise<CourseQuestion> {
+    const q = await this.questionsRepo.findOne({ where: { id: questionId }, relations: ['course'] });
+    if (!q) throw new NotFoundException('Question not found');
+    if (q.answer) throw new BadRequestException('Question already answered');
+    q.answer = answer;
+    q.teacherId = teacherId;
+    q.answeredAt = new Date();
+    return this.questionsRepo.save(q);
   }
 }

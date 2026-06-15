@@ -96,6 +96,11 @@ export class CreateProductDto {
   @IsOptional()
   @IsArray()
   variants?: any[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  courseId?: string;
 }
 
 export class UpdateProductDto {
@@ -193,6 +198,11 @@ export class UpdateProductDto {
   @IsOptional()
   @IsArray()
   variants?: any[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  courseId?: string;
 }
 
 export class AddToCartDto {

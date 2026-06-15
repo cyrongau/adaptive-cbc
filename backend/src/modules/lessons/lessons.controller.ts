@@ -76,4 +76,16 @@ export class LessonsController {
   async remove(@Param('id') id: string, @Request() req) {
     return this.lessonsService.remove(id, req.user.id);
   }
+
+  @Post(':id/start')
+  @ApiOperation({ summary: 'Start a live lesson (Teacher/Admin only)' })
+  async startLesson(@Param('id') id: string, @Request() req) {
+    return this.lessonsService.startLiveLesson(id, req.user.id);
+  }
+
+  @Post(':id/end')
+  @ApiOperation({ summary: 'End a live lesson (Teacher/Admin only)' })
+  async endLesson(@Param('id') id: string, @Request() req) {
+    return this.lessonsService.endLiveLesson(id, req.user.id);
+  }
 }

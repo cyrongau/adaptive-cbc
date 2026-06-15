@@ -31,14 +31,13 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3003',
-      'http://localhost:8100',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3003',
-      'http://127.0.0.1:8100',
-    ],
+    origin: (origin, callback) => {
+      if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -89,8 +88,9 @@ async function bootstrap() {
     console.log('Enum sync skipped (may already exist or not applicable):', (e as Error).message);
   }
 
-  await app.listen(port, '0.0.0.0');
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  await app.listen(port);
+  console.log(`Backend server running on http://localhost:${port}`);
+
   console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
 }
 

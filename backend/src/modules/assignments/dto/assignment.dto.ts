@@ -58,6 +58,11 @@ export class CreateAssignmentDto {
   @IsOptional()
   @IsString()
   classId?: string;
+
+  @ApiPropertyOptional({ description: 'Teacher-defined question IDs (overrides random selection)' })
+  @IsOptional()
+  @Allow()
+  questionIds?: string[];
 }
 
 export class UpdateAssignmentDto {

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>SomaSmart Tutor Dashboard</title>
+<!-- Fonts & Icons -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-container": "#6c7772",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed-dim": "#bdc9c3",
+                    "primary-fixed": "#9af7af",
+                    "background": "#fcf9f8",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed-variant": "#09522a",
+                    "secondary-container": "#adf2bc",
+                    "on-secondary-container": "#307146",
+                    "secondary-fixed": "#adf2bc",
+                    "primary-container": "#268549",
+                    "on-tertiary-fixed": "#131e1a",
+                    "surface-dim": "#dcd9d9",
+                    "surface-container": "#f0edec",
+                    "on-primary": "#ffffff",
+                    "secondary": "#296a40",
+                    "on-secondary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "primary-fixed-dim": "#7eda95",
+                    "tertiary-fixed": "#d9e5de",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-fixed-dim": "#92d6a2",
+                    "on-background": "#1c1b1b",
+                    "on-secondary-fixed": "#00210d",
+                    "surface-container-high": "#ebe7e7",
+                    "outline-variant": "#becabd",
+                    "surface-container-highest": "#e5e2e1",
+                    "surface-bright": "#fcf9f8",
+                    "inverse-on-surface": "#f3f0ef",
+                    "surface-container-low": "#f6f3f2",
+                    "outline": "#6f7a6f",
+                    "surface-tint": "#006d36",
+                    "inverse-surface": "#313030",
+                    "surface-variant": "#e5e2e1",
+                    "inverse-primary": "#7eda95",
+                    "on-surface": "#1c1b1b",
+                    "on-tertiary-fixed-variant": "#3e4944",
+                    "on-primary-fixed-variant": "#005227",
+                    "primary": "#006a34",
+                    "on-primary-container": "#f6fff3",
+                    "tertiary": "#535e59",
+                    "on-primary-fixed": "#00210c",
+                    "error": "#ba1a1a",
+                    "surface": "#fcf9f8",
+                    "on-surface-variant": "#3f4940",
+                    "on-tertiary": "#ffffff",
+                    "on-tertiary-container": "#f5fff9"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-lg": "32px",
+                    "bottom-nav-height": "80px",
+                    "margin-mobile": "20px",
+                    "stack-sm": "8px",
+                    "gutter-mobile": "16px",
+                    "base": "4px",
+                    "stack-md": "16px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Nunito Sans"],
+                    "label-lg": ["Nunito Sans"],
+                    "body-lg": ["Nunito Sans"],
+                    "label-sm": ["Nunito Sans"],
+                    "headline-lg": ["Nunito Sans"],
+                    "body-md": ["Nunito Sans"]
+            },
+            "fontSize": {
+                    "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md-mobile": ["20px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-sm-mobile": ["11px", {"lineHeight": "14px", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "800"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 24px;
+            bottom: 0;
+            width: 2px;
+            background: #e9f5ee;
+        }
+        .last-item .timeline-line::before {
+            display: none;
+        }
+        .glass-effect {
+            background: rgba(252, 249, 248, 0.8);
+            backdrop-filter: blur(12px);
+        }
+        body {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body-md text-on-surface pb-bottom-nav-height">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-surface-dim shadow-sm flex justify-between items-center px-margin-mobile h-16 w-full">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img alt="Student Profile Photo" class="w-full h-full object-cover" data-alt="A professional studio portrait of a friendly female educator with a warm smile, wearing a modern scholarly blazer. The background is a clean, minimalist academic office setting with soft, high-key lighting that emphasizes a bright, light-mode design. The overall aesthetic is trustworthy and sophisticated, utilizing a palette of soft whites and deep academic greens." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBo2oOCD0rPLswL-4e9KG0y1j7ZRBBWvQLNzMEiPjQLDBBKev1iexqn5f3r7-2EXQQ1hXFn3LICG6xSdcztjBCjhNJM0NHKsV32bIpwC1jMc0C__PWmgiopT-6570DdRQCcLFygAGERcWIoUmwxgzMgFUaKlDNHAjCRQq6WOoph0fr9_NthVPIomTn9tq5zmelXv1j76IRpOaJTbp5ZpV1y2v95Nyd89Qdt-esstwygMKJxMuQOskJfQU7XZ8hmJ6Ug23pFkv-n1w"/>
+</div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-extrabold text-primary dark:text-primary-fixed-dim">SomaSmart</h1>
+</div>
+<button class="material-symbols-outlined text-primary dark:text-primary-fixed-dim p-2 hover:bg-surface-container-high transition-colors rounded-full active:scale-95 duration-200" data-icon="notifications">
+            notifications
+        </button>
+</header>
+<main class="pt-20 px-margin-mobile space-y-stack-lg">
+<!-- Next Session Call-to-Action -->
+<section class="mt-4">
+<div class="bg-secondary-container rounded-xl p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.06)] border border-[#e9f5ee] relative overflow-hidden">
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-2">
+<span class="bg-primary px-3 py-1 rounded-full text-[10px] font-bold text-on-primary tracking-wider">NEXT UP</span>
+<span class="text-on-secondary-container font-label-sm text-label-sm">Starting in 12 mins</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-secondary-container">Advanced Calculus II</h2>
+<p class="text-on-secondary-container opacity-80 font-body-md mb-4">Student: Marcus Aurelius</p>
+<button class="w-full bg-primary text-on-primary h-12 rounded-lg font-label-lg flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_circle</span>
+                        Start Lesson
+                    </button>
+</div>
+<!-- Abstract Background Pattern -->
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-[120px]" data-icon="school">school</span>
+</div>
+</div>
+</section>
+<!-- Upcoming Lessons Vertical Timeline -->
+<section class="space-y-stack-md">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md-mobile text-headline-md-mobile text-on-surface">Upcoming Lessons</h3>
+<button class="text-primary font-label-sm">View Calendar</button>
+</div>
+<div class="space-y-0">
+<!-- Timeline Item 1 -->
+<div class="relative pl-8 pb-stack-md timeline-line">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-primary-container flex items-center justify-center z-10 border-4 border-surface">
+<div class="w-1.5 h-1.5 rounded-full bg-on-primary"></div>
+</div>
+<div class="bg-surface-container-lowest border border-[#e9f5ee] rounded-xl p-3 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-primary">02:30 PM - 03:30 PM</span>
+<span class="material-symbols-outlined text-outline text-lg" data-icon="more_vert">more_vert</span>
+</div>
+<h4 class="font-label-lg text-on-surface">Linear Algebra Foundations</h4>
+<p class="font-label-sm text-on-surface-variant">Elena Gilbert • Online</p>
+</div>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="relative pl-8 pb-stack-md timeline-line">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-outline-variant flex items-center justify-center z-10 border-4 border-surface">
+<div class="w-1.5 h-1.5 rounded-full bg-surface"></div>
+</div>
+<div class="bg-surface-container-lowest border border-[#e9f5ee] rounded-xl p-3 flex items-center gap-4 shadow-sm opacity-80">
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-on-surface-variant">04:00 PM - 05:00 PM</span>
+</div>
+<h4 class="font-label-lg text-on-surface">Discrete Mathematics</h4>
+<p class="font-label-sm text-on-surface-variant">Stefan Salvatore • Library Hub</p>
+</div>
+</div>
+</div>
+<!-- Timeline Item 3 (Last) -->
+<div class="relative pl-8 last-item">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-outline-variant flex items-center justify-center z-10 border-4 border-surface">
+<div class="w-1.5 h-1.5 rounded-full bg-surface"></div>
+</div>
+<div class="bg-surface-container-lowest border border-[#e9f5ee] rounded-xl p-3 flex items-center gap-4 shadow-sm opacity-80">
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-on-surface-variant">Tomorrow, 09:00 AM</span>
+</div>
+<h4 class="font-label-lg text-on-surface">Vector Calculus Review</h4>
+<p class="font-label-sm text-on-surface-variant">Bonnie Bennett • Online</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Pending Approvals (Compact Style) -->
+<section class="space-y-stack-md">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md-mobile text-headline-md-mobile text-on-surface">Pending Approvals</h3>
+<span class="bg-error-container text-on-error-container px-2 py-0.5 rounded text-[10px] font-bold">3 NEW</span>
+</div>
+<div class="grid grid-cols-1 gap-3">
+<!-- Approval Card 1 -->
+<div class="bg-surface-container-low border border-[#e9f5ee] rounded-xl p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" data-icon="person_add">person_add</span>
+</div>
+<div>
+<p class="font-label-lg text-on-surface leading-tight">Sarah Jenkins</p>
+<p class="font-label-sm text-on-surface-variant">New Student Request</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full border border-outline-variant flex items-center justify-center text-error hover:bg-error-container transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-sm" data-icon="check">check</span>
+</button>
+</div>
+</div>
+<!-- Approval Card 2 -->
+<div class="bg-surface-container-low border border-[#e9f5ee] rounded-xl p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" data-icon="description">description</span>
+</div>
+<div>
+<p class="font-label-lg text-on-surface leading-tight">Lesson Summary</p>
+<p class="font-label-sm text-on-surface-variant">Needs Verification • 1h ago</p>
+</div>
+</div>
+<button class="text-primary font-label-sm px-3 py-1 bg-primary-fixed rounded-full">Review</button>
+</div>
+<!-- Approval Card 3 -->
+<div class="bg-surface-container-low border border-[#e9f5ee] rounded-xl p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" data-icon="payments">payments</span>
+</div>
+<div>
+<p class="font-label-lg text-on-surface leading-tight">Payment Release</p>
+<p class="font-label-sm text-on-surface-variant">$120.00 • Session #492</p>
+</div>
+</div>
+<button class="text-primary font-label-sm px-3 py-1 bg-primary-fixed rounded-full">Approve</button>
+</div>
+</div>
+</section>
+<!-- Quick Stats Bento-ish Grid -->
+<section class="grid grid-cols-2 gap-gutter-mobile">
+<div class="bg-surface-container p-4 rounded-xl flex flex-col justify-between h-28">
+<span class="material-symbols-outlined text-primary" data-icon="timer">timer</span>
+<div>
+<p class="text-[20px] font-bold text-on-surface">14.5h</p>
+<p class="font-label-sm text-on-surface-variant">This Week</p>
+</div>
+</div>
+<div class="bg-secondary p-4 rounded-xl flex flex-col justify-between h-28 text-on-secondary">
+<span class="material-symbols-outlined" data-icon="trending_up">trending_up</span>
+<div>
+<p class="text-[20px] font-bold">$842</p>
+<p class="font-label-sm opacity-80">Earnings</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-24 right-6 w-14 h-14 bg-primary text-on-primary rounded-full shadow-[0px_6px_20px_rgba(45,138,78,0.2)] flex items-center justify-center z-50 active:scale-90 transition-transform duration-150">
+<span class="material-symbols-outlined text-2xl" data-icon="add">add</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full z-50 h-bottom-nav-height rounded-t-xl bg-surface dark:bg-surface-container-lowest shadow-[0px_-4px_12px_rgba(0,0,0,0.06)] flex justify-around items-center px-4 pb-safe">
+<!-- Home -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-70 hover:bg-surface-container dark:hover:bg-surface-container-high transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm-mobile">Home</span>
+</a>
+<!-- Learning/Sessions (Active) -->
+<a class="flex flex-col items-center justify-center bg-secondary-container dark:bg-secondary text-on-secondary-container dark:text-on-secondary rounded-full px-4 py-1 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="school" style="font-variation-settings: 'FILL' 1;">school</span>
+<span class="font-label-sm text-label-sm-mobile">Learning</span>
+</a>
+<!-- Analytics -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-70 hover:bg-surface-container dark:hover:bg-surface-container-high transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-label-sm text-label-sm-mobile">Analytics</span>
+</a>
+<!-- Profile -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-70 hover:bg-surface-container dark:hover:bg-surface-container-high transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm-mobile">Profile</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction for approval buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', function(e) {
+                if (this.querySelector('[data-icon="check"]')) {
+                    const card = this.closest('.bg-surface-container-low');
+                    card.style.transform = 'translateX(100px)';
+                    card.style.opacity = '0';
+                    setTimeout(() => card.remove(), 300);
+                }
+            });
+        });
+
+        // Simple scroll parallax for FAB
+        let lastScroll = 0;
+        const fab = document.querySelector('.fixed.bottom-24');
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            if (currentScroll > lastScroll && currentScroll > 100) {
+                fab.style.transform = 'scale(0) rotate(90deg)';
+            } else {
+                fab.style.transform = 'scale(1) rotate(0deg)';
+            }
+            lastScroll = currentScroll;
+        });
+    </script>
+</body></html>

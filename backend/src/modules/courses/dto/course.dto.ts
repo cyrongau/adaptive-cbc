@@ -38,6 +38,11 @@ export class CreateCourseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  featuredImage?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   featuredVideo?: string;
 
   @ApiPropertyOptional({ example: 0 })
@@ -90,6 +95,22 @@ export class CreateCourseDto {
   @IsOptional()
   @IsString()
   estimatedDuration?: string;
+
+  @ApiPropertyOptional({ example: 50 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  assessmentPassThreshold?: number;
+
+  @ApiPropertyOptional({ type: 'array', items: { type: 'object', properties: { questionType: { type: 'string' }, question: { type: 'string' }, options: { type: 'array', items: { type: 'string' } }, correctAnswer: { type: 'number' }, marks: { type: 'number' } } } })
+  @IsOptional()
+  @IsArray()
+  assessmentQuestions?: { questionType?: string; question: string; options: string[]; correctAnswer: number; marks: number }[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  storeProductId?: string;
 }
 
 export class UpdateCourseDto {
@@ -127,6 +148,11 @@ export class UpdateCourseDto {
   @IsOptional()
   @IsString()
   thumbnail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  featuredImage?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -183,6 +209,22 @@ export class UpdateCourseDto {
   @IsOptional()
   @IsString()
   estimatedDuration?: string;
+
+  @ApiPropertyOptional({ example: 50 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  assessmentPassThreshold?: number;
+
+  @ApiPropertyOptional({ type: 'array', items: { type: 'object', properties: { questionType: { type: 'string' }, question: { type: 'string' }, options: { type: 'array', items: { type: 'string' } }, correctAnswer: { type: 'number' }, marks: { type: 'number' } } } })
+  @IsOptional()
+  @IsArray()
+  assessmentQuestions?: { questionType?: string; question: string; options: string[]; correctAnswer: number; marks: number }[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  storeProductId?: string;
 }
 
 export class CreateCourseModuleDto {
@@ -190,10 +232,20 @@ export class CreateCourseModuleDto {
   @IsString()
   title: string;
 
-  @ApiPropertyOptional({ example: 'Understanding place value and number systems' })
+  @ApiPropertyOptional({ example: '<p>By the end of this module, students will be able to...</p>' })
   @IsOptional()
   @IsString()
-  description?: string;
+  learningOutcomes?: string;
+
+  @ApiPropertyOptional({ example: '<p>Core content with LaTeX: $$E=mc^2</p>' })
+  @IsOptional()
+  @IsString()
+  coreMaterialContent?: string;
+
+  @ApiPropertyOptional({ example: '<p>Hands-on activities for students...</p>' })
+  @IsOptional()
+  @IsString()
+  practicalLearningActivities?: string;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
@@ -206,10 +258,25 @@ export class CreateCourseLessonDto {
   @IsString()
   title: string;
 
-  @ApiPropertyOptional({ example: 'Learn to identify place values' })
+  @ApiPropertyOptional({ example: '<p>Students will be able to identify place values...</p>' })
   @IsOptional()
   @IsString()
-  description?: string;
+  learningObjective?: string;
+
+  @ApiPropertyOptional({ example: '<p>Worksheets, counters, place value charts</p>' })
+  @IsOptional()
+  @IsString()
+  materials?: string;
+
+  @ApiPropertyOptional({ example: '<p>Step 1: Introduce the concept...</p>' })
+  @IsOptional()
+  @IsString()
+  stepByStepDelivery?: string;
+
+  @ApiPropertyOptional({ example: '<p>Complete exercises 1-5 from the workbook...</p>' })
+  @IsOptional()
+  @IsString()
+  homework?: string;
 
   @ApiPropertyOptional({ enum: LessonContentType, example: LessonContentType.VIDEO })
   @IsOptional()
@@ -262,4 +329,13 @@ export class CreateCourseReviewDto {
   @IsOptional()
   @IsString()
   comment?: string;
+}
+
+export class SubmitAssessmentDto {
+  @ApiProperty({ type: 'array', items: { type: 'object', properties: {
+    questionIndex: { type: 'number' },
+    answer: { type: 'any' },
+  } } })
+  @IsArray()
+  answers: { questionIndex: number; answer: any }[];
 }

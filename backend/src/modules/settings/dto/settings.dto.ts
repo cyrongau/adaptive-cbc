@@ -3,6 +3,11 @@ export class UpdatePlatformSettingsDto {
   emailVerification?: boolean;
   maintenanceMode?: boolean;
   allowRegistration?: boolean;
+  primaryColor?: string;
+  secondaryColor?: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  footerText?: string;
 }
 
 export class UpdatePracticeConfigDto {

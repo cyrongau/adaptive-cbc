@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../store/authStore';
-import { GraduationCap, ArrowRight, Loader2, Sparkles, Mail, Lock, ShieldAlert, AlertTriangle, FolderOpen, ShoppingBag } from 'lucide-react';
+import StudentLoginForm from '../../components/auth/StudentLoginForm';
+import { GraduationCap, ArrowRight, Loader2, Sparkles, Mail, Lock, ShieldAlert, AlertTriangle, FolderOpen, ShoppingBag, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -15,10 +16,13 @@ const ROUTE_INFO: Record<string, { label: string; icon: React.ReactNode }> = {
   '/dashboard': { label: 'Dashboard', icon: <GraduationCap className="w-5 h-5" /> },
 };
 
+type LoginMode = 'student' | 'parent';
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, loading, error, clearError, initialize } = useAuthStore();
+  const [mode, setMode] = useState<LoginMode>('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -41,7 +45,7 @@ function LoginForm() {
     }
   }, [searchParams]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleParentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email.trim() || !password.trim()) {
@@ -53,7 +57,6 @@ function LoginForm() {
     if (success) {
       toast.success('Credentials verified. Initiating Two-Factor Authentication.');
 
-      // Build verify URL with invitationToken if present
       let verifyUrl = '/verify-otp';
       const params = new URLSearchParams();
       if (callbackUrl) params.set('callbackUrl', callbackUrl);
@@ -75,14 +78,11 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen bg-surface-low grid lg:grid-cols-12 font-sans overflow-hidden">
-      {/* Left Column: Visual Brand Banner */}
       <div className="hidden lg:flex lg:col-span-5 relative bg-primary items-center justify-center p-12 overflow-hidden">
-        {/* Modern animated overlay grids & spheres */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0d6832] via-[#1c8445] to-[#0b5327] -z-10 animate-gradient-shift" />
         <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-white/5 blur-3xl animate-pulse" />
         <div className="absolute -left-20 -bottom-20 w-80 h-80 rounded-full bg-white/5 blur-3xl" />
         
-        {/* Dynamic decorative visual particles */}
         <div className="absolute top-[20%] left-[10%] w-3 h-3 rounded-full bg-tertiary opacity-60 animate-bounce delay-100" />
         <div className="absolute bottom-[20%] right-[15%] w-4 h-4 rounded-full bg-secondary opacity-40 animate-bounce delay-300" />
 
@@ -113,7 +113,6 @@ function LoginForm() {
             </motion.p>
           </div>
 
-          {/* Interactive micro-badge */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -131,7 +130,6 @@ function LoginForm() {
         </div>
       </div>
 
-      {/* Right Column: Interaction Form Pane */}
       <div className="col-span-12 lg:col-span-7 flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-12 bg-white relative">
         <div className="absolute top-8 right-8 lg:right-12">
           <Link 
@@ -142,8 +140,7 @@ function LoginForm() {
           </Link>
         </div>
 
-        <div className="max-w-md w-full mx-auto space-y-8">
-          {/* Header block */}
+        <div className="max-w-md w-full mx-auto space-y-6">
           <div className="space-y-2">
             <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
               Welcome Back!
@@ -164,9 +161,7 @@ function LoginForm() {
                   {routeInfo?.icon || <ShieldAlert className="w-5 h-5 text-primary" />}
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-extrabold text-gray-900">
-                    Authentication Required
-                  </h3>
+                  <h3 className="text-sm font-extrabold text-gray-900">Authentication Required</h3>
                   <p className="text-xs text-gray-600 font-semibold mt-1">
                     You need to be logged in to access the{' '}
                     <span className="text-primary font-bold">{routeInfo?.label || 'requested page'}</span>.
@@ -181,133 +176,149 @@ function LoginForm() {
             </motion.div>
           )}
 
-          {error && (
+          {mode === 'parent' && error && (
             <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start space-x-3 text-red-700 text-xs font-semibold animate-shake">
               <ShieldAlert className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                Email Address or Phone Number
-              </label>
-              <div className="relative flex items-center bg-gray-50 border border-gray-100 rounded-xl focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-white focus-within:border-primary transition-all">
-                <Mail className="w-5 h-5 text-gray-400 absolute left-4 shrink-0" />
-                <input 
-                  id="email"
-                  type="text" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="parent@adaptivecbc.com"
-                  className="w-full bg-transparent outline-none pl-12 pr-4 py-4 text-sm font-semibold text-gray-800 placeholder-gray-400"
-                />
-              </div>
-            </div>
+          {/* Tab Switcher */}
+          <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1.5 rounded-xl">
+            <button
+              onClick={() => setMode('student')}
+              className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-all ${
+                mode === 'student' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              Student
+            </button>
+            <button
+              onClick={() => setMode('parent')}
+              className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-all ${
+                mode === 'parent' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              Parent / Staff
+            </button>
+          </div>
 
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                  Password
-                </label>
-                <Link 
-                  href="/forgot-password" 
+          {mode === 'student' ? (
+            <StudentLoginForm onSwitch={() => setMode('parent')} />
+          ) : (
+            <>
+              <form onSubmit={handleParentLogin} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                    Email Address or Phone Number
+                  </label>
+                  <div className="relative flex items-center bg-gray-50 border border-gray-100 rounded-xl focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-white focus-within:border-primary transition-all">
+                    <Mail className="w-5 h-5 text-gray-400 absolute left-4 shrink-0" />
+                    <input 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="parent@adaptivecbc.com"
+                      className="w-full bg-transparent outline-none pl-12 pr-4 py-4 text-sm font-semibold text-gray-800 placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Password</label>
+                    <Link href="/forgot-password" className="text-xs text-primary hover:underline font-extrabold">
+                      Forgot Password?
+                    </Link>
+                  </div>
+                  <div className="relative flex items-center bg-gray-50 border border-gray-100 rounded-xl focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-white focus-within:border-primary transition-all">
+                    <Lock className="w-5 h-5 text-gray-400 absolute left-4 shrink-0" />
+                    <input 
+                      type={showPassword ? 'text' : 'password'} 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-transparent outline-none pl-12 pr-12 py-4 text-sm font-semibold text-gray-800 placeholder-gray-400"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-widest"
+                    >
+                      {showPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full bg-primary text-white font-extrabold text-sm py-4 rounded-xl hover:bg-primary/95 transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center uppercase tracking-wider disabled:opacity-50"
+                >
+                  {loading ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying Session...</>
+                  ) : (
+                    <>Log In <ArrowRight className="w-4 h-4 ml-2" /></>
+                  )}
+                </button>
+              </form>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode('student')}
                   className="text-xs text-primary hover:underline font-extrabold"
                 >
-                  Forgot Password?
-                </Link>
-              </div>
-              <div className="relative flex items-center bg-gray-50 border border-gray-100 rounded-xl focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-white focus-within:border-primary transition-all">
-                <Lock className="w-5 h-5 text-gray-400 absolute left-4 shrink-0" />
-                <input 
-                  id="password"
-                  type={showPassword ? 'text' : 'password'} 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-transparent outline-none pl-12 pr-12 py-4 text-sm font-semibold text-gray-800 placeholder-gray-400"
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-widest"
-                >
-                  {showPassword ? 'Hide' : 'Show'}
+                  Student? Log in with username and PIN
                 </button>
               </div>
-            </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-primary text-white font-extrabold text-sm py-4 rounded-xl hover:bg-primary/95 transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center uppercase tracking-wider disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Verifying Session...
-                </>
-              ) : (
-                <>
-                  Log In
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </button>
-          </form>
+              <div className="relative flex items-center justify-center my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-100" />
+                </div>
+                <span className="relative bg-white px-4 text-xs font-bold uppercase tracking-widest text-gray-400">
+                  Or Sign In With
+                </span>
+              </div>
 
-          {/* Divider */}
-          <div className="relative flex items-center justify-center my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-100" />
-            </div>
-            <span className="relative bg-white px-4 text-xs font-bold uppercase tracking-widest text-gray-400">
-              Or Sign In With
-            </span>
-          </div>
+              <div className="grid grid-cols-3 gap-3">
+                <button 
+                  onClick={() => handleSocialLogin('Google')}
+                  className="flex items-center justify-center border border-gray-100 rounded-xl py-3 hover:bg-gray-50 transition-colors" title="Google"
+                >
+                  <img src="/icons/google.svg" alt="Google" className="w-5 h-5" onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    (e.currentTarget.parentElement as HTMLElement)!.innerHTML = '<span class="text-xs font-bold">Google</span>';
+                  }} />
+                </button>
+                <button 
+                  onClick={() => handleSocialLogin('Apple')}
+                  className="flex items-center justify-center border border-gray-100 rounded-xl py-3 hover:bg-gray-50 transition-colors" title="Apple"
+                >
+                  <img src="/icons/apple.svg" alt="Apple" className="w-5 h-5" onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    (e.currentTarget.parentElement as HTMLElement)!.innerHTML = '<span class="text-xs font-bold">Apple</span>';
+                  }} />
+                </button>
+                <button 
+                  onClick={() => handleSocialLogin('Microsoft')}
+                  className="flex items-center justify-center border border-gray-100 rounded-xl py-3 hover:bg-gray-50 transition-colors" title="Microsoft"
+                >
+                  <img src="/icons/microsoft.svg" alt="Microsoft" className="w-5 h-5" onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    (e.currentTarget.parentElement as HTMLElement)!.innerHTML = '<span class="text-xs font-bold">Microsoft</span>';
+                  }} />
+                </button>
+              </div>
 
-          {/* Social Logins */}
-          <div className="grid grid-cols-3 gap-3">
-            <button 
-              onClick={() => handleSocialLogin('Google')}
-              className="flex items-center justify-center border border-gray-100 rounded-xl py-3 hover:bg-gray-50 transition-colors"
-              title="Google"
-            >
-              <img src="/icons/google.svg" alt="Google" className="w-5 h-5" onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerHTML = '<span class="text-xs font-bold">Google</span>';
-              }} />
-            </button>
-            <button 
-              onClick={() => handleSocialLogin('Apple')}
-              className="flex items-center justify-center border border-gray-100 rounded-xl py-3 hover:bg-gray-50 transition-colors"
-              title="Apple"
-            >
-              <img src="/icons/apple.svg" alt="Apple" className="w-5 h-5" onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerHTML = '<span class="text-xs font-bold">Apple</span>';
-              }} />
-            </button>
-            <button 
-              onClick={() => handleSocialLogin('Microsoft')}
-              className="flex items-center justify-center border border-gray-100 rounded-xl py-3 hover:bg-gray-50 transition-colors"
-              title="Microsoft"
-            >
-              <img src="/icons/microsoft.svg" alt="Microsoft" className="w-5 h-5" onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerHTML = '<span class="text-xs font-bold">Microsoft</span>';
-              }} />
-            </button>
-          </div>
-
-          <p className="text-center text-sm font-semibold text-gray-500 mt-8">
-            Don't have an account?{' '}
-            <Link href="/register" className="text-primary hover:underline font-extrabold">
-              Register Here
-            </Link>
-          </p>
+              <p className="text-center text-sm font-semibold text-gray-500 mt-6">
+                Don't have an account?{' '}
+                <Link href="/register" className="text-primary hover:underline font-extrabold">Register Here</Link>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -20,6 +20,11 @@ export class SettingsService {
       emailVerification: true,
       maintenanceMode: false,
       allowRegistration: true,
+      primaryColor: '#006a34',
+      secondaryColor: '#455f88',
+      logoUrl: '/logo.svg',
+      faviconUrl: '/favicon.ico',
+      footerText: 'Empowering Kenyan Education',
     };
 
     const settings = await this.systemSettingRepository.find();

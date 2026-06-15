@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lumina CBC - Digital Library</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,200;0,300;0,400;0,600;0,700;0,800;0,900;1,200;1,300;1,400;1,600;1,700;1,800;1,900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Nunito Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container": "#f0edec",
+                    "surface-container-low": "#f6f3f2",
+                    "on-secondary-fixed": "#00210d",
+                    "secondary-fixed": "#adf2bc",
+                    "on-primary-container": "#f6fff3",
+                    "surface": "#fcf9f8",
+                    "inverse-on-surface": "#f3f0ef",
+                    "on-tertiary-fixed-variant": "#3e4944",
+                    "inverse-surface": "#313030",
+                    "surface-variant": "#e5e2e1",
+                    "tertiary-fixed-dim": "#bdc9c3",
+                    "primary-fixed": "#9af7af",
+                    "primary-container": "#268549",
+                    "on-tertiary-fixed": "#131e1a",
+                    "on-primary-fixed-variant": "#005227",
+                    "surface-container-high": "#ebe7e7",
+                    "background": "#fcf9f8",
+                    "primary-fixed-dim": "#7eda95",
+                    "secondary-container": "#adf2bc",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed": "#00210c",
+                    "tertiary-container": "#6c7772",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#7eda95",
+                    "error-container": "#ffdad6",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#535e59",
+                    "tertiary-fixed": "#d9e5de",
+                    "surface-tint": "#006d36",
+                    "on-secondary-fixed-variant": "#09522a",
+                    "secondary-fixed-dim": "#92d6a2",
+                    "surface-dim": "#dcd9d9",
+                    "on-secondary-container": "#307146",
+                    "secondary": "#296a40",
+                    "on-tertiary-container": "#f5fff9",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-highest": "#e5e2e1",
+                    "on-error-container": "#93000a",
+                    "primary": "#006a34",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#becabd",
+                    "on-surface": "#1c1b1b",
+                    "surface-bright": "#fcf9f8",
+                    "outline": "#6f7a6f",
+                    "on-primary": "#ffffff",
+                    "on-surface-variant": "#3f4940",
+                    "on-background": "#1c1b1b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-lg": "32px",
+                    "base": "4px",
+                    "stack-sm": "8px",
+                    "stack-md": "16px",
+                    "gutter-mobile": "16px",
+                    "margin-mobile": "20px",
+                    "bottom-nav-height": "80px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Nunito Sans"],
+                    "label-lg": ["Nunito Sans"],
+                    "body-md": ["Nunito Sans"],
+                    "body-lg": ["Nunito Sans"],
+                    "label-sm": ["Nunito Sans"],
+                    "headline-md": ["Nunito Sans"]
+            },
+            "fontSize": {
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- Top App Bar -->
+<header class="bg-surface dark:bg-background sticky top-0 z-40 flex justify-between items-center w-full px-margin-mobile py-stack-md">
+<div class="flex items-center gap-stack-md">
+<button class="text-primary dark:text-primary-fixed-dim hover:bg-surface-container-low transition-colors p-2 rounded-full active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-extrabold text-primary dark:text-primary-fixed-dim">Lumina CBC</h1>
+</div>
+<button class="text-primary dark:text-primary-fixed-dim hover:bg-surface-container-low transition-colors p-2 rounded-full active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</header>
+<main class="flex-grow pb-bottom-nav-height">
+<!-- Search & Filter -->
+<section class="px-margin-mobile py-stack-md">
+<div class="relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+</div>
+<input class="w-full pl-12 pr-4 py-4 bg-tertiary-container/10 border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 rounded-t-xl transition-all duration-300 font-body-md text-body-md placeholder:text-outline" placeholder="Search for papers or subjects..." type="text"/>
+</div>
+<div class="flex gap-stack-sm mt-stack-md overflow-x-auto hide-scrollbar">
+<span class="px-4 py-2 bg-primary text-on-primary rounded-full font-label-lg whitespace-nowrap">Grade 4</span>
+<span class="px-4 py-2 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full font-label-lg whitespace-nowrap">Grade 5</span>
+<span class="px-4 py-2 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full font-label-lg whitespace-nowrap">Grade 6</span>
+<span class="px-4 py-2 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full font-label-lg whitespace-nowrap">Junior Sec</span>
+</div>
+</section>
+<!-- Quick Access Folders (Bento Style) -->
+<section class="px-margin-mobile grid grid-cols-2 gap-gutter-mobile mb-stack-lg">
+<div class="col-span-2 bg-secondary-container p-stack-md rounded-xl flex items-center justify-between shadow-md active:scale-[0.98] transition-all">
+<div class="flex items-center gap-stack-md">
+<div class="bg-on-secondary-container/10 p-3 rounded-lg">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="history_edu">history_edu</span>
+</div>
+<div>
+<h3 class="font-headline-md text-[18px] text-on-secondary-container">Past Papers</h3>
+<p class="font-label-sm text-on-secondary-container/70">240+ Documents</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="bg-surface-container-highest p-stack-md rounded-xl flex flex-col gap-stack-sm active:scale-[0.98] transition-all border border-outline-variant/30">
+<div class="bg-primary-container/10 w-fit p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary" data-icon="notes">notes</span>
+</div>
+<h3 class="font-label-lg text-on-surface">Revision Notes</h3>
+<p class="font-label-sm text-on-surface-variant">Grade 1-6</p>
+</div>
+<div class="bg-surface-container-highest p-stack-md rounded-xl flex flex-col gap-stack-sm active:scale-[0.98] transition-all border border-outline-variant/30">
+<div class="bg-tertiary-container/10 w-fit p-2 rounded-lg">
+<span class="material-symbols-outlined text-tertiary" data-icon="quiz">quiz</span>
+</div>
+<h3 class="font-label-lg text-on-surface">Mock Exams</h3>
+<p class="font-label-sm text-on-surface-variant">2024 Terms</p>
+</div>
+</section>
+<!-- Recent Documents List -->
+<section class="px-margin-mobile mb-stack-lg">
+<div class="flex justify-between items-end mb-stack-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Recent Documents</h2>
+<button class="text-primary font-label-lg">View All</button>
+</div>
+<div class="flex flex-col gap-gutter-mobile">
+<!-- Document Item 1 -->
+<div class="bg-surface-container-lowest p-stack-md rounded-xl border border-[#e9f5ee] shadow-[0px_4px_12px_rgba(0,0,0,0.06)] flex items-center justify-between">
+<div class="flex items-center gap-stack-md flex-1">
+<div class="relative w-12 h-12 flex items-center justify-center bg-error-container/20 rounded-lg">
+<span class="material-symbols-outlined text-error" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="overflow-hidden">
+<h4 class="font-label-lg text-on-surface truncate">Mathematics Grade 6 End Term 2</h4>
+<p class="font-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="calendar_month">calendar_month</span> 
+                                2023 • 1.2 MB
+                            </p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 bg-primary-container text-on-primary-container rounded-full shadow-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="download" data-weight="fill" style="font-variation-settings: 'FILL' 1;">download</span>
+</button>
+</div>
+</div>
+<!-- Document Item 2 -->
+<div class="bg-surface-container-lowest p-stack-md rounded-xl border border-[#e9f5ee] shadow-[0px_4px_12px_rgba(0,0,0,0.06)] flex items-center justify-between">
+<div class="flex items-center gap-stack-md flex-1">
+<div class="relative w-12 h-12 flex items-center justify-center bg-error-container/20 rounded-lg">
+<span class="material-symbols-outlined text-error" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="overflow-hidden">
+<h4 class="font-label-lg text-on-surface truncate">English Grammar Revision Kit</h4>
+<p class="font-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="calendar_month">calendar_month</span> 
+                                2024 • 4.8 MB
+                            </p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 bg-primary-container text-on-primary-container rounded-full shadow-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="download" data-weight="fill" style="font-variation-settings: 'FILL' 1;">download</span>
+</button>
+</div>
+</div>
+<!-- Document Item 3 -->
+<div class="bg-surface-container-lowest p-stack-md rounded-xl border border-[#e9f5ee] shadow-[0px_4px_12px_rgba(0,0,0,0.06)] flex items-center justify-between">
+<div class="flex items-center gap-stack-md flex-1">
+<div class="relative w-12 h-12 flex items-center justify-center bg-error-container/20 rounded-lg">
+<span class="material-symbols-outlined text-error" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="overflow-hidden">
+<h4 class="font-label-lg text-on-surface truncate">Social Studies - Our Country</h4>
+<p class="font-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="calendar_month">calendar_month</span> 
+                                2022 • 2.5 MB
+                            </p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 bg-primary-container text-on-primary-container rounded-full shadow-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="download" data-weight="fill" style="font-variation-settings: 'FILL' 1;">download</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Subjects Showcase (Horizontal Scroll) -->
+<section class="mb-stack-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface px-margin-mobile mb-stack-md">Browse by Subject</h2>
+<div class="flex gap-gutter-mobile overflow-x-auto hide-scrollbar px-margin-mobile">
+<!-- Subject 1 -->
+<div class="flex-shrink-0 w-32 flex flex-col items-center gap-stack-sm text-center group">
+<div class="w-20 h-20 rounded-2xl bg-[#f0f9f4] flex items-center justify-center border border-secondary/10 group-active:scale-95 transition-all">
+<img alt="Science Illustration" class="w-12 h-12 object-contain" data-alt="A clean, minimalist 3D illustration of science equipment like a microscope and a DNA helix, rendered in a soft academic green and white palette. The lighting is bright and airy, suggesting a modern educational digital library interface. Professional studio product photography style with a shallow depth of field." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2dAMPHFkNoxFS8C3WzA9HjbFtT9KZvRyEumUUJQmdkioixMXbig0AuE9aq_HUbk0-HB9klRnOwxVI0DcqnzeKKasgg_XDA-yrD4rWLj3mCl9aQj6q-naBb8WpswVjID-SaecoRzNzcJOjeXoGSeKuwMXxYdph9jR7DzuDLZZvBg8S3XMgffvHSwS4W1klYXUUuVRPeAtMfM4bakNe6VbcMNazDSwFmrn5tyFewIgwsR8g7E8btUqDjEodTFbbdyyxlUnNVCpoDA"/>
+</div>
+<span class="font-label-lg text-on-surface">Science</span>
+</div>
+<!-- Subject 2 -->
+<div class="flex-shrink-0 w-32 flex flex-col items-center gap-stack-sm text-center group">
+<div class="w-20 h-20 rounded-2xl bg-[#f0f9f4] flex items-center justify-center border border-secondary/10 group-active:scale-95 transition-all">
+<img alt="Math Illustration" class="w-12 h-12 object-contain" data-alt="A stylized 3D representation of mathematics symbols like a ruler, compass, and an integral sign, presented in a clean white and soft forest green theme. The scene is lit with bright, diffused light, highlighting the smooth textures and clean lines of a modern scholarly app. The background is a soft ivory tone." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4cEybJUshct9V1S4ro-tPZhIzoJuixqGYpgDsmqUoWIH111J6gtrWm0TAszw7WknNbFsNlWFAT356oyslcjaomH4XljRPphb6yKRJwxIPJP-byogyQJotLDkWmF5SiDXO4uE1GY_xkIkphTPFZhS6kET8dGqMR3lwv-vu9TKMI4JDG6bHmHkPzXZVqLsMAsWaECllvOVH6RsTRj8BBULNVRP3rZbXIuJXi0slyIWGZCXRwOH4BD8GDUW2WIwFUoE6JaF504l1gg"/>
+</div>
+<span class="font-label-lg text-on-surface">Math</span>
+</div>
+<!-- Subject 3 -->
+<div class="flex-shrink-0 w-32 flex flex-col items-center gap-stack-sm text-center group">
+<div class="w-20 h-20 rounded-2xl bg-[#f0f9f4] flex items-center justify-center border border-secondary/10 group-active:scale-95 transition-all">
+<img alt="Art Illustration" class="w-12 h-12 object-contain" data-alt="Vibrant yet professional 3D digital art tools including a paintbrush and a palette, styled with soft shadows and a high-key lighting setup. The colors follow a harmonious palette of greens and whites to match an academic library aesthetic. Crisp details and a minimalist, focused composition for a mobile UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHamoD68TkZ0Ha2yJNU9P2_AYlWl2fwIy_KYfm137dUk6UWthCgaoEas5z1wjtuaBzvHcA1XR2hWv9Mx3nofhqjPzSvPAEJEV0qP8gAOIIULELP7jVSdMts6upTvhYOk2vIdv6h1mgm9jAPB-FqJj_0St818gJsyUQbS3E25l0RiJWvXOBki2hUK72qUaHp0hZgMYZ99Pjk0D9lCnVJQ1CwVM3QUvKNfuSllc30qat1pxrDIUhyIHIPc8sCQkdBFRgraN2dvmJGw"/>
+</div>
+<span class="font-label-lg text-on-surface">Art</span>
+</div>
+<!-- Subject 4 -->
+<div class="flex-shrink-0 w-32 flex flex-col items-center gap-stack-sm text-center group">
+<div class="w-20 h-20 rounded-2xl bg-[#f0f9f4] flex items-center justify-center border border-secondary/10 group-active:scale-95 transition-all">
+<img alt="History Illustration" class="w-12 h-12 object-contain" data-alt="Elegant 3D rendering of historical artifacts like a scroll and a globe, using a sophisticated color scheme of academic green and off-white. The lighting is soft and natural, emphasizing the professional educational context of a digital library. Minimalist and clean execution with high-quality textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuARvEVT6Nq1hgOaf8rUIXgl59Y4mkQQ2H01FTGqjHuhKjPNqVLZtHv8bqVPrWwFhsTLsHeSf5W--YLSQm3gWejqPtSmx0fP0neQe_rwCJbK1TebXIVndIn2Qtarle5QIedB9Gf1hPLMPc7sIKZk9HV_h04eUVPIZSiBDTgxUZmVgcfbxWss4rzK1zSzDznyBMyCpwTASFd3WJ5tas0gAPlWUyg9qq7ktgszNfXlijRH3jQFu-qjl5oiTKAdz7PQ7XxOdZOZNxh9aA"/>
+</div>
+<span class="font-label-lg text-on-surface">History</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 h-bottom-nav-height bg-surface-container-lowest dark:bg-inverse-surface flex justify-around items-center px-gutter-mobile pb-safe shadow-[0px_-6px_20px_rgba(45,138,78,0.2)] dark:shadow-none rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-2xl px-stack-md py-base active:scale-90 transition-all duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="school">school</span>
+<span class="font-label-sm text-label-sm">Learning</span>
+</a>
+<!-- Center FAB Integrated into Nav Visual Flow (as implied by style guide's 56px FAB docked) -->
+<div class="relative -top-6">
+<button class="w-[56px] h-[56px] bg-primary rounded-full flex items-center justify-center text-on-primary shadow-[0px_6px_20px_rgba(45,138,78,0.4)] active:scale-90 transition-all">
+<span class="material-symbols-outlined text-[32px]" data-icon="add">add</span>
+</button>
+</div>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+<span class="font-label-sm text-label-sm">Market</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction for buttons
+        document.querySelectorAll('button, a').forEach(el => {
+            el.addEventListener('click', function(e) {
+                // Logic for active states or navigation could go here
+            });
+        });
+
+        // Search bar focus effect
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('scale-[1.01]');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('scale-[1.01]');
+        });
+    </script>
+</body></html>

@@ -7,6 +7,8 @@ export enum ConversationType {
   SUPPORT = 'support',
   ADMIN_INITIATED = 'admin_initiated',
   COMMUNITY = 'community',
+  DIRECT = 'direct',
+  AI_SOCRATIC = 'ai_socratic',
 }
 
 @Entity('chat_conversations')

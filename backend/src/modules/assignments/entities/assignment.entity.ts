@@ -42,6 +42,9 @@ export class Assignment {
   @Column({ type: 'int', default: 5 })
   questionCount: number;
 
+  @Column({ type: 'jsonb', nullable: true })
+  questionIds: string[];
+
   @ManyToOne(() => User, { nullable: true })
   teacher: User;
 

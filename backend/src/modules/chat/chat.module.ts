@@ -16,6 +16,7 @@ import { MinioService } from '../../common/minio.service';
   imports: [
     TypeOrmModule.forFeature([ChatConversation, ChatMessage, User, UserRelationship]),
     UsersModule,
+    ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

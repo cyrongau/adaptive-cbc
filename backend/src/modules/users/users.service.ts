@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, forwardRef, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { User, UserRole, OnboardingStatus, KycStatus } from './entities/user.entity';
@@ -70,8 +70,19 @@ export class UsersService {
       userData.isActive = false;
     }
     const user = this.usersRepository.create(userData as any);
+    const savedUser = await this.usersRepository.save(user as any);
 
-    return this.usersRepository.save(user as any);
+    // Send Welcome Email asynchronously
+    const name = `${savedUser.firstName || ''} ${savedUser.lastName || ''}`.trim() || 'User';
+    this.emailService.send({
+      to: savedUser.email,
+      subject: 'Welcome to Adaptive CBC! 🎉',
+      html: this.emailService.generateWelcomeEmail(name),
+    }).catch(err => {
+      this.logger.error(`Failed to send welcome email to ${savedUser.email}: ${err.message}`);
+    });
+
+    return savedUser;
   }
 
   async findAll(requesterRole?: string, requesterInstitutionId?: string): Promise<User[]> {
@@ -88,7 +99,9 @@ export class UsersService {
     query: string,
     requesterRole: string,
     requesterInstitutionId?: string,
+    requesterId?: string,
   ): Promise<User[]> {
+    this.logger.log(`[UsersService.search] query="${query}", role="${requesterRole}", requesterId="${requesterId}"`);
     if (!query || query.trim() === '') {
       return [];
     }
@@ -96,10 +109,54 @@ export class UsersService {
     const baseWhere: any = { deletedAt: null };
 
     if (requesterRole !== UserRole.SUPER_ADMIN) {
-      if (!requesterInstitutionId) {
-        return [];
+      if (requesterRole === UserRole.PARENT && requesterId) {
+        // Find children linked via user_relationships
+        const relationships = await this.usersRepository.manager
+          .createQueryBuilder()
+          .select('relationship.user_id', 'userId')
+          .from('user_relationships', 'relationship')
+          .where('relationship.related_user_id = :parentId', { parentId: requesterId })
+          .andWhere('relationship.is_active = true')
+          .getRawMany();
+        const childUserIds = relationships.map(r => r.userId || r.user_id);
+        this.logger.log(`[UsersService.search] relationships found: ${JSON.stringify(relationships)}, childUserIds: ${JSON.stringify(childUserIds)}`);
+
+        // Find children linked via users.parentId
+        const directChildren = await this.usersRepository.find({
+          where: { parentId: requesterId, deletedAt: null },
+          select: ['id'],
+        });
+        const allChildIds = Array.from(
+          new Set([...childUserIds, ...directChildren.map(c => c.id)]),
+        );
+        this.logger.log(`[UsersService.search] directChildren: ${JSON.stringify(directChildren)}, allChildIds: ${JSON.stringify(allChildIds)}`);
+
+        if (allChildIds.length === 0) {
+          this.logger.log(`[UsersService.search] allChildIds is empty, returning []`);
+          return [];
+        }
+
+        // Fetch children's institutionIds
+        const children = await this.usersRepository.find({
+          where: { id: In(allChildIds), deletedAt: null },
+          select: ['institutionId'],
+        });
+        const institutionIds = children
+          .map(c => c.institutionId)
+          .filter(id => !!id);
+        this.logger.log(`[UsersService.search] children: ${JSON.stringify(children)}, institutionIds: ${JSON.stringify(institutionIds)}`);
+        if (institutionIds.length === 0) {
+          this.logger.log(`[UsersService.search] institutionIds is empty, returning []`);
+          return [];
+        }
+        baseWhere.institutionId = In(institutionIds);
+      } else {
+        if (!requesterInstitutionId) {
+          this.logger.log(`[UsersService.search] requesterInstitutionId is empty, returning []`);
+          return [];
+        }
+        baseWhere.institutionId = requesterInstitutionId;
       }
-      baseWhere.institutionId = requesterInstitutionId;
     }
 
     const where = [
@@ -326,13 +383,18 @@ export class UsersService {
     }
 
     try {
+      const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin';
+      const emailHtml = this.emailService.generateKycStatusEmail({
+        name,
+        status: 'approved',
+      });
       await this.emailService.send({
         to: user.email,
         subject: 'Your Institution Application Has Been Approved! 🎉',
-        html: `Dear ${user.firstName} ${user.lastName},\n\nGreat news! Your institution application has been approved. You now have full access to the admin dashboard.\n\nYou can now manage your institution, register students, and invite teachers.\n\nBest regards,\nAdaptive CBC Learning Platform`,
+        html: emailHtml,
       });
     } catch (err) {
-      console.error('Failed to send approval email:', err);
+      this.logger.error(`Failed to send approval email to ${user.email}: ${err.message}`);
     }
 
     return savedUser;
@@ -348,13 +410,19 @@ export class UsersService {
     const savedUser = await this.usersRepository.save(user);
 
     try {
+      const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin';
+      const emailHtml = this.emailService.generateKycStatusEmail({
+        name,
+        status: 'rejected',
+        reason,
+      });
       await this.emailService.send({
         to: user.email,
-        subject: 'Institution Application Update',
-        html: `Dear ${user.firstName} ${user.lastName},\n\nYour institution application has been reviewed. Unfortunately, it was not approved at this time.\n\nReason: ${reason}\n\nYou can resubmit your application with the required corrections from your dashboard.\n\nBest regards,\nAdaptive CBC Learning Platform`,
+        subject: 'Institution Application Update - Action Required',
+        html: emailHtml,
       });
     } catch (err) {
-      console.error('Failed to send rejection email:', err);
+      this.logger.error(`Failed to send rejection email to ${user.email}: ${err.message}`);
     }
 
     return savedUser;
@@ -421,7 +489,39 @@ export class UsersService {
       onboardingStatus: OnboardingStatus.NOT_STARTED,
     });
 
-    return this.usersRepository.save(teacher);
+    const savedTeacher = await this.usersRepository.save(teacher);
+
+    // Fetch institution details to show in the email invite
+    let institutionName = 'Your Institution';
+    if (admin.institutionId) {
+      try {
+        const inst = await this.institutionsService.findOne(admin.institutionId);
+        if (inst) {
+          institutionName = inst.name;
+        }
+      } catch (err) {
+        this.logger.error(`Failed to load institution name for teacher invite: ${err.message}`);
+      }
+    }
+
+    // Send Teacher Invitation Email asynchronously
+    const teacherName = `${savedTeacher.firstName || ''} ${savedTeacher.lastName || ''}`.trim() || 'Teacher';
+    const emailHtml = this.emailService.generateTeacherInvitationEmail({
+      name: teacherName,
+      email: savedTeacher.email,
+      tempPassword: tempPassword,
+      institutionName,
+    });
+
+    this.emailService.send({
+      to: savedTeacher.email,
+      subject: `Invitation to join ${institutionName} on Adaptive CBC`,
+      html: emailHtml,
+    }).catch(err => {
+      this.logger.error(`Failed to send teacher invite email to ${savedTeacher.email}: ${err.message}`);
+    });
+
+    return savedTeacher;
   }
 
   async addSecondaryRole(userId: string, secondaryRole: UserRole): Promise<User> {

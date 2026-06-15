@@ -157,6 +157,12 @@ export class User {
   lastActiveDate: Date;
 
   @Column({ nullable: true })
+  totpSecret: string;
+
+  @Column({ default: false })
+  isTotpEnabled: boolean;
+
+  @Column({ nullable: true })
   refreshToken: string;
 
   @Column({ nullable: true })

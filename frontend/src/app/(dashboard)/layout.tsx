@@ -39,9 +39,13 @@ import {
   UserCheck,
   ShoppingCart,
   UserPlus,
+  ShieldAlert,
+  Gamepad2,
+  Video,
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from '@/components/NotificationBell';
+import { useBranding } from '@/components/layout/branding-provider';
 
 const SIDEBAR_ITEMS_STUDENT = [
   { label: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
@@ -49,6 +53,7 @@ const SIDEBAR_ITEMS_STUDENT = [
   { label: 'My Classes', icon: GraduationCap, href: '/classes' },
   { label: 'Schedule', icon: Calendar, href: '/schedule' },
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
+  { label: 'Games & Tournaments', icon: Gamepad2, href: '/games' },
   { label: 'Assignments', icon: FileText, href: '/assignments' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
   { label: 'School', icon: Building2, href: '/school' },
@@ -67,6 +72,7 @@ const SIDEBAR_ITEMS_AFFILIATED_STUDENT = [
   { label: 'My Classes', icon: GraduationCap, href: '/classes' },
   { label: 'Schedule', icon: Calendar, href: '/schedule' },
   { label: 'Adaptive Practice', icon: PenTool, href: '/practice' },
+  { label: 'Games & Tournaments', icon: Gamepad2, href: '/games' },
   { label: 'Assignments', icon: FileText, href: '/assignments' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
   { label: 'My School', icon: Building2, href: '/school' },
@@ -84,6 +90,7 @@ const SIDEBAR_ITEMS_PARENT = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
   { label: 'Children', icon: GraduationCap, href: '/children' },
+  { label: 'Approvals', icon: ShieldAlert, href: '/approvals' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Progress Reports', icon: BarChart2, href: '/progress' },
@@ -97,7 +104,7 @@ const SIDEBAR_ITEMS_TUTOR = [
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
   { label: 'My Courses', icon: BookOpen, href: '/my-courses' },
   { label: 'Students', icon: GraduationCap, href: '/students' },
-  { label: 'Sessions', icon: BookOpen, href: '/sessions' },
+  { label: 'Sessions', icon: Video, href: '/sessions' },
   { label: 'KYC Verification', icon: Shield, href: '/kyc' },
   { label: 'Financial Hub', icon: Wallet, href: '/financial-hub' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
@@ -116,6 +123,7 @@ const SIDEBAR_ITEMS_TEACHER = [
   { label: 'My Courses', icon: BookOpen, href: '/my-courses' },
   { label: 'Students', icon: GraduationCap, href: '/students' },
   { label: 'Classes', icon: BookOpen, href: '/classes' },
+  { label: 'Sessions', icon: Video, href: '/sessions' },
   { label: 'Assignments', icon: PenTool, href: '/assignments' },
   { label: 'School', icon: Building2, href: '/school' },
   { label: 'Schedule', icon: Calendar, href: '/schedule' },
@@ -172,6 +180,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, token, initialize, logout } = useAuthStore();
+  const branding = useBranding();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -184,7 +193,17 @@ export default function DashboardLayout({
   useEffect(() => {
     initialize();
     setIsMounted(true);
+    const saved = localStorage.getItem('sidebar-collapsed');
+    if (saved !== null) {
+      setSidebarCollapsed(JSON.parse(saved));
+    }
   }, [initialize]);
+
+  const toggleSidebar = () => {
+    const newState = !sidebarCollapsed;
+    setSidebarCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(newState));
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -235,7 +254,8 @@ export default function DashboardLayout({
         pathname.startsWith('/admin') ||
         pathname.startsWith('/author-studio') ||
         pathname.startsWith('/library') ||
-        pathname.startsWith('/store')
+        pathname.startsWith('/store') ||
+        pathname.startsWith('/sessions')
       ) {
         return;
       }
@@ -248,7 +268,7 @@ export default function DashboardLayout({
   }, [isMounted, isSuperAdmin, isInstitutionAdmin, isKycApproved, router, pathname]);
 
   const isAffiliatedStudent = user?.role === 'student' && user?.institutionId;
-  const isExemptedAdminPath = pathname.startsWith('/author-studio') || pathname.startsWith('/library') || pathname.startsWith('/store');
+  const isExemptedAdminPath = pathname.startsWith('/author-studio') || pathname.startsWith('/library') || pathname.startsWith('/store') || pathname.startsWith('/sessions');
 
   let SIDEBAR_ITEMS;
   if (isInstitutionAdmin && !isKycApproved) {
@@ -303,7 +323,7 @@ export default function DashboardLayout({
           <div className={`w-8 h-8 ${theme.gradient} rounded-lg flex items-center justify-center`}>
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-lg text-slate-900 tracking-tight">Adaptive CBC</span>
+          <span className="font-bold text-lg text-slate-900 tracking-tight">{branding.platformName}</span>
         </div>
         <div className="flex items-center gap-2">
           <NotificationBell />
@@ -340,18 +360,18 @@ export default function DashboardLayout({
         <div className={`flex items-center py-5 px-4 border-b ${theme.sidebarBorder} ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3 min-w-0">
-              <img src="/logo.svg" alt="Adaptive CBC" className="w-9 h-9 shrink-0" />
+              <img src={branding.logoUrl} alt={branding.platformName} className="w-9 h-9 shrink-0 object-contain" />
               <div className="min-w-0">
-                <span className="font-bold text-sm text-slate-900 tracking-tight block truncate">Adaptive CBC</span>
+                <span className="font-bold text-sm text-slate-900 tracking-tight block truncate">{branding.platformName}</span>
                 <span className="text-[10px] text-slate-500 font-medium">Learning Platform</span>
               </div>
             </div>
           )}
           {sidebarCollapsed && (
-            <img src="/logo.svg" alt="Adaptive CBC" className="w-9 h-9 shrink-0" />
+            <img src={branding.logoUrl} alt={branding.platformName} className="w-9 h-9 shrink-0 object-contain" />
           )}
           <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onClick={toggleSidebar}
             className={`hidden md:flex items-center justify-center w-6 h-6 rounded-full ${theme.toggleBtnBg} ${theme.toggleBtn} hover:shadow-md transition-all shrink-0 ${sidebarCollapsed ? 'absolute -right-3 top-5' : ''}`}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >

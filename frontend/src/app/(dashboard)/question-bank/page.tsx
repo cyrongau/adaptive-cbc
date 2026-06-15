@@ -4,8 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import Link from 'next/link';
-import { Search, Loader2, BookOpen, ChevronRight, CheckCircle, XCircle, Zap } from 'lucide-react';
+import { Search, Loader2, BookOpen, ChevronRight, CheckCircle, XCircle, Zap, Sparkles } from 'lucide-react';
 import HtmlContent, { stripHtml } from '@/components/ui/HtmlContent';
+import XpAnimation from '@/components/ui/XpAnimation';
 
 interface Subject {
   id: string;
@@ -45,8 +46,9 @@ export default function QuestionBankPage() {
   const [total, setTotal] = useState(0);
   const [revealedQuestionIds, setRevealedQuestionIds] = useState<string[]>([]);
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
-  const [questionResults, setQuestionResults] = useState<Record<string, { correct: boolean; xpAwarded: number } | null>>({});
+  const [questionResults, setQuestionResults] = useState<Record<string, { correct: boolean; xpAwarded: number; isFirstAttempt?: boolean } | null>>({});
   const [submittingQuestions, setSubmittingQuestions] = useState<Record<string, boolean>>({});
+  const [xpAnimation, setXpAnimation] = useState<{ amount: number; isFirstAttempt: boolean } | null>(null);
 
   const limit = 12;
 
@@ -131,7 +133,11 @@ export default function QuestionBankPage() {
     setSubmittingQuestions((prev) => ({ ...prev, [questionId]: true }));
     try {
       const res = await api.post(`/questions/${questionId}/check`, { answer });
-      setQuestionResults((prev) => ({ ...prev, [questionId]: res.data }));
+      const data = res.data;
+      setQuestionResults((prev) => ({ ...prev, [questionId]: data }));
+      if (data.xpAwarded > 0) {
+        setXpAnimation({ amount: data.xpAwarded, isFirstAttempt: data.isFirstAttempt });
+      }
     } catch (err) {
       console.error('Failed to check answer', err);
     } finally {
@@ -280,8 +286,13 @@ export default function QuestionBankPage() {
                               ) : (
                                 <><XCircle className="w-4 h-4" /> Incorrect</>
                               )}
-                              {questionResults[question.id] && (
-                                <span className="ml-1 text-xs opacity-75">+{questionResults[question.id]!.xpAwarded} XP</span>
+                              {questionResults[question.id] && questionResults[question.id]!.xpAwarded > 0 && (
+                                <span className="ml-1 text-xs opacity-75">
+                                  +{questionResults[question.id]!.xpAwarded} XP
+                                  {questionResults[question.id]!.isFirstAttempt && (
+                                    <Sparkles className="inline w-3 h-3 ml-1 text-amber-500" />
+                                  )}
+                                </span>
                               )}
                             </div>
                           )}
@@ -365,6 +376,14 @@ export default function QuestionBankPage() {
           )}
         </div>
       </div>
+      {xpAnimation && (
+        <XpAnimation
+          xpAmount={xpAnimation.amount}
+          isCorrect={true}
+          isFirstAttempt={xpAnimation.isFirstAttempt}
+          onComplete={() => setXpAnimation(null)}
+        />
+      )}
     </div>
   );
 }

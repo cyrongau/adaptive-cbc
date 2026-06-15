@@ -1,12 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not, IsNull } from 'typeorm';
 import { ChatConversation, ConversationType } from './entities/chat-conversation.entity';
 import { ChatMessage } from './entities/chat-message.entity';
 import { User } from '../users/entities/user.entity';
 import { UserRelationship, RelationshipType } from '../relationships/entities/relationship.entity';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { ConfigService } from '@nestjs/config';
+import { ChatGateway } from './chat.gateway';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class ChatService {
@@ -21,6 +24,9 @@ export class ChatService {
     private userRepository: Repository<User>,
     @InjectRepository(UserRelationship)
     private relationshipRepository: Repository<UserRelationship>,
+    private readonly configService: ConfigService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   async createConversation(userId: string, dto: CreateConversationDto): Promise<ChatConversation> {
@@ -77,6 +83,8 @@ export class ChatService {
       if (!allowedRoles.includes(creator.role)) {
         throw new ForbiddenException('Only institutional admins can create communities');
       }
+    } else if (dto.type === ConversationType.DIRECT) {
+      // Direct messages allowed between any users — no extra permission checks
     }
 
 
@@ -103,7 +111,13 @@ export class ChatService {
       participants,
     });
 
-    return this.conversationRepository.save(conversation);
+    const saved = await this.conversationRepository.save(conversation);
+
+    // Re-fetch with relations so the response includes participants
+    return this.conversationRepository.findOne({
+      where: { id: saved.id },
+      relations: ['participants'],
+    }) as Promise<ChatConversation>;
   }
 
   async getConversationsForUser(userId: string): Promise<ChatConversation[]> {
@@ -194,7 +208,7 @@ export class ChatService {
     await this.conversationRepository.save(conversation);
 
     // Fetch message with sender detail and replies
-    return this.messageRepository.findOne({
+    const fullMessage = await this.messageRepository.findOne({
       where: { id: savedMessage.id },
       relations: [
         'sender',
@@ -204,10 +218,21 @@ export class ChatService {
         'replyTo.sender',
       ],
     });
+
+    // Check if it is a Socratic AI conversation and the sender is NOT the tutor itself
+    this.getSocraticTutorId().then((tutorId) => {
+      if (conversation.type === ConversationType.AI_SOCRATIC && senderId !== tutorId) {
+        this.triggerSocraticResponse(conversationId, senderId, dto.message);
+      }
+    }).catch((err) => {
+      this.logger.error('Failed to get Socratic tutor ID', err);
+    });
+
+    return fullMessage;
   }
 
-  async markMessagesAsRead(conversationId: string, userId: string): Promise<void> {
-    await this.messageRepository
+  async markMessagesAsRead(conversationId: string, userId: string): Promise<string[]> {
+    const result = await this.messageRepository
       .createQueryBuilder()
       .update(ChatMessage)
       .set({ readAt: new Date() })
@@ -215,7 +240,10 @@ export class ChatService {
         conversationId,
         userId,
       })
+      .returning('id')
       .execute();
+
+    return (result.raw || []).map((r: any) => r.id);
   }
 
   async getUnreadCount(userId: string): Promise<number> {
@@ -279,6 +307,177 @@ export class ChatService {
       .where('conversation.type = :type', { type: ConversationType.COMMUNITY })
       .andWhere('participant.institutionId = :institutionId', { institutionId })
       .getMany();
+  }
+
+  private socraticTutorId: string | null = null;
+
+  async getSocraticTutorId(): Promise<string> {
+    if (this.socraticTutorId) return this.socraticTutorId;
+    const tutor = await this.userRepository.findOne({ where: { email: 'socratic.tutor@adaptive-cbc.com' } });
+    if (tutor) {
+      this.socraticTutorId = tutor.id;
+      return tutor.id;
+    }
+    
+    // Seed virtual tutor if not found
+    const tutorEmail = 'socratic.tutor@adaptive-cbc.com';
+    const hashedPassword = await bcrypt.hash('socratic_tutor_secret_password_2026', 10);
+    const newTutor = this.userRepository.create({
+      email: tutorEmail,
+      password: hashedPassword,
+      firstName: 'Socratic',
+      lastName: 'AI Tutor',
+      role: 'teacher' as any,
+      isActive: true,
+      isEmailVerified: true,
+      avatar: 'socratic_avatar.png',
+    });
+    const saved = await this.userRepository.save(newTutor);
+    this.socraticTutorId = saved.id;
+    return saved.id;
+  }
+
+  async getOrCreateSocraticConversation(userId: string): Promise<ChatConversation> {
+    const tutorId = await this.getSocraticTutorId();
+    const tutorUser = await this.userRepository.findOne({ where: { id: tutorId } });
+    const studentUser = await this.userRepository.findOne({ where: { id: userId } });
+    
+    if (!studentUser || !tutorUser) {
+      throw new NotFoundException('Student or Socratic AI Tutor user not found');
+    }
+
+    // Check if an existing Socratic conversation exists
+    const existing = await this.conversationRepository
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.participants', 'p')
+      .where('c.type = :type', { type: ConversationType.AI_SOCRATIC })
+      .getMany();
+
+    for (const conv of existing) {
+      const ids = conv.participants.map((p) => p.id);
+      if (ids.includes(userId) && ids.includes(tutorId)) {
+        return conv;
+      }
+    }
+
+    // Create a new Socratic conversation
+    const conversation = this.conversationRepository.create({
+      type: ConversationType.AI_SOCRATIC,
+      title: 'Socratic AI Tutor',
+      participants: [studentUser, tutorUser],
+    });
+
+    const saved = await this.conversationRepository.save(conversation);
+
+    return this.conversationRepository.findOne({
+      where: { id: saved.id },
+      relations: ['participants'],
+    }) as Promise<ChatConversation>;
+  }
+
+  async triggerSocraticResponse(conversationId: string, studentId: string, studentMessage: string) {
+    // Run asynchronously to avoid blocking client
+    setTimeout(async () => {
+      try {
+        const tutorId = await this.getSocraticTutorId();
+
+        // Emit typing start indicator
+        if (this.chatGateway) {
+          this.chatGateway.server.to(`conversation_${conversationId}`).emit('typing', {
+            conversationId,
+            userId: tutorId,
+            userName: 'Socratic AI Tutor',
+            isTyping: true,
+          });
+        }
+
+        // Fetch recent messages context (last 15 messages)
+        const recentMessages = await this.messageRepository.find({
+          where: { conversationId },
+          order: { createdAt: 'DESC' },
+          take: 15,
+        });
+
+        const history = recentMessages.reverse().map((msg) => ({
+          role: msg.senderId === tutorId ? 'assistant' : 'user',
+          content: msg.message,
+        }));
+
+        // Request AI response via OpenRouter
+        const axios = require('axios');
+        const apiKey = this.configService.get('OPENROUTER_API_KEY');
+        
+        let aiResponseText = "Let's think about that. What do you think our next step should be?";
+        
+        if (apiKey) {
+          try {
+            const response = await axios.post(
+              'https://openrouter.ai/api/v1/chat/completions',
+              {
+                model: 'google/gemma-4-31b-it:free',
+                messages: [
+                  { role: 'system', content: 'You are a Socratic AI Tutor. Guide the student to the answer by asking questions. Do not just give them the answer.' },
+                  ...history
+                ],
+              },
+              {
+                headers: {
+                  'Authorization': `Bearer ${apiKey}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            aiResponseText = response.data.choices[0].message.content;
+          } catch (e) {
+            this.logger.error('Failed to get response from OpenRouter', e);
+          }
+        }
+
+        // Emit typing stop indicator
+        if (this.chatGateway) {
+          this.chatGateway.server.to(`conversation_${conversationId}`).emit('typing', {
+            conversationId,
+            userId: tutorId,
+            userName: 'Socratic AI Tutor',
+            isTyping: false,
+          });
+        }
+
+        // Save and broadcast message
+        const savedMsg = await this.sendMessage(conversationId, tutorId, {
+          message: aiResponseText,
+        });
+
+        // Emit message via Socket
+        if (this.chatGateway) {
+          this.chatGateway.server.to(`conversation_${conversationId}`).emit('messageReceived', {
+            ...savedMsg,
+            attachmentUrl: null,
+          });
+
+          // Unread notification to student
+          this.chatGateway.server.to(`user_${studentId}`).emit('unreadUpdate', {
+            conversationId,
+            unreadCount: 1,
+          });
+        }
+      } catch (error) {
+        this.logger.error('Error in Socratic AI background processing:', error);
+        
+        // Clean typing indicator in case of crash
+        try {
+          const tutorId = await this.getSocraticTutorId();
+          if (this.chatGateway) {
+            this.chatGateway.server.to(`conversation_${conversationId}`).emit('typing', {
+              conversationId,
+              userId: tutorId,
+              userName: 'Socratic AI Tutor',
+              isTyping: false,
+            });
+          }
+        } catch (_) {}
+      }
+    }, 1000); // 1s delay for natural timing
   }
 }
 

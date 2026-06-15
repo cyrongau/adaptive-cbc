@@ -113,27 +113,42 @@ export default function AssignmentDetailPage() {
     setQuestionLoading(true);
 
     try {
-      const subjectId = await findSubjectId(assignment.subject);
+      // First try teacher-defined questions
+      let fetched: Question[] = [];
 
-      const params: Record<string, string | number | undefined> = {
-        grade: assignment.grade,
-        count: assignment.questionCount,
-      };
-      if (subjectId) params.subjectId = subjectId;
-
-      if (assignment.strand && subjectId) {
-        const { strandId, subStrandId } = await findCurriculumIds(subjectId, assignment.strand, assignment.subStrand);
-        if (strandId) params.strandId = strandId;
-        if (subStrandId) params.subStrandId = subStrandId;
-      } else if (subjectId) {
-        const res = await api.get(`/subjects/${subjectId}/topics`);
-        const topics: TopicItem[] = res.data;
-        const topic = topics.find((t) => t.name.toLowerCase() === (assignment.subStrand || assignment.topic).toLowerCase());
-        if (topic) params.topicId = topic.id;
+      try {
+        const questionsRes = await api.get(`/assignments/${id}/questions`);
+        const teacherQuestions = questionsRes.data;
+        if (teacherQuestions && teacherQuestions.length > 0) {
+          fetched = teacherQuestions;
+        }
+      } catch {
+        // No teacher-defined questions, fall back to random
       }
 
-      const res = await api.get('/questions/random', { params });
-      const fetched = res.data;
+      if (fetched.length === 0) {
+        const subjectId = await findSubjectId(assignment.subject);
+
+        const params: Record<string, string | number | undefined> = {
+          grade: assignment.grade,
+          count: assignment.questionCount,
+        };
+        if (subjectId) params.subjectId = subjectId;
+
+        if (assignment.strand && subjectId) {
+          const { strandId, subStrandId } = await findCurriculumIds(subjectId, assignment.strand, assignment.subStrand);
+          if (strandId) params.strandId = strandId;
+          if (subStrandId) params.subStrandId = subStrandId;
+        } else if (subjectId) {
+          const res = await api.get(`/subjects/${subjectId}/topics`);
+          const topics: TopicItem[] = res.data;
+          const topic = topics.find((t) => t.name.toLowerCase() === (assignment.subStrand || assignment.topic).toLowerCase());
+          if (topic) params.topicId = topic.id;
+        }
+
+        const res = await api.get('/questions/random', { params });
+        fetched = res.data;
+      }
 
       if (!fetched || fetched.length === 0) {
         toast.error('No questions available matching this assignment criteria');

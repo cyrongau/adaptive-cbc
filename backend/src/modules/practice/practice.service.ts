@@ -114,7 +114,7 @@ export class PracticeService {
     return { question, answer };
   }
 
-  async submitAnswer(sessionId: string, questionId: string, userAnswer: string): Promise<PracticeAnswer> {
+  async submitAnswer(sessionId: string, questionId: string, userAnswer: string, userId?: string): Promise<PracticeAnswer & { xpAwarded?: number; isFirstAttempt?: boolean }> {
     const session = await this.getSession(sessionId);
 
     if (session.status === PracticeSessionStatus.COMPLETED) {
@@ -135,6 +135,9 @@ export class PracticeService {
       where: { sessionId, questionId },
     });
 
+    let xpAwarded = 0;
+    let isFirstAttempt = false;
+
     if (existingAnswer) {
       existingAnswer.userAnswer = userAnswer;
       existingAnswer.isCorrect = isCorrect;
@@ -143,7 +146,23 @@ export class PracticeService {
         { answer: userAnswer, timestamp: new Date() },
       ];
       existingAnswer.timeSpentSeconds += 0;
-      return this.answerRepository.save(existingAnswer);
+      const saved = await this.answerRepository.save(existingAnswer);
+
+      if (userId) {
+        await this.questionsService.recordAttempt(userId, questionId, userAnswer, isCorrect, 0, 'practice', sessionId);
+      }
+
+      return { ...saved, xpAwarded: 0, isFirstAttempt: false } as any;
+    }
+
+    if (userId) {
+      isFirstAttempt = !(await this.questionsService.hasAttemptedQuestion(userId, questionId));
+    }
+
+    if (isCorrect && isFirstAttempt && userId) {
+      xpAwarded = question.marks * 10;
+      await this.usersService.addXpPoints(userId, xpAwarded);
+      await this.usersService.updateStreak(userId);
     }
 
     const answer = this.answerRepository.create({
@@ -157,6 +176,10 @@ export class PracticeService {
 
     const savedAnswer = await this.answerRepository.save(answer);
 
+    if (userId) {
+      await this.questionsService.recordAttempt(userId, questionId, userAnswer, isCorrect, xpAwarded, 'practice', sessionId);
+    }
+
     session.answeredQuestions += 1;
     if (isCorrect) {
       session.correctAnswers += 1;
@@ -167,7 +190,7 @@ export class PracticeService {
 
     await this.sessionRepository.save(session);
 
-    return savedAnswer;
+    return { ...savedAnswer, xpAwarded, isFirstAttempt } as any;
   }
 
   async getExplanation(sessionId: string, questionId: string, userTier: GovernanceTier = GovernanceTier.FREE, userId?: string): Promise<{ explanation: string }> {
@@ -245,7 +268,6 @@ export class PracticeService {
     const session = await this.getSession(sessionId);
     session.status = PracticeSessionStatus.COMPLETED;
 
-    await this.usersService.addXpPoints(session.userId, session.correctAnswers * 10);
     await this.usersService.updateStreak(session.userId);
 
     return this.sessionRepository.save(session);

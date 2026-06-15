@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChatService } from './chat.service';
+import { ChatGateway } from './chat.gateway';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -26,11 +27,17 @@ export class ChatController {
   constructor(
     private readonly chatService: ChatService,
     private readonly minioService: MinioService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   @Post('conversations')
   async createConversation(@Request() req, @Body() dto: CreateConversationDto) {
     return this.chatService.createConversation(req.user.id, dto);
+  }
+
+  @Post('conversations/socratic')
+  async getOrCreateSocraticConversation(@Request() req) {
+    return this.chatService.getOrCreateSocraticConversation(req.user.id);
   }
 
   @Get('conversations')
@@ -83,7 +90,21 @@ export class ChatController {
 
   @Put('conversations/:id/read')
   async markAsRead(@Request() req, @Param('id') conversationId: string) {
-    await this.chatService.markMessagesAsRead(conversationId, req.user.id);
+    const messageIds = await this.chatService.markMessagesAsRead(conversationId, req.user.id);
+    if (messageIds.length > 0) {
+      const readerName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ') || req.user.email;
+      try {
+        this.chatGateway.emitMessagesRead(
+          conversationId,
+          req.user.id,
+          readerName,
+          messageIds,
+        );
+      } catch (err) {
+        // Don't let a gateway broadcast error crash the HTTP response
+        console.error('Failed to broadcast read receipt:', err.message);
+      }
+    }
     return { success: true };
   }
 

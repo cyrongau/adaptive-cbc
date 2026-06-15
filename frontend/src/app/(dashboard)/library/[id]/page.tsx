@@ -8,7 +8,7 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft, FileText, Download, Eye, Share2, Clock, BookOpen,
-  Calendar, User, Tag, ChevronRight, ExternalLink, Star,
+  Calendar, User, Tag, ChevronRight, ExternalLink, Star, Maximize2,
 } from 'lucide-react';
 
 const PAPER_TYPE_MAP: Record<string, string> = {
@@ -28,6 +28,7 @@ export default function LibraryItemDetailPage() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [subjectName, setSubjectName] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,18 +87,59 @@ export default function LibraryItemDetailPage() {
 
   const handleDownload = async () => {
     if (!item) return;
+    setDownloading(true);
     try {
-      await api.post(`/digital-library/papers/${params.id}/download`);
-      toast.success('Download started');
-      setItem((prev: any) => prev ? { ...prev, downloadCount: prev.downloadCount + 1 } : prev);
+      const res = await api.post(`/digital-library/papers/${params.id}/download`);
+      const paper = res.data;
+      setItem(paper);
+
+      const url = paper.fileUrl;
+      if (url) {
+        const isPdf = url.match(/\.pdf$/i);
+        if (isPdf) {
+          window.open(url, '_blank');
+        } else {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = paper.metadata?.originalFileName || `download.${url.split('.').pop()}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        toast.success('Download started');
+      } else {
+        toast.error('No file available for download');
+      }
     } catch {
-      toast.error('Failed to record download');
+      toast.error('Failed to download');
+    } finally {
+      setDownloading(false);
     }
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success('Link copied to clipboard');
+  const handleShare = async () => {
+    const shareData = {
+      title: item?.title || 'Digital Library Document',
+      text: `Check out this document: ${item?.title}`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        // user cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success('Link copied to clipboard');
+    }
+  };
+
+  const openPreview = () => {
+    if (item?.fileUrl) {
+      window.open(item.fileUrl, '_blank');
+    }
   };
 
   if (loading) {
@@ -173,10 +215,11 @@ export default function LibraryItemDetailPage() {
     : item.pageCount 
       ? `~${(item.pageCount * 0.45).toFixed(1)} MB (est)` 
       : 'Unknown';
+  const isImage = item.fileUrl?.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i);
+  const isPdf = item.fileUrl?.endsWith('.pdf');
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-400">
         <Link href="/library" className="hover:text-[#47a263] transition-colors font-medium">Digital Library</Link>
         <ChevronRight className="w-4 h-4" />
@@ -184,7 +227,7 @@ export default function LibraryItemDetailPage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* Main Content */}
+        {/* Left: Description, Author, Similar Content */}
         <div className="lg:col-span-2 space-y-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-slate-200 p-6">
             <div className="flex items-start gap-4 mb-4">
@@ -192,19 +235,34 @@ export default function LibraryItemDetailPage() {
                 <FileText className="w-7 h-7 text-[#47a263]" />
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="px-2.5 py-0.5 bg-[#47a263]/10 text-[#47a263] text-xs font-bold rounded-full">{PAPER_TYPE_MAP[item.paperType] || item.paperType}</span>
                   <span className="px-2.5 py-0.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-full">{subjectName}</span>
                   <span className="px-2.5 py-0.5 bg-amber-50 text-amber-600 text-xs font-bold rounded-full">Grade {item.grade}</span>
                   {item.isPremium && <span className="px-2.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-full">Premium</span>}
                 </div>
                 <h1 className="text-xl font-extrabold text-slate-900 mt-2">{item.title}</h1>
+
+                {/* Author info inline */}
+                {item.createdByUser && (
+                  <div className="flex items-center gap-2 mt-2 text-sm text-slate-500">
+                    <User className="w-4 h-4" />
+                    <span>Uploaded by <strong className="text-slate-700">{item.createdByUser.firstName} {item.createdByUser.lastName}</strong></span>
+                    <span className="text-slate-300">|</span>
+                    <Calendar className="w-4 h-4" />
+                    <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {item.description && <p className="text-sm text-slate-600 leading-relaxed mb-6">{item.description}</p>}
+            {item.description && (
+              <div className="mb-6">
+                <h2 className="text-sm font-bold text-slate-900 mb-2">Description</h2>
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{item.description}</p>
+              </div>
+            )}
 
-            {/* Meta Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl">
               {[
                 { icon: FileText, label: 'File Size', value: fileSize },
@@ -221,7 +279,6 @@ export default function LibraryItemDetailPage() {
             </div>
           </motion.div>
 
-          {/* Extracted Questions */}
           {questions && questions.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-white rounded-2xl border border-slate-200 p-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Content & Questions ({questions.length})</h2>
@@ -265,7 +322,6 @@ export default function LibraryItemDetailPage() {
             </motion.div>
           )}
 
-          {/* Tags */}
           {item.tags && item.tags.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl border border-slate-200 p-6">
               <h2 className="text-sm font-bold text-slate-900 mb-3">Tags</h2>
@@ -277,10 +333,9 @@ export default function LibraryItemDetailPage() {
             </motion.div>
           )}
 
-          {/* Related Documents */}
           {relatedDocs.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl border border-slate-200 p-6">
-              <h2 className="text-sm font-bold text-slate-900 mb-4">Related Documents</h2>
+              <h2 className="text-sm font-bold text-slate-900 mb-4">Similar Content</h2>
               <div className="space-y-3">
                 {relatedDocs.map((doc: any) => (
                   <Link key={doc.id} href={`/library/${doc.id}`} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
@@ -289,7 +344,7 @@ export default function LibraryItemDetailPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">{doc.title}</p>
-                      <p className="text-xs text-slate-400">{doc.subjectName} • {PAPER_TYPE_MAP[doc.paperType] || doc.paperType}</p>
+                      <p className="text-xs text-slate-400">{doc.subjectName} &bull; {PAPER_TYPE_MAP[doc.paperType] || doc.paperType}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-300" />
                   </Link>
@@ -299,24 +354,35 @@ export default function LibraryItemDetailPage() {
           )}
         </div>
 
-        {/* Sidebar */}
+        {/* Right: Preview + Actions */}
         <div className="space-y-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-slate-200 p-6 sticky top-6">
             <div className="text-center mb-6">
-              <div className="w-full aspect-[3/4] bg-slate-100 rounded-xl mb-4 flex items-center justify-center overflow-hidden relative border border-slate-200">
+              <div className="w-full aspect-[3/4] bg-slate-100 rounded-xl mb-4 flex items-center justify-center overflow-hidden relative border border-slate-200 group">
                 {item.thumbnailUrl ? (
-                  <img src={item.thumbnailUrl} alt="Document Preview" className="w-full h-full object-cover" />
-                ) : item.fileUrl?.match(/\.(jpeg|jpg|gif|png)$/i) ? (
-                  <img src={item.fileUrl} alt="Document Preview" className="w-full h-full object-cover" />
-                ) : item.fileUrl?.endsWith('.pdf') ? (
-                  <div className="absolute inset-0">
-                    <iframe src={`${item.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} className="w-full h-full border-0 pointer-events-none" />
-                    <div className="absolute inset-0 z-10 bg-transparent" />
-                  </div>
+                  <img src={item.thumbnailUrl} alt="Document Preview" className="w-full h-full object-cover cursor-pointer" onClick={openPreview} />
+                ) : isImage ? (
+                  <img src={item.fileUrl} alt="Document Preview" className="w-full h-full object-cover cursor-pointer" onClick={openPreview} />
+                ) : isPdf ? (
+                  <iframe src={`${item.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} className="w-full h-full border-0" title="PDF Preview" />
                 ) : (
                   <FileText className="w-16 h-16 text-slate-300" />
                 )}
+
+                {item.fileUrl && (
+                  <button onClick={openPreview}
+                    className="absolute top-2 right-2 w-8 h-8 bg-black/60 text-white rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80">
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
+
+              {item.fileUrl && !isImage && !isPdf && (
+                <button onClick={openPreview} className="text-xs text-[#47a263] font-medium hover:underline mb-2 flex items-center gap-1 justify-center">
+                  <ExternalLink className="w-3 h-3" /> Open in new tab
+                </button>
+              )}
+
               {rating.totalReviews > 0 && (
                 <div className="flex items-center justify-center gap-1 mb-2">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -328,8 +394,9 @@ export default function LibraryItemDetailPage() {
             </div>
 
             <div className="space-y-3">
-              <button onClick={handleDownload} className="w-full py-3 bg-[#47a263] text-white font-extrabold text-sm rounded-xl hover:bg-[#3d8b55] transition-all shadow-sm flex items-center justify-center gap-2">
-                <Download className="w-4 h-4" /> Download
+              <button onClick={handleDownload} disabled={downloading}
+                className="w-full py-3 bg-[#47a263] text-white font-extrabold text-sm rounded-xl hover:bg-[#3d8b55] transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                <Download className="w-4 h-4" /> {downloading ? 'Downloading...' : 'Download'}
               </button>
               <button onClick={handleShare} className="w-full py-3 border border-slate-200 text-slate-700 font-semibold text-sm rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
                 <Share2 className="w-4 h-4" /> Share

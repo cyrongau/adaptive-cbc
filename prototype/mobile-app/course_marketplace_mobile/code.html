@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Lumina CBC Marketplace</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container": "#f0edec",
+                    "surface-container-low": "#f6f3f2",
+                    "on-secondary-fixed": "#00210d",
+                    "secondary-fixed": "#adf2bc",
+                    "on-primary-container": "#f6fff3",
+                    "surface": "#fcf9f8",
+                    "inverse-on-surface": "#f3f0ef",
+                    "on-tertiary-fixed-variant": "#3e4944",
+                    "inverse-surface": "#313030",
+                    "surface-variant": "#e5e2e1",
+                    "tertiary-fixed-dim": "#bdc9c3",
+                    "primary-fixed": "#9af7af",
+                    "primary-container": "#268549",
+                    "on-tertiary-fixed": "#131e1a",
+                    "on-primary-fixed-variant": "#005227",
+                    "surface-container-high": "#ebe7e7",
+                    "background": "#fcf9f8",
+                    "primary-fixed-dim": "#7eda95",
+                    "secondary-container": "#adf2bc",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed": "#00210c",
+                    "tertiary-container": "#6c7772",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#7eda95",
+                    "error-container": "#ffdad6",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#535e59",
+                    "tertiary-fixed": "#d9e5de",
+                    "surface-tint": "#006d36",
+                    "on-secondary-fixed-variant": "#09522a",
+                    "secondary-fixed-dim": "#92d6a2",
+                    "surface-dim": "#dcd9d9",
+                    "on-secondary-container": "#307146",
+                    "secondary": "#296a40",
+                    "on-tertiary-container": "#f5fff9",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-highest": "#e5e2e1",
+                    "on-error-container": "#93000a",
+                    "primary": "#006a34",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#becabd",
+                    "on-surface": "#1c1b1b",
+                    "surface-bright": "#fcf9f8",
+                    "outline": "#6f7a6f",
+                    "on-primary": "#ffffff",
+                    "on-surface-variant": "#3f4940",
+                    "on-background": "#1c1b1b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-lg": "32px",
+                    "base": "4px",
+                    "stack-sm": "8px",
+                    "stack-md": "16px",
+                    "gutter-mobile": "16px",
+                    "margin-mobile": "20px",
+                    "bottom-nav-height": "80px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Nunito Sans"],
+                    "label-lg": ["Nunito Sans"],
+                    "body-md": ["Nunito Sans"],
+                    "body-lg": ["Nunito Sans"],
+                    "label-sm": ["Nunito Sans"],
+                    "headline-md": ["Nunito Sans"]
+            },
+            "fontSize": {
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "headline-md-mobile": ["20px", {"lineHeight": "26px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Nunito Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-effect { backdrop-filter: blur(8px); background: rgba(255, 255, 255, 0.8); }
+        .academic-shadow { shadow: 0px 4px 12px rgba(0,0,0,0.06); }
+        .nav-shadow { shadow: 0px -6px 20px rgba(45,138,78,0.2); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-bottom-nav-height">
+<!-- Top AppBar (JSON Mapping) -->
+<header class="bg-surface dark:bg-background sticky top-0 z-50 flex justify-between items-center w-full px-margin-mobile py-stack-md">
+<div class="flex items-center gap-stack-sm active:scale-95 transition-transform duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim">menu</span>
+</div>
+<h1 class="font-headline-md text-headline-md-mobile font-extrabold text-primary dark:text-primary-fixed-dim">Lumina CBC</h1>
+<div class="flex items-center gap-stack-sm active:scale-95 transition-transform duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim">notifications</span>
+</div>
+</header>
+<main class="px-margin-mobile pt-stack-sm">
+<!-- Search Bar -->
+<div class="relative mt-stack-md group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant">search</span>
+</div>
+<input class="w-full h-12 pl-12 pr-4 rounded-xl border-none bg-surface-container text-body-md focus:ring-2 focus:ring-primary transition-all duration-300" placeholder="Search for CBC courses..." type="text"/>
+</div>
+<!-- Category Chips -->
+<div class="mt-stack-lg flex gap-stack-sm overflow-x-auto no-scrollbar py-2">
+<button class="flex-none px-stack-md py-stack-sm rounded-full bg-primary text-on-primary font-label-lg text-label-lg">All</button>
+<button class="flex-none px-stack-md py-stack-sm rounded-full bg-secondary-container text-on-secondary-container font-label-lg text-label-lg hover:bg-surface-variant transition-colors">Mathematics</button>
+<button class="flex-none px-stack-md py-stack-sm rounded-full bg-secondary-container text-on-secondary-container font-label-lg text-label-lg hover:bg-surface-variant transition-colors">Science</button>
+<button class="flex-none px-stack-md py-stack-sm rounded-full bg-secondary-container text-on-secondary-container font-label-lg text-label-lg hover:bg-surface-variant transition-colors">Art &amp; Crafts</button>
+<button class="flex-none px-stack-md py-stack-sm rounded-full bg-secondary-container text-on-secondary-container font-label-lg text-label-lg hover:bg-surface-variant transition-colors">Music</button>
+</div>
+<!-- Featured Banner Section -->
+<section class="mt-stack-lg">
+<h2 class="font-headline-md text-headline-md-mobile text-on-surface mb-stack-md">Featured</h2>
+<div class="relative w-full h-48 rounded-xl overflow-hidden shadow-lg group">
+<img alt="Featured Course" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="A bright and inspiring classroom setting for elementary students, featuring colorful educational posters and wooden desks. Warm morning sunlight streams through large windows, creating a soft, optimistic glow. The color palette is dominated by academic greens and soft whites, reflecting a modern, clean, and professional learning environment. The mood is supportive and focused on educational growth." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_b8tG8I1iPjVtRUbhDFbSKH0nlo7DkgZC-ADY9H06OtZrfJchhQ6oBCZwFsyqwu3h7VOI3sQusWEKCly0tGn2crhztOBmk-cbndiIiRpIcx-QHLlIxRqZT3g8A_FmNadn53HoqsR9ZYspMCCp_TgF0O17qUjkcRVazYhFEJT_W9HT3ETetEun57TU17XKMr5topHEEExvm5Ki4m5ZxtNkGR43WgWQRnPD1KEukG4Stugp4c5-fKtxfBNm4vaIdMCZw2vK_TaN7g"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-stack-md flex flex-col justify-end">
+<span class="bg-primary px-stack-sm py-1 rounded text-on-primary text-label-sm w-fit mb-stack-sm">PREMIUM CONTENT</span>
+<h3 class="text-white font-headline-md text-headline-md-mobile">Mastering Grade 4 Competencies</h3>
+<p class="text-surface-variant font-body-md text-body-md">Complete Science &amp; Maths Bundle</p>
+</div>
+</div>
+</section>
+<!-- Course List -->
+<section class="mt-stack-lg pb-stack-lg">
+<div class="flex justify-between items-center mb-stack-md">
+<h2 class="font-headline-md text-headline-md-mobile text-on-surface">Top CBC Courses</h2>
+<button class="text-primary font-label-lg text-label-lg">See All</button>
+</div>
+<div class="flex flex-col gap-gutter-mobile">
+<!-- Course Card 1 -->
+<div class="bg-surface-container-lowest p-stack-sm rounded-xl border border-secondary-container flex gap-stack-md shadow-sm active:scale-[0.98] transition-transform">
+<div class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+<img alt="Math Course" class="w-full h-full object-cover" data-alt="A professional close-up of educational math tools like a compass, ruler, and a clean notebook on a light wooden surface. The lighting is crisp and bright, highlighting the tactile nature of school supplies. The scene uses soft greens and whites to match a modern academic aesthetic, conveying clarity and organization for a student's learning journey." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGHlY8OJFk5dLhuDoslWYg1AtyckSwiDJHrwEEO3FX_ZQB5_QCRtTG6n__emvG67nUePHjMnzKekg-qQAKluiVFmS2mf0bTirAqPiwoLYONllb5w090Ba9RH7tB9sPMMTbpTmRRVrYgbpvzDRdAod3OnEvp0wVAoK15emh4tnGP3hfY8fAA7aMxwuESgRSGKBW5TuOOlxAJt-ufGxPUUa73lhwkv9tliclVbEPShEZ5MQcvGySTNbLrhmiE58K2YZwNjt4bI141A"/>
+</div>
+<div class="flex flex-col justify-between py-1 flex-grow">
+<div>
+<div class="flex justify-between items-start">
+<h4 class="font-label-lg text-label-lg text-on-surface line-clamp-1">Practical Geometry Grade 5</h4>
+<div class="flex items-center text-primary">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-label-sm ml-1">4.8</span>
+</div>
+</div>
+<p class="text-on-surface-variant font-label-sm text-label-sm">Grade 5 • 12 Lessons</p>
+</div>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary font-headline-md text-headline-md-mobile">KES 1,200</span>
+<span class="material-symbols-outlined text-secondary hover:text-primary-container transition-colors">add_circle</span>
+</div>
+</div>
+</div>
+<!-- Course Card 2 -->
+<div class="bg-surface-container-lowest p-stack-sm rounded-xl border border-secondary-container flex gap-stack-md shadow-sm active:scale-[0.98] transition-transform">
+<div class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+<img alt="Music Course" class="w-full h-full object-cover" data-alt="A serene image of a traditional musical instrument resting in a minimalist studio. The lighting is soft and diffused, creating a calm and supportive atmosphere. The background is a clean, neutral white that makes the academic green accents of the UI pop. The style is modern-academic, blending cultural heritage with contemporary education technology." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9Xx-mSj5GImSXfxpOmgcRhXDihtrjLFrC7CikSuLdDEJASDOGHx3UB7bBxnr7gVfQ4oKQXKF_91_yA1yTFzZq_9WN7tqXiswoetllsvRJGW5G5RmabbSI3yIFzqP-Z7_iMZTIuU-q1_psSDqXEEM_O7vaUPt33LNrpekraJkpYMNIPli0Lf3MFsB-tz4s40lTTFO-ZeHIIahDCOex5YzvZJ3ZjTIL7R34wAmyM4Ag6LWyjanpQp0N7Giocp0NDmvEpQfrTvcZAg"/>
+</div>
+<div class="flex flex-col justify-between py-1 flex-grow">
+<div>
+<div class="flex justify-between items-start">
+<h4 class="font-label-lg text-label-lg text-on-surface line-clamp-1">Traditional Kenyan Rhythms</h4>
+<div class="flex items-center text-primary">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-label-sm ml-1">4.9</span>
+</div>
+</div>
+<p class="text-on-surface-variant font-label-sm text-label-sm">Creative Arts • Grade 4</p>
+</div>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary font-headline-md text-headline-md-mobile">KES 850</span>
+<span class="material-symbols-outlined text-secondary">add_circle</span>
+</div>
+</div>
+</div>
+<!-- Course Card 3 -->
+<div class="bg-surface-container-lowest p-stack-sm rounded-xl border border-secondary-container flex gap-stack-md shadow-sm active:scale-[0.98] transition-transform">
+<div class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+<img alt="Science Course" class="w-full h-full object-cover" data-alt="A bright, modern science laboratory scene focused on environmental studies. Features clean test tubes and lush green plants in the background. The lighting is high-key and professional, utilizing a palette of fresh greens and clinical whites. The overall aesthetic is educational, inviting, and technically advanced for a modern mobile learning application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAW1D9ObY216ZLWVg9akI7LrlyyodSkB7SO-qEvKVlxt3f2BsR9obvEq_bm3Pu-opya8svOivZzC0a-c_kSJwaVfOfeT669j4U1SgNujaHZQbgHQ27sLFvFMNgF07G7FMn5Phll6sy4OZQaNsD-aAqxz2f7C62KA2Pkrv8bsiDnIL0GKR7iDRUwqzeXFx4evohxjfH1LMLImEHVc-kab54iWEf4DGCFZa3QKnm8ZrA7CTgMeyQTdA9JJNvH9lBxllkP1w0UHWVThw"/>
+</div>
+<div class="flex flex-col justify-between py-1 flex-grow">
+<div>
+<div class="flex justify-between items-start">
+<h4 class="font-label-lg text-label-lg text-on-surface line-clamp-1">Environmental Science Basics</h4>
+<div class="flex items-center text-primary">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-label-sm ml-1">4.7</span>
+</div>
+</div>
+<p class="text-on-surface-variant font-label-sm text-label-sm">Science • Grade 6</p>
+</div>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary font-headline-md text-headline-md-mobile">KES 1,500</span>
+<span class="material-symbols-outlined text-secondary">add_circle</span>
+</div>
+</div>
+</div>
+<!-- Course Card 4 -->
+<div class="bg-surface-container-lowest p-stack-sm rounded-xl border border-secondary-container flex gap-stack-md shadow-sm active:scale-[0.98] transition-transform">
+<div class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+<img alt="Art Course" class="w-full h-full object-cover" data-alt="A creative and vibrant art workspace featuring colorful palettes, brushes, and sketched paper. The composition is clean and organized, with a focus on tactile art-making. High-key lighting creates a bright and cheerful academic atmosphere. The color scheme is sophisticated, using deep greens and crisp whites to signal a professional educational platform for kids." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9YbdwRDP1bLpKQ2O1yCStun1WQonRqvFxS9LP0i5KmQSy6xmecn7Tkf1pSfDB2gY9qSqZkn1z_RTNviPa-5N1yh6JG-t6Xqvmyg3I8cV2g3m97afeafo_UJ97lfMaVIsh2evBlsgHP2H8j2k4B-DqFrJSGNJ5WjKFVzxN9N207uGlTQw_ovfT8Mfm8s4vHtTTBN-5xxWzbttWf2ZRS5qkojm02Hwz8BqtMHAbc-QQvKBxtxdqYDImzZaYGeqPCZncVcWQc90PQg"/>
+</div>
+<div class="flex flex-col justify-between py-1 flex-grow">
+<div>
+<div class="flex justify-between items-start">
+<h4 class="font-label-lg text-label-lg text-on-surface line-clamp-1">Visual Arts &amp; Sketching</h4>
+<div class="flex items-center text-primary">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-label-sm ml-1">4.6</span>
+</div>
+</div>
+<p class="text-on-surface-variant font-label-sm text-label-sm">Creative Arts • All Grades</p>
+</div>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary font-headline-md text-headline-md-mobile">KES 900</span>
+<span class="material-symbols-outlined text-secondary">add_circle</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation (JSON Mapping) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 h-bottom-nav-height flex justify-around items-center px-gutter-mobile pb-safe bg-surface-container-lowest dark:bg-inverse-surface rounded-t-xl shadow-[0px_-6px_20px_rgba(45,138,78,0.2)] dark:shadow-none">
+<!-- Home -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<!-- Learning -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-label-sm text-label-sm">Learning</span>
+</a>
+<!-- FAB (Center Centerpiece) -->
+<div class="relative -top-6">
+<button class="w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform duration-300">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</button>
+</div>
+<!-- Marketplace (Active) -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-2xl px-stack-md py-base shadow-sm active:scale-90 transition-all duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">storefront</span>
+<span class="font-label-sm text-label-sm">Marketplace</span>
+</a>
+<!-- Profile -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+<script>
+        // Simple micro-interaction for category selection
+        const chips = document.querySelectorAll('.flex-none.px-stack-md');
+        chips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                chips.forEach(c => {
+                    c.classList.remove('bg-primary', 'text-on-primary');
+                    c.classList.add('bg-secondary-container', 'text-on-secondary-container');
+                });
+                chip.classList.remove('bg-secondary-container', 'text-on-secondary-container');
+                chip.classList.add('bg-primary', 'text-on-primary');
+            });
+        });
+
+        // Atmospheric parallax-ish effect on scroll for the featured banner
+        window.addEventListener('scroll', () => {
+            const bannerImg = document.querySelector('section img');
+            const scrollPos = window.scrollY;
+            if (bannerImg && scrollPos < 400) {
+                bannerImg.style.transform = `scale(${1 + scrollPos * 0.0002}) translateY(${scrollPos * 0.05}px)`;
+            }
+        });
+    </script>
+</body></html>

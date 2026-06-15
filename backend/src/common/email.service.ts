@@ -401,4 +401,165 @@ export class EmailService {
       </div>
     `;
   }
+
+  generateWelcomeEmail(name: string): string {
+    return `
+      <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #f0f2f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #006a34 0%, #1c8445 50%, #0b5327 100%); padding: 40px; text-align: center;">
+                    <img src="https://adaptivecbc.co.ke/logo.png" alt="Adaptive CBC" style="height: 56px; margin-bottom: 16px;" onerror="this.style.display='none'" />
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0;">Welcome to Adaptive CBC! 🎉</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; font-weight: 500;">Your educational journey starts here</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Hello ${name},</p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">
+                      We are thrilled to welcome you to the Adaptive CBC Learning Platform. Our mission is to empower learners, parents, and educators in Kenya with personalized, state-of-the-art curriculum-aligned tools.
+                    </p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">
+                      To get started, log in to your dashboard and complete your onboarding profile. You will gain access to course hubs, assignments, digital libraries, and adaptive practices customized for your needs.
+                    </p>
+                    <div style="text-align: center; margin-bottom: 24px;">
+                      <a href="https://adaptivecbc.co.ke/login" style="display: inline-block; background: #006a34; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 14px; font-weight: 800;">Get Started</a>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>
+                    <p style="color: #cbd5e1; font-size: 11px; margin: 0;">Empowering Kenyan Education &bull; This is an automated email. Please do not reply.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
+
+  generateTeacherInvitationEmail(data: {
+    name: string;
+    email: string;
+    tempPassword: string;
+    institutionName: string;
+  }): string {
+    return `
+      <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #f0f2f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #006a34 0%, #1c8445 50%, #0b5327 100%); padding: 40px; text-align: center;">
+                    <img src="https://adaptivecbc.co.ke/logo.png" alt="Adaptive CBC" style="height: 56px; margin-bottom: 16px;" onerror="this.style.display='none'" />
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0;">Teacher Onboarding Invite</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; font-weight: 500;">Join ${data.institutionName} on Adaptive CBC</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Hello ${data.name},</p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">
+                      You have been invited to register as a teacher for <strong>${data.institutionName}</strong> on the Adaptive CBC Learning Platform. An account has been created for you with the following temporary credentials:
+                    </p>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                      <p style="margin: 0 0 8px; color: #475569; font-size: 13px;"><strong>Email:</strong> ${data.email}</p>
+                      <p style="margin: 0; color: #475569; font-size: 13px;"><strong>Temporary Password:</strong> <span style="font-family: monospace; font-size: 14px; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${data.tempPassword}</span></p>
+                    </div>
+                    <div style="background: #fffbeb; border: 1px solid #fbbf24; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                      <p style="color: #92400e; font-size: 13px; font-weight: 600; margin: 0 0 4px;">🔐 Security Notice</p>
+                      <p style="color: #78350f; font-size: 12px; line-height: 1.6; margin: 0;">You will be prompted to change this temporary password upon your first login to keep your account secure.</p>
+                    </div>
+                    <div style="text-align: center; margin-bottom: 24px;">
+                      <a href="https://adaptivecbc.co.ke/login" style="display: inline-block; background: #006a34; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 14px; font-weight: 800;">Log In & Onboard</a>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>
+                    <p style="color: #cbd5e1; font-size: 11px; margin: 0;">Empowering Kenyan Education &bull; This is an automated email. Please do not reply.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
+
+  generateKycStatusEmail(data: {
+    name: string;
+    status: 'approved' | 'rejected';
+    reason?: string;
+  }): string {
+    const isApproved = data.status === 'approved';
+    const bannerColor = isApproved ? 'linear-gradient(135deg, #006a34 0%, #1c8445 50%, #0b5327 100%)' : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%)';
+    const title = isApproved ? 'Institution Approved! 🎉' : 'Institution Application Update';
+    const subtitle = isApproved ? 'Your application has been successfully verified' : 'Your application requires revision';
+    
+    const bodyContent = isApproved 
+      ? `<p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">
+          Great news! Your institution registration and KYC documents have been reviewed and approved. You now have full access to the institutional administrator tools.
+         </p>
+         <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">
+          You can now set up your institution details, register classes, invite teachers, and manage student enrollments from your dashboard.
+         </p>
+         <div style="text-align: center; margin-bottom: 24px;">
+          <a href="https://adaptivecbc.co.ke/admin/dashboard" style="display: inline-block; background: #006a34; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 14px; font-weight: 800;">Go to Admin Dashboard</a>
+         </div>`
+      : `<p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">
+          Your institution registration and KYC documents have been reviewed. Unfortunately, your application could not be approved at this time.
+         </p>
+         <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+           <p style="color: #991b1b; font-size: 13px; font-weight: 700; margin: 0 0 8px;">Reason for Rejection</p>
+           <p style="color: #7f1d1d; font-size: 13px; line-height: 1.6; margin: 0;">${data.reason || 'No specific reason provided.'}</p>
+         </div>
+         <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 24px;">
+          Please log in to your dashboard to make the necessary corrections and resubmit your documents.
+         </p>
+         <div style="text-align: center; margin-bottom: 24px;">
+          <a href="https://adaptivecbc.co.ke/dashboard" style="display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 14px; font-weight: 800;">Review Application</a>
+         </div>`;
+
+    return `
+      <div style="margin: 0; padding: 0; background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #f0f2f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                <tr>
+                  <td style="background: ${bannerColor}; padding: 40px; text-align: center;">
+                    <img src="https://adaptivecbc.co.ke/logo.png" alt="Adaptive CBC" style="height: 56px; margin-bottom: 16px;" onerror="this.style.display='none'" />
+                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0;">${title}</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; font-weight: 500;">${subtitle}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Hello ${data.name},</p>
+                    ${bodyContent}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background: #f8fafc; padding: 28px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px; font-weight: 600;">Adaptive CBC Learning Platform</p>
+                    <p style="color: #cbd5e1; font-size: 11px; margin: 0;">Empowering Kenyan Education &bull; This is an automated email. Please do not reply.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }
 }

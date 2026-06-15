@@ -244,6 +244,37 @@ app.post('/api/concept/simplify', async (req: Request, res: Response) => {
   }
 });
 
+// Socratic AI Tutor Chat
+app.post('/api/tutor/chat', async (req: Request, res: Response) => {
+  try {
+    const { messages } = req.body;
+
+    const systemMessage: ChatMessage = {
+      role: 'system',
+      content: `You are the Socratic AI Tutor, an expert educational guide for the Kenyan CBC curriculum.
+        Your goal is to help students learn through the Socratic method:
+        - NEVER give the answer directly.
+        - Ask guiding questions, point out contradictions, prompt self-reflection, and break down concepts step-by-step.
+        - Use simple, warm, and highly encouraging language.
+        - Adapt your explanation style to a primary/junior secondary school student in Kenya. Use local context, names, and examples (e.g., Kenyan cities, currency, common stories) where appropriate.
+        - Keep responses concise (under 4 sentences) to maintain a natural chat interface.`,
+    };
+
+    const apiMessages = [systemMessage, ...(messages || [])];
+    const response = await callOpenRouter(apiMessages, 'anthropic/claude-3.5-sonnet');
+
+    res.json({
+      success: true,
+      response,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate Socratic response',
+    });
+  }
+});
+
 // Validate answer
 app.post('/api/answer/validate', async (req: Request, res: Response) => {
   try {

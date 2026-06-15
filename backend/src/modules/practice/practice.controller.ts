@@ -48,7 +48,7 @@ export class PracticeController {
     questionId: string;
     userAnswer: string;
   }) {
-    return this.practiceService.submitAnswer(data.sessionId, data.questionId, data.userAnswer);
+    return this.practiceService.submitAnswer(data.sessionId, data.questionId, data.userAnswer, req.user.id);
   }
 
   @Get('explanation/:sessionId/:questionId')

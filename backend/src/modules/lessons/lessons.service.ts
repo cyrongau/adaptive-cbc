@@ -220,4 +220,33 @@ export class LessonsService {
 
     return { totalLessons: total, todayLessons: todayCount };
   }
+
+  async startLiveLesson(lessonId: string, userId: string): Promise<Lesson> {
+    const lesson = await this.findOne(lessonId);
+    const user = await this.usersService.findOne(userId);
+
+    if (lesson.teacherId !== userId && user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.INSTITUTION_ADMIN) {
+      throw new ForbiddenException('Only the assigned teacher or admins can start this lesson');
+    }
+
+    lesson.isLive = true;
+    lesson.status = LessonStatus.ONGOING;
+    lesson.meetingLink = `/live-stream/${lesson.id}`;
+
+    return this.lessonsRepository.save(lesson);
+  }
+
+  async endLiveLesson(lessonId: string, userId: string): Promise<Lesson> {
+    const lesson = await this.findOne(lessonId);
+    const user = await this.usersService.findOne(userId);
+
+    if (lesson.teacherId !== userId && user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.INSTITUTION_ADMIN) {
+      throw new ForbiddenException('Only the assigned teacher or admins can end this lesson');
+    }
+
+    lesson.isLive = false;
+    lesson.status = LessonStatus.COMPLETED;
+
+    return this.lessonsRepository.save(lesson);
+  }
 }

@@ -4,12 +4,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
 import { Request } from 'express';
+import { AuthLevel, ROLE_TO_AUTH_LEVEL } from '../constants/auth-level.enum';
 
 interface JwtPayload {
   sub: string;
   email: string;
   role: string;
   grade?: number;
+  authLevel?: AuthLevel;
 }
 
 @Injectable()
@@ -39,6 +41,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      authLevel: ROLE_TO_AUTH_LEVEL[payload.role] || AuthLevel.LEVEL_1_STUDENT,
       secondaryRoles: user.secondaryRoles || [],
       institutionId: user.institutionId,
       grade: user.grade,

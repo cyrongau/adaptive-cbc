@@ -10,8 +10,14 @@ export class CourseModule {
   @Column()
   title: string;
 
-  @Column({ type: 'text', nullable: true })
-  description: string;
+  @Column({ type: 'text', nullable: true, name: 'learning_outcomes' })
+  learningOutcomes: string;
+
+  @Column({ type: 'text', nullable: true, name: 'core_material_content' })
+  coreMaterialContent: string;
+
+  @Column({ type: 'text', nullable: true, name: 'practical_learning_activities' })
+  practicalLearningActivities: string;
 
   @Column({ type: 'int', default: 0 })
   order: number;

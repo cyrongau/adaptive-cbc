@@ -216,7 +216,7 @@ export default function CourseHubPage() {
           { label: 'Total Lessons', value: timetable.reduce((sum, d) => sum + d.lessons.length, 0), icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Today\'s Lessons', value: timetable.find(d => d.day === todayDay)?.lessons.length || 0, icon: Calendar, color: 'text-green-600', bg: 'bg-green-50' },
           { label: 'Live Sessions', value: liveClasses.filter(l => l.status === 'ongoing' || l.startTime <= today.toTimeString().slice(0, 5)).length, icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
-          { label: 'Enrolled Courses', value: '—', icon: GraduationCap, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Enrolled Courses', value: myEnrollments.length || '—', icon: GraduationCap, color: 'text-amber-600', bg: 'bg-amber-50' },
         ]).map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -288,8 +288,8 @@ export default function CourseHubPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span>{course.modulesCount || 0} modules</span>
-                      <span>{course.lessonsCount || 0} lessons</span>
+                      <span>{course.totalModules ?? 0} modules</span>
+                      <span>{course.totalLessons ?? 0} lessons</span>
                     </div>
                   </Link>
                 ))}

@@ -18,6 +18,8 @@ import {
   Upload,
   AlertTriangle,
   Loader,
+  DollarSign,
+  Info,
 } from 'lucide-react';
 
 interface SupportTicket {
@@ -53,6 +55,63 @@ const FAQS = [
     question: 'Can I change my registered subjects mid-term?',
     answer: 'Subject changes require authorization. Student accounts must request institutional admin approval, while independent users can request modifications through the support portal.',
     category: 'general',
+  },
+];
+
+const EDITOR_GUIDE_SECTIONS = [
+  {
+    title: 'Using the Formula Editor (Σ Button)',
+    icon: 'Σ',
+    items: [
+      'Click the Σ (sigma) button in the editor toolbar to open the formula dialog.',
+      'Type LaTeX notation such as \\frac{1}{2} for fractions, \\sqrt{x} for square roots, or \\sum_{i=1}^{n} for summations.',
+      'The formula will be rendered in real-time using KaTeX for beautiful mathematical notation.',
+      'Double-click any existing formula to edit it.',
+    ],
+  },
+  {
+    title: 'Quick LaTeX Shortcuts',
+    icon: '⚡',
+    items: [
+      'Type $$ ... $$ around any LaTeX expression to auto-convert it into a rendered formula (e.g., $$ \\frac{1}{2} $$ becomes a fraction).',
+      'Type \\( ... \\) for inline formulas that sit within a sentence.',
+      'Paste content from other sources — any $$...$$ or \\(...\\) notation will be automatically detected and converted.',
+      'Common LaTeX: \\frac{a}{b} (fraction), \\sqrt{x} (square root), \\sum (summation), \\int (integral), \\alpha, \\beta (Greek letters).',
+    ],
+  },
+  {
+    title: 'Course Assessment Question Types',
+    icon: '📝',
+    items: [
+      'Multiple Choice — Select one correct answer from several options.',
+      'Multiple Answer — Select one or more correct answers using checkboxes.',
+      'True / False — A simple two-option true/false question.',
+      'Short Answer — Students type a free-text response; you provide the expected answer.',
+      'Fill in the Blank — Students fill in a missing word or phrase.',
+    ],
+  },
+  {
+    title: 'Rich Text Editor Features',
+    icon: '✏️',
+    items: [
+      'Headings (H1, H2, H3) — Structure your content with hierarchical headings.',
+      'Bold, Italic, Underline, Strikethrough — Basic text formatting.',
+      'Text Color & Background — Highlight important concepts.',
+      'Subscript & Superscript — For chemical formulas (H₂O) and exponents (x²).',
+      'Bullet & Numbered Lists — Organize points and steps.',
+      'Blockquote & Code Block — Highlight quotes or code snippets.',
+      'Link & Image — Add hyperlinks and embed images directly in the content.',
+    ],
+  },
+  {
+    title: 'Module & Lesson Content Tips',
+    icon: '💡',
+    items: [
+      'Each module can have Learning Outcomes, Core Material & Content, and Practical Learning Activities — all using the rich text editor.',
+      'Each lesson supports Learning Objective, Materials, Step-by-Step Delivery, and Homework/Assignment sections.',
+      'Use images and diagrams where possible to enhance understanding.',
+      'Break complex topics into smaller, digestible lessons.',
+    ],
   },
 ];
 
@@ -352,6 +411,130 @@ export default function SupportDeskPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Editor Guide & Tips */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <h2 className="text-lg font-bold text-slate-950 flex items-center gap-2 mb-6">
+                <FileText className="w-5 h-5 text-emerald-600" />
+                Editor Guide & Tips
+              </h2>
+              <div className="space-y-6">
+                {EDITOR_GUIDE_SECTIONS.map((section, idx) => (
+                  <div key={idx} className="border border-slate-100 rounded-xl overflow-hidden">
+                    <div className="p-4 bg-slate-50/30 border-b border-slate-100">
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <span className="text-lg">{section.icon}</span> {section.title}
+                      </h3>
+                    </div>
+                    <div className="p-4 space-y-2">
+                      {section.items.map((item, i) => (
+                        <div key={i} className="flex items-start gap-2.5 text-sm text-slate-600">
+                          <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Course Payment Setup Guide */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <h2 className="text-lg font-bold text-slate-950 flex items-center gap-2 mb-6">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
+                Course Payment Setup
+              </h2>
+              <div className="space-y-4 text-sm text-slate-600">
+                <p>Setting up a paid course requires two steps: configuring the course price and creating a linked store product.</p>
+
+                <div className="border border-slate-100 rounded-xl overflow-hidden">
+                  <div className="p-4 bg-slate-50/30 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">1. Set the Course Price</h3>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>In your course management page, go to the <strong>Pricing & Enrollment</strong> tab.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Enter the course price in KSh. Set to <strong>0</strong> for a free course where students enroll directly with no payment.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>If you set a price above 0, a hint box will appear explaining the next step.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-slate-100 rounded-xl overflow-hidden">
+                  <div className="p-4 bg-slate-50/30 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">2. Create a Linked Store Product</h3>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Go to the <strong>Store</strong> section and click <strong>Add Product</strong>.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Set <strong>Product Type</strong> to <em>Course Access</em>. Set the <strong>Category</strong> to <em>Digital Resources</em>.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Set the <strong>price</strong> to match the course price exactly.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>In the <strong>Course ID</strong> field, paste the course UUID (shown in the hint box on the pricing tab).</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Set <strong>Status</strong> to <em>Published</em> and save the product.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-slate-100 rounded-xl overflow-hidden">
+                  <div className="p-4 bg-slate-50/30 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">3. Student Purchase Flow</h3>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Students see a <strong>"Purchase KSh ..."</strong> button on the course page instead of "Enroll Now".</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Clicking it adds the course to the store cart and redirects to the <strong>checkout</strong> page.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Payment options include <strong>M-Pesa</strong>, <strong>Card</strong>, and <strong>Bank Transfer</strong>.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>On payment confirmation, the student is <strong>automatically enrolled</strong> in the course and all lessons become accessible.</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>Free courses bypass the store entirely — students click "Enroll Now" and are immediately enrolled.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-800">
+                      <p className="font-bold mb-1">Note for free courses</p>
+                      <p>If your course is free (KSh 0), you <strong>do not</strong> need to create a store product. Students will be able to enroll directly with one click.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

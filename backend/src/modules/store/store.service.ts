@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import {
   Product, Cart, CartItem, Order, OrderItem,
-  ProductStatus, OrderStatus, PaymentMethod,
+  ProductType, ProductStatus, OrderStatus, PaymentMethod,
 } from './entities/store.entity';
 import {
   CreateProductDto, UpdateProductDto, AddToCartDto, UpdateCartItemDto, CreateOrderDto, UpdateOrderStatusDto,
@@ -12,6 +12,8 @@ import { UserRole } from '../users/entities/user.entity';
 import { FinancialService } from '../financial/financial.service';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { IntegrationType } from '../integrations/entities/integration.entity';
+import { EnrollmentService } from '../enrollment/enrollment.service';
+import { CreateEnrollmentDto } from '../enrollment/dto/enrollment.dto';
 
 @Injectable()
 export class StoreService {
@@ -30,6 +32,7 @@ export class StoreService {
     private orderItemRepo: Repository<OrderItem>,
     private financialService: FinancialService,
     private integrationsService: IntegrationsService,
+    private enrollmentService: EnrollmentService,
   ) {}
 
   async createProduct(dto: CreateProductDto, userId: string): Promise<Product> {
@@ -79,6 +82,10 @@ export class StoreService {
     const product = await this.productRepo.findOne({ where: { id }, relations: ['creator'] });
     if (!product) throw new NotFoundException('Product not found');
     return product;
+  }
+
+  async findProductByCourseId(courseId: string): Promise<Product | null> {
+    return this.productRepo.findOne({ where: { courseId, productType: ProductType.COURSE_ACCESS, status: ProductStatus.PUBLISHED } });
   }
 
   async updateProduct(id: string, dto: UpdateProductDto, userId: string, userRole: string): Promise<Product> {
@@ -370,6 +377,18 @@ export class StoreService {
               productTitle: product.title,
             });
           }
+
+          if (product.productType === ProductType.COURSE_ACCESS && product.courseId) {
+            try {
+              await this.enrollmentService.createEnrollment({
+                courseId: product.courseId,
+                courseTitle: product.title,
+                amountPaid: Number(item.unitPrice) * item.quantity,
+              }, order.userId);
+            } catch (err) {
+              this.logger.error(`Failed to auto-enroll user ${order.userId} in course ${product.courseId}: ${err.message}`);
+            }
+          }
         }
       }
     }
@@ -426,6 +445,18 @@ export class StoreService {
                   orderId: order.id,
                   productTitle: product.title,
                 });
+              }
+              if (product.productType === ProductType.COURSE_ACCESS && product.courseId) {
+                try {
+                  await this.enrollmentService.createEnrollment({
+                    courseId: product.courseId,
+                    courseTitle: product.title,
+                    amountPaid: Number(item.unitPrice) * item.quantity,
+                  }, order.userId);
+                  this.logger.log(`Auto-enrolled user ${order.userId} in course ${product.courseId}`);
+                } catch (err) {
+                  this.logger.error(`Failed to auto-enroll user ${order.userId} in course ${product.courseId}: ${err.message}`);
+                }
               }
             }
           }

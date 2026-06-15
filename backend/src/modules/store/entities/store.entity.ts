@@ -102,6 +102,9 @@ export class Product {
   isFeatured: boolean;
 
   @Column({ nullable: true })
+  courseId: string;
+
+  @Column({ nullable: true })
   createdBy: string;
 
   @ManyToOne(() => User, { nullable: true })

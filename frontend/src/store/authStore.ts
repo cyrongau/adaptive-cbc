@@ -158,7 +158,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Hit real backend verify-otp API
       const response = await api.post('/auth/verify-otp', { email: tempEmail, code });
-      const user = response.data.user;
+      const { accessToken, user } = response.data;
 
       // Persist user profile
       if (typeof window !== 'undefined') {
@@ -166,8 +166,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       set({
-        user: user,
-        token: 'authenticated',
+        user,
+        token: accessToken || 'authenticated',
         isTwoFactorPending: false,
         tempEmail: null,
         tempPhone: null,

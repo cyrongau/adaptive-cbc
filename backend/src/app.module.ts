@@ -11,6 +11,9 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { PracticeModule } from './modules/practice/practice.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { LiveKitModule } from './modules/livekit/livekit.module';
+import { AiModule } from './modules/ai/ai.module';
 import { TutorsModule } from './modules/tutors/tutors.module';
 import { InstitutionsModule } from './modules/institutions/institutions.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
@@ -36,6 +39,11 @@ import { PromotionTaskService } from './common/promotion-task.service';
 import { User } from './modules/users/entities/user.entity';
 import { ChatModule } from './modules/chat/chat.module';
 import { SupportModule } from './modules/support/support.module';
+import { StudentsModule } from './modules/students/students.module';
+import { SecurityModule } from './modules/security/security.module';
+import { RecommendationsModule } from './modules/recommendations/recommendations.module';
+import { MaterialsModule } from './modules/materials/materials.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 
 @Module({
@@ -80,6 +88,9 @@ import { SupportModule } from './modules/support/support.module';
     PracticeModule,
     ExamsModule,
     AnalyticsModule,
+    ReportsModule,
+    LiveKitModule,
+    AiModule,
     TutorsModule,
     InstitutionsModule,
     GamificationModule,
@@ -103,6 +114,11 @@ import { SupportModule } from './modules/support/support.module';
     TypeOrmModule.forFeature([User]),
     ChatModule,
     SupportModule,
+    SecurityModule,
+    StudentsModule,
+    RecommendationsModule,
+    MaterialsModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [],
   providers: [DatabaseSeeder, PromotionTaskService],

@@ -19,6 +19,9 @@ import {
   Ban,
   RotateCcw,
   MoreVertical,
+  Eye,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 
 interface StudentRegisterEntry {
@@ -61,14 +64,26 @@ export default function StudentRegisterPage() {
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentRegisterEntry | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
+  const [pinPendingStudents, setPinPendingStudents] = useState<any[]>([]);
+  const [showPinList, setShowPinList] = useState(false);
 
   const institutionId = user?.institutionId;
 
   useEffect(() => {
     if (institutionId) {
       fetchStudents();
+      fetchPinPendingStudents();
     }
   }, [institutionId]);
+
+  const fetchPinPendingStudents = async () => {
+    try {
+      const res = await api.get('/students/admin-pin-list');
+      setPinPendingStudents(res.data);
+    } catch {
+      // not critical
+    }
+  };
 
   const fetchStudents = async () => {
     try {
@@ -269,6 +284,40 @@ export default function StudentRegisterPage() {
           className="w-full bg-[#171f33] border border-[#3f4940] rounded-lg py-2.5 pl-10 pr-4 text-[#dae2fd] text-sm focus:border-[#7eda95] focus:ring-0 outline-none"
         />
       </div>
+
+      {/* Temporary PIN Pending Students */}
+      {pinPendingStudents.length > 0 && (
+        <div className="bg-[#171f33] border border-amber-500/30 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setShowPinList(!showPinList)}
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#222a3d] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Eye className="w-5 h-5 text-amber-400" />
+              <span className="text-sm font-semibold text-amber-400 uppercase tracking-wider">
+                {pinPendingStudents.length} Student{pinPendingStudents.length > 1 ? 's' : ''} Awaiting PIN Setup
+              </span>
+            </div>
+            {showPinList ? <ChevronDown className="w-4 h-4 text-[#becabd]" /> : <ChevronRight className="w-4 h-4 text-[#becabd]" />}
+          </button>
+          {showPinList && (
+            <div className="border-t border-amber-500/20 px-6 py-4 space-y-3">
+              {pinPendingStudents.map((s: any) => (
+                <div key={s.userId} className="flex items-center justify-between bg-[#060e20] rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-[#dae2fd]">{s.firstName} {s.lastName}</p>
+                    <p className="text-xs text-[#becabd]">Grade {s.grade} • {s.admissionNumber || s.username}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-amber-400 font-mono tracking-widest">{s.temporaryPin}</p>
+                    <p className="text-[10px] text-[#becabd] uppercase">Temporary PIN</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

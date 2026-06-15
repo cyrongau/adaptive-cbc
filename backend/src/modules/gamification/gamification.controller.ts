@@ -116,4 +116,20 @@ export class GamificationController {
   async createTournament(@Body() tournamentData: any) {
     return this.gamificationService.createTournament(tournamentData);
   }
+
+  @Post('games/generate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Generate an AI study game' })
+  async generateGame(@Body() body: { subject: string; grade: number; topic?: string; difficulty?: string }) {
+    return this.gamificationService.generateAIGame(body.subject, body.grade, body.topic, body.difficulty);
+  }
+
+  @Post('games/score')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Submit game score for XP' })
+  async submitGameScore(@Request() req, @Body() body: { score: number }) {
+    return this.gamificationService.submitGameScore(req.user.id, body.score);
+  }
 }

@@ -4,12 +4,13 @@ import { AssignmentsService } from './assignments.service';
 import { AssignmentsController } from './assignments.controller';
 import { Assignment } from './entities/assignment.entity';
 import { AssignmentSubmission } from './entities/assignment-submission.entity';
+import { AssignmentComment } from './entities/assignment-comment.entity';
 import { QuestionsModule } from '../questions/questions.module';
 import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Assignment, AssignmentSubmission]),
+    TypeOrmModule.forFeature([Assignment, AssignmentSubmission, AssignmentComment]),
     QuestionsModule,
     UsersModule,
   ],

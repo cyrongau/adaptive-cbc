@@ -172,7 +172,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Search users' })
   async search(@Request() req, @Query('q') query: string) {
-    return this.usersService.search(query, req.user.role, req.user.institutionId);
+    return this.usersService.search(query, req.user.role, req.user.institutionId, req.user.id);
   }
 
   @Post('find-by-email')

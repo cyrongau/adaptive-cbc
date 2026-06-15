@@ -43,6 +43,9 @@ export class Course {
   @Column({ nullable: true })
   thumbnail: string;
 
+  @Column({ nullable: true, name: 'featured_image' })
+  featuredImage: string;
+
   @Column({ nullable: true, name: 'featured_video' })
   featuredVideo: string;
 
@@ -75,6 +78,15 @@ export class Course {
 
   @Column({ nullable: true, name: 'estimated_duration' })
   estimatedDuration: string;
+
+  @Column({ type: 'jsonb', nullable: true, name: 'assessment_questions' })
+  assessmentQuestions: { question: string; options: string[]; correctAnswer: number; marks: number; questionType?: string }[];
+
+  @Column({ type: 'int', default: 50, name: 'assessment_pass_threshold' })
+  assessmentPassThreshold: number;
+
+  @Column({ nullable: true, name: 'store_product_id' })
+  storeProductId: string;
 
   @Column({ default: 0, name: 'total_students' })
   totalStudents: number;

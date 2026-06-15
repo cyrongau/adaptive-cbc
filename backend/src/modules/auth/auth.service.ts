@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import { SetupTotpDto, VerifyTotpDto, ParentLoginDto, InstitutionLoginDto } from './dto/totp.dto';
 import { User } from '../users/entities/user.entity';
 import { randomBytes, randomInt } from 'crypto';
 import { EmailService } from '../../common/email.service';
@@ -10,6 +11,7 @@ import { RelationshipsService } from '../relationships/relationships.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Otp } from './entities/otp.entity';
+import * as speakeasy from 'speakeasy';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +25,8 @@ export class AuthService {
     private relationshipsService: RelationshipsService,
     @InjectRepository(Otp)
     private otpRepository: Repository<Otp>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
   ) {}
 
   async validateUser(email: string, password: string): Promise<User | null> {
@@ -225,6 +229,181 @@ export class AuthService {
 
     await this.usersService.updatePassword(user.id, resetPasswordDto.newPassword);
     return { message: 'Password reset successfully' };
+  }
+
+  async setupTotp(userId: string) {
+    const secret = speakeasy.generateSecret({
+      name: `Adaptive CBC (${userId.slice(0, 8)})`,
+      length: 20,
+    });
+
+    await this.usersRepository.update(userId, { totpSecret: secret.base32 });
+
+    return {
+      secret: secret.base32,
+      otpauthUrl: secret.otpauth_url,
+    };
+  }
+
+  async verifyTotp(userId: string, token: string) {
+    const user = await this.usersService.findOne(userId);
+    if (!user.totpSecret) {
+      throw new BadRequestException('TOTP not set up. Call setup first.');
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: user.totpSecret,
+      encoding: 'base32',
+      token,
+    });
+
+    if (!verified) {
+      throw new BadRequestException('Invalid TOTP token');
+    }
+
+    await this.usersRepository.update(userId, { isTotpEnabled: true });
+    return { message: 'TOTP enabled successfully' };
+  }
+
+  async parentLogin(dto: ParentLoginDto) {
+    const user = await this.validateUser(dto.email, dto.password);
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.role !== 'parent' && user.role !== 'teacher' && user.role !== 'tutor') {
+      throw new UnauthorizedException('This login is for parents and staff only');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    if (user.isSuspended) {
+      throw new UnauthorizedException(`Account is suspended. Reason: ${user.suspensionReason || 'Contact support'}`);
+    }
+
+    await this.sendOtp(user.email);
+    return { isTwoFactorPending: true, tempEmail: user.email, authLevel: 'LEVEL_2_PARENT' };
+  }
+
+  async institutionLogin(dto: InstitutionLoginDto) {
+    const user = await this.validateUser(dto.email, dto.password);
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.role !== 'institution_admin' && user.role !== 'super_admin') {
+      throw new UnauthorizedException('This login is for institution administrators only');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    if (user.isSuspended) {
+      throw new UnauthorizedException(`Account is suspended. Reason: ${user.suspensionReason || 'Contact support'}`);
+    }
+
+    if (user.isTotpEnabled && user.totpSecret) {
+      if (!dto.totpToken) {
+        return { requiresTotp: true, tempEmail: user.email };
+      }
+
+      const verified = speakeasy.totp.verify({
+        secret: user.totpSecret,
+        encoding: 'base32',
+        token: dto.totpToken,
+      });
+
+      if (!verified) {
+        throw new UnauthorizedException('Invalid TOTP code');
+      }
+
+      const tokens = await this.generateTokensWithLevel(user, 'LEVEL_3_INSTITUTION');
+      await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
+      return { tokens, user: this.sanitizeUser(user) };
+    }
+
+    await this.sendOtp(user.email);
+    return { isTwoFactorPending: true, tempEmail: user.email, authLevel: 'LEVEL_3_INSTITUTION' };
+  }
+
+  async getParentProfile(userId: string) {
+    const user = await this.usersService.findOne(userId);
+    const children = await this.relationshipsService.getChildrenForParent(userId);
+    const childProfiles = await Promise.all(
+      children.map(async (r) => {
+        const childUser = await this.usersService.findOne(r.userId);
+        const child = await this.usersRepository.findOne({ where: { id: r.userId } });
+        return {
+          id: child?.id,
+          firstName: child?.firstName,
+          lastName: child?.lastName,
+          grade: child?.grade,
+          status: r.verificationStatus,
+        };
+      }),
+    );
+
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      isTotpEnabled: user.isTotpEnabled,
+      children: childProfiles,
+    };
+  }
+
+  async updateParentProfile(userId: string, updates: { firstName?: string; lastName?: string; phone?: string }) {
+    const user = await this.usersService.findOne(userId);
+    if (updates.firstName) user.firstName = updates.firstName;
+    if (updates.lastName) user.lastName = updates.lastName;
+    if (updates.phone) user.phone = updates.phone;
+    return this.usersRepository.save(user);
+  }
+
+  async generateTokensWithLevel(user: User, authLevel: string) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      secondaryRoles: user.secondaryRoles || [],
+      authLevel,
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        expiresIn: this.configService.get('JWT_EXPIRES_IN', '1d'),
+      }),
+      this.jwtService.signAsync(payload, {
+        expiresIn: '7d',
+      }),
+    ]);
+
+    return { accessToken, refreshToken };
+  }
+
+  private sanitizeUser(user: User) {
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      secondaryRoles: user.secondaryRoles,
+      onboardingStatus: user.onboardingStatus,
+      kycStatus: user.kycStatus,
+      isActive: user.isActive,
+      isSuspended: user.isSuspended,
+      institutionId: user.institutionId,
+      avatar: user.avatar,
+      grade: user.grade,
+      phone: user.phone,
+      isTotpEnabled: user.isTotpEnabled,
+    };
   }
 
   async generateTokens(user: User) {

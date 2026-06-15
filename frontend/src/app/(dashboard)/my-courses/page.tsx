@@ -22,6 +22,7 @@ interface CourseData {
   price: number;
   status: string;
   thumbnail: string;
+  featuredImage: string;
   totalStudents: number;
   totalReviews: number;
   averageRating: number;
@@ -150,8 +151,8 @@ export default function MyCoursesPage() {
             >
               {/* Thumbnail */}
               <div className="h-36 bg-gradient-to-br from-[#47a263]/20 to-[#47a263]/5 flex items-center justify-center relative">
-                {course.thumbnail ? (
-                  <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
+                {(course.featuredImage || course.thumbnail) ? (
+                  <img src={course.featuredImage || course.thumbnail} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <BookOpen className="w-12 h-12 text-[#47a263]/40" />
                 )}
@@ -170,8 +171,10 @@ export default function MyCoursesPage() {
                   <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {course.totalStudents}</span>
                 </div>
 
-                {course.price > 0 && (
-                  <div className="mt-2 text-sm font-bold text-[#47a263]">KSh {course.price.toLocaleString()}</div>
+                {Number(course.price) > 0 ? (
+                  <div className="mt-2 text-sm font-bold text-[#47a263]">KSh {Number(course.price).toLocaleString()}</div>
+                ) : (
+                  <div className="mt-2 text-sm font-bold text-emerald-600">Free</div>
                 )}
 
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">

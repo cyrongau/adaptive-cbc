@@ -396,6 +396,12 @@ export class InstitutionsService {
       // Mark register entry as joined
       await this.studentRegisterRepository.update(registerEntry.id, { userId: studentId });
 
+      // Sync admissionNumber to StudentProfile
+      await this.studentRepository.manager.query(
+        `UPDATE student_profiles SET "admissionNumber" = $1 WHERE "userId" = $2`,
+        [admissionNumber, studentId],
+      );
+
       // Increment institution student count
       await this.institutionRepository.update(institutionId, {
         totalStudents: () => `totalStudents + 1`,
@@ -503,6 +509,12 @@ export class InstitutionsService {
           admissionNumber: request.admissionNumber,
         });
       }
+
+      // Sync admissionNumber to StudentProfile
+      await this.studentRepository.manager.query(
+        `UPDATE student_profiles SET "admissionNumber" = $1 WHERE "userId" = $2`,
+        [request.admissionNumber, request.studentId],
+      );
     }
 
     return request;

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#f0edec",
+                        "surface-container-low": "#f6f3f2",
+                        "on-secondary-fixed": "#00210d",
+                        "secondary-fixed": "#adf2bc",
+                        "on-primary-container": "#f6fff3",
+                        "surface": "#fcf9f8",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-tertiary-fixed-variant": "#3e4944",
+                        "inverse-surface": "#313030",
+                        "surface-variant": "#e5e2e1",
+                        "tertiary-fixed-dim": "#bdc9c3",
+                        "primary-fixed": "#9af7af",
+                        "primary-container": "#268549",
+                        "on-tertiary-fixed": "#131e1a",
+                        "on-primary-fixed-variant": "#005227",
+                        "surface-container-high": "#ebe7e7",
+                        "background": "#fcf9f8",
+                        "primary-fixed-dim": "#7eda95",
+                        "secondary-container": "#adf2bc",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#00210c",
+                        "tertiary-container": "#6c7772",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#7eda95",
+                        "error-container": "#ffdad6",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#535e59",
+                        "tertiary-fixed": "#d9e5de",
+                        "surface-tint": "#006d36",
+                        "on-secondary-fixed-variant": "#09522a",
+                        "secondary-fixed-dim": "#92d6a2",
+                        "surface-dim": "#dcd9d9",
+                        "on-secondary-container": "#307146",
+                        "secondary": "#296a40",
+                        "on-tertiary-container": "#f5fff9",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e5e2e1",
+                        "on-error-container": "#93000a",
+                        "primary": "#006a34",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#becabd",
+                        "on-surface": "#1c1b1b",
+                        "surface-bright": "#fcf9f8",
+                        "outline": "#6f7a6f",
+                        "on-primary": "#ffffff",
+                        "on-surface-variant": "#3f4940",
+                        "on-background": "#1c1b1b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-lg": "32px",
+                        "base": "4px",
+                        "stack-sm": "8px",
+                        "stack-md": "16px",
+                        "gutter-mobile": "16px",
+                        "margin-mobile": "20px",
+                        "bottom-nav-height": "80px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Nunito Sans"],
+                        "label-lg": ["Nunito Sans"],
+                        "body-md": ["Nunito Sans"],
+                        "body-lg": ["Nunito Sans"],
+                        "label-sm": ["Nunito Sans"],
+                        "headline-md": ["Nunito Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Nunito Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-icon { font-variation-settings: 'FILL' 1; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-panel { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
+        .lesson-canvas { height: calc(100vh - 420px); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background overflow-hidden">
+<!-- Top App Bar (Shared Component) -->
+<header class="bg-surface dark:bg-background flex justify-between items-center w-full px-margin-mobile py-stack-md fixed top-0 z-50">
+<div class="flex items-center gap-stack-md">
+<button class="active:scale-95 transition-transform duration-200 text-primary dark:text-primary-fixed-dim">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-md text-[22px] font-extrabold text-primary dark:text-primary-fixed-dim">Lumina CBC</h1>
+</div>
+<div class="flex items-center gap-stack-md">
+<div class="flex items-center bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full gap-1">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">fiber_manual_record</span>
+<span class="font-label-sm text-[12px]">LIVE</span>
+</div>
+<button class="active:scale-95 transition-transform duration-200 text-on-surface-variant dark:text-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<main class="pt-[72px] h-screen flex flex-col">
+<!-- Tutor Video Feed (Sticky Top) -->
+<section class="px-margin-mobile py-stack-sm shrink-0">
+<div class="relative aspect-video rounded-xl overflow-hidden shadow-md bg-inverse-surface border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="A professional female tutor in her late 30s with a warm, encouraging expression, teaching from a bright, modern home office. Soft, natural morning light fills the room, creating a supportive academic atmosphere. The background features a blurred bookshelf and a clean minimalist desk. The image uses a high-key light mode aesthetic with soft greens and clean whites." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBey34qGTaxcHtjnBmi0wzbbUrUdRLQQ0fXQEml4AQzjnNCxxkKhfAjZr1rIlG4FGMsOj0UMUK2xNM69A8SngyFccEW8bO_sZxXSFusz7bmVkSEZ0Bg-ETIomZmClbr-53IasYDoDjE1VdWHE0uFFaL3O_N_T9d7eB9ZEWoP721LuyE4UgAmAVpHvsrSzCVw2cHrytpgJbVZleIieFa-XGl0mY8qtCfzaOq3FYMBt3Uoytgku8lFuoMWC4GUjXnug4Y8tx7qNeRxQ"/>
+<div class="absolute bottom-3 left-3 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-white">
+<div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+<span class="font-label-sm text-[11px]">Instructor: Dr. Sarah Mwangi</span>
+</div>
+<div class="absolute top-3 right-3">
+<button class="bg-white/20 backdrop-blur-md p-2 rounded-full text-white active:scale-90 transition-all">
+<span class="material-symbols-outlined text-[20px]">screen_share</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Digital Whiteboard / Slide Area -->
+<section class="lesson-canvas flex-grow px-margin-mobile py-stack-sm">
+<div class="w-full h-full bg-surface-container-lowest rounded-xl border border-secondary/10 shadow-sm relative overflow-hidden flex flex-col">
+<!-- Slide Content -->
+<div class="flex-grow flex items-center justify-center p-stack-md relative">
+<img class="max-h-full max-w-full rounded-lg" data-alt="A clean, high-resolution digital slide about photosynthesis in plants. The slide features a high-quality botanical illustration of a leaf with sunlight rays and chemical formulas like CO2 and O2 presented in a modern, educational infographics style. The color palette uses Academic Green and soft tertiary grays, maintaining a professional and supportive scholarly aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaQgrnvIy-9u2w7kKEv8adxRTUFB5rJDy8n6lqlhDjnIlO0KRRMo8ftPyRCeXKFhpfALbKngVbeXL4qljnD7T3LE_ZTAfctXlS5EU4PwZDFJDg0xT4YPU5oGdnAfFTy9qUDM7RdGOE30z7drtHZG9OJQS5LsDpND6qJg1_VPI95DTqh5whARroCrzQbaFP_XOfU2aAtj67_XynjjQYorpKXEYou3O7gQjUk_bjLQpJ9Z7Rnjc-vAbH2Tc9rp9z0LgT2J_JNCaRWQ"/>
+<!-- Whiteboard Mini-tools (Overlay) -->
+<div class="absolute left-3 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-white shadow-lg border border-outline-variant p-2 rounded-full">
+<button class="p-2 text-primary hover:bg-primary-container/10 rounded-full"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-variant rounded-full"><span class="material-symbols-outlined text-[20px]">gesture</span></button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-variant rounded-full"><span class="material-symbols-outlined text-[20px]">highlight</span></button>
+</div>
+</div>
+<!-- Slide Navigation -->
+<div class="h-12 border-t border-outline-variant/30 flex items-center justify-between px-stack-md bg-surface-container-low">
+<button class="text-on-surface-variant active:scale-90"><span class="material-symbols-outlined">chevron_left</span></button>
+<span class="font-label-sm text-on-surface-variant">Slide 12 of 24</span>
+<button class="text-primary active:scale-90"><span class="material-symbols-outlined">chevron_right</span></button>
+</div>
+</div>
+</section>
+<!-- Chat / Q&A Panel -->
+<section class="h-[200px] shrink-0 bg-surface-container-low/50 border-t border-outline-variant/20 flex flex-col">
+<div class="px-margin-mobile py-2 flex items-center justify-between">
+<div class="flex gap-4">
+<button class="font-label-lg text-primary border-b-2 border-primary pb-1">Chat</button>
+<button class="font-label-lg text-on-surface-variant pb-1">Participants (42)</button>
+</div>
+<button class="text-on-surface-variant"><span class="material-symbols-outlined text-[20px]">expand_less</span></button>
+</div>
+<div class="flex-grow overflow-y-auto px-margin-mobile py-2 no-scrollbar space-y-3">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-primary">James K.</span>
+<span class="text-[10px] text-outline">10:45 AM</span>
+</div>
+<p class="font-body-md text-[14px] text-on-surface-variant">Could you explain the light-dependent reaction again?</p>
+</div>
+<div class="flex flex-col bg-secondary-container/30 p-2 rounded-lg border-l-4 border-secondary">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-on-secondary-container">Tutor Sarah</span>
+<span class="text-[10px] text-on-secondary-container/60">10:46 AM</span>
+</div>
+<p class="font-body-md text-[14px] text-on-secondary-container">Great question James! I'll cover that in the next slide.</p>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-primary">Amara W.</span>
+<span class="text-[10px] text-outline">10:47 AM</span>
+</div>
+<p class="font-body-md text-[14px] text-on-surface-variant">Is this part of the final assessment?</p>
+</div>
+</div>
+<!-- Chat Input -->
+<div class="p-3 bg-surface border-t border-outline-variant/10 flex items-center gap-2 pb-6">
+<input class="flex-grow bg-surface-container border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary focus:bg-white transition-all" placeholder="Ask a question..." type="text"/>
+<button class="bg-primary text-white p-2 rounded-full flex items-center justify-center active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]">send</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Bottom Interactive Bar (Custom Action Layout) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 h-[85px] bg-white shadow-[0px_-6px_20px_rgba(45,138,78,0.15)] flex justify-around items-center px-gutter-mobile pb-safe rounded-t-2xl">
+<button class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-all px-4 py-2" id="micBtn" onclick="toggleState(this)">
+<span class="material-symbols-outlined" data-icon="mic">mic</span>
+<span class="font-label-sm text-[10px] mt-1">Mute</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-all px-4 py-2" id="camBtn" onclick="toggleState(this)">
+<span class="material-symbols-outlined" data-icon="videocam">videocam</span>
+<span class="font-label-sm text-[10px] mt-1">Video</span>
+</button>
+<!-- Main FAB Action: Raise Hand -->
+<button class="w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-lg -translate-y-4 active:scale-90 transition-all" id="raiseHandBtn" onclick="toggleFab(this)">
+<span class="material-symbols-outlined text-[28px]" id="handIcon">front_hand</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-all px-4 py-2">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-sm text-[10px] mt-1">React</span>
+</button>
+<button class="flex flex-col items-center justify-center text-error active:scale-90 transition-all px-4 py-2">
+<span class="material-symbols-outlined" data-icon="call_end" style="font-variation-settings: 'FILL' 1;">call_end</span>
+<span class="font-label-sm text-[10px] mt-1">Leave</span>
+</button>
+</nav>
+<script>
+        function toggleState(btn) {
+            const icon = btn.querySelector('.material-symbols-outlined');
+            const label = btn.querySelector('span:last-child');
+            const isActive = icon.classList.contains('active-icon');
+            
+            if (isActive) {
+                icon.classList.remove('active-icon');
+                icon.style.fontVariationSettings = "'FILL' 0";
+                btn.classList.remove('text-primary');
+                btn.classList.add('text-on-surface-variant');
+            } else {
+                icon.classList.add('active-icon');
+                icon.style.fontVariationSettings = "'FILL' 1";
+                btn.classList.add('text-primary');
+                btn.classList.remove('text-on-surface-variant');
+            }
+        }
+
+        function toggleFab(btn) {
+            const isRaised = btn.classList.contains('bg-secondary');
+            const icon = document.getElementById('handIcon');
+            
+            if (isRaised) {
+                btn.classList.remove('bg-secondary', 'text-on-secondary-fixed');
+                btn.classList.add('bg-primary', 'text-white');
+                icon.style.fontVariationSettings = "'FILL' 0";
+                // Show notification toast logic could go here
+            } else {
+                btn.classList.add('bg-secondary', 'text-on-secondary-fixed');
+                btn.classList.remove('bg-primary', 'text-white');
+                icon.style.fontVariationSettings = "'FILL' 1";
+            }
+        }
+    </script>
+</body></html>

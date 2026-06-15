@@ -75,6 +75,12 @@ export class StoreController {
     return this.storeService.findProductById(id);
   }
 
+  @Get('by-course/:courseId')
+  @ApiOperation({ summary: 'Find store product linked to a course' })
+  async getProductByCourseId(@Param('courseId') courseId: string) {
+    return this.storeService.findProductByCourseId(courseId);
+  }
+
   @Post('products/upload-image')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(

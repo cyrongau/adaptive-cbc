@@ -153,13 +153,46 @@ export default function SchedulePage() {
     }
   };
 
-  const handleAddSchedule = (e: React.FormEvent) => {
+  const handleAddSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newItem: ScheduleItem = { ...newSchedule, id: Date.now().toString() };
-    setSchedule([...schedule, newItem]);
-    toast.success('Schedule added successfully!');
-    setShowModal(false);
-    setNewSchedule({ title: '', type: 'class', day: 1, time: '8:00 AM', duration: 60, grade: 4, subject: 'Mathematics' });
+    try {
+      const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const dayOfWeek = dayNames[newSchedule.day];
+      
+      const timeParts = newSchedule.time.match(/(\d+):(\d+) (AM|PM)/);
+      if (!timeParts) throw new Error("Invalid time format");
+      let h = parseInt(timeParts[1]);
+      const m = parseInt(timeParts[2]);
+      if (timeParts[3] === 'PM' && h !== 12) h += 12;
+      if (timeParts[3] === 'AM' && h === 12) h = 0;
+      
+      const startMinutes = h * 60 + m;
+      const endMinutes = startMinutes + newSchedule.duration;
+      
+      const startTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
+      
+      const endH = Math.floor(endMinutes / 60) % 24;
+      const endM = endMinutes % 60;
+      const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}:00`;
+
+      await api.post('/lessons', {
+        title: newSchedule.title,
+        subject: newSchedule.subject,
+        grade: newSchedule.grade,
+        dayOfWeek: dayOfWeek,
+        startTime: startTime,
+        endTime: endTime,
+        isLive: true,
+      });
+
+      toast.success('Session scheduled successfully!');
+      setShowModal(false);
+      setNewSchedule({ title: '', type: 'class', day: 1, time: '8:00 AM', duration: 60, grade: 4, subject: 'Mathematics' });
+      fetchTimetable();
+    } catch (error) {
+      console.error('Failed to schedule session', error);
+      toast.error('Failed to schedule session');
+    }
   };
 
   const getScheduleForSlot = (day: number, time: string) => {

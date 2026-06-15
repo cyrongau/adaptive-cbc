@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { ArrowLeft, CheckCircle, XCircle, Clock, Star, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, Star, Loader2, MessageSquare, Send } from 'lucide-react';
+import toast from 'react-hot-toast';
 import HtmlContent from '@/components/ui/HtmlContent';
 
 interface Submission {
@@ -43,6 +44,10 @@ export default function AssignmentResultsPage() {
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [sendingComment, setSendingComment] = useState(false);
+  const [showQa, setShowQa] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -60,6 +65,10 @@ export default function AssignmentResultsPage() {
       const mySubmission = submissionsRes.data.find((s: Submission) => s.assignmentId === id);
       if (mySubmission) {
         setSubmission(mySubmission);
+        try {
+          const commentsRes = await api.get(`/assignments/${id}/submissions/${mySubmission.id}/comments`);
+          setComments(commentsRes.data || []);
+        } catch {}
 
         const questionIds = (mySubmission.answers || []).map((a: { questionId: string }) => a.questionId);
         if (questionIds.length > 0) {
@@ -221,6 +230,87 @@ export default function AssignmentResultsPage() {
           })}
         </div>
       )}
+
+      {/* Q&A Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <button
+          onClick={() => setShowQa(!showQa)}
+          className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition"
+        >
+          <div className="flex items-center gap-3">
+            <MessageSquare className="w-5 h-5 text-indigo-500" />
+            <h2 className="text-xl font-bold text-slate-900">Teacher Q&A</h2>
+          </div>
+          <span className="text-sm text-slate-400">{showQa ? 'Hide' : 'Show'} ({comments.length})</span>
+        </button>
+
+        {showQa && (
+          <div className="px-6 pb-6 space-y-4 border-t border-slate-100 pt-4">
+            {comments.length === 0 && (
+              <p className="text-sm text-slate-400">No feedback from your teacher yet.</p>
+            )}
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {comments.map((comment: any) => {
+                const isTeacher = comment.authorRole === 'teacher';
+                return (
+                  <div key={comment.id} className={`flex ${isTeacher ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${isTeacher ? 'bg-indigo-100 text-indigo-900' : 'bg-slate-100 text-slate-800'}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold uppercase tracking-wider">
+                          {isTeacher ? 'Teacher' : 'You'}
+                        </span>
+                        <span className="text-xs text-slate-400">{new Date(comment.createdAt).toLocaleTimeString()}</span>
+                      </div>
+                      <p className="text-sm">{comment.content}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && newComment.trim() && submission) {
+                    e.preventDefault();
+                    setSendingComment(true);
+                    try {
+                      await api.post(`/assignments/${id}/submissions/${submission.id}/comments`, { content: newComment.trim() });
+                      setNewComment('');
+                      const res = await api.get(`/assignments/${id}/submissions/${submission.id}/comments`);
+                      setComments(res.data || []);
+                    } catch { toast.error('Failed to send'); }
+                    finally { setSendingComment(false); }
+                  }
+                }}
+                placeholder="Reply to your teacher..."
+                className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                onClick={async () => {
+                  if (!newComment.trim() || !submission) return;
+                  setSendingComment(true);
+                  try {
+                    await api.post(`/assignments/${id}/submissions/${submission.id}/comments`, { content: newComment.trim() });
+                    setNewComment('');
+                    const res = await api.get(`/assignments/${id}/submissions/${submission.id}/comments`);
+                    setComments(res.data || []);
+                  } catch { toast.error('Failed to send'); }
+                  finally { setSendingComment(false); }
+                }}
+                disabled={sendingComment || !newComment.trim()}
+                className="flex items-center gap-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {sendingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Send
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

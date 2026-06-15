@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Request, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { CoursesService } from './courses.service';
-import { CreateCourseDto, UpdateCourseDto, CreateCourseModuleDto, CreateCourseLessonDto, CreateCourseReviewDto } from './dto/course.dto';
+import { CreateCourseDto, UpdateCourseDto, CreateCourseModuleDto, CreateCourseLessonDto, CreateCourseReviewDto, SubmitAssessmentDto } from './dto/course.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -88,6 +88,25 @@ export class CoursesController {
   async uploadThumbnail(@Param('id') id: string, @UploadedFile() file: Express.Multer.File, @Request() req) {
     const url = `/uploads/courses/${file.filename}`;
     return this.coursesService.update(id, { thumbnail: url }, req.user.id);
+  }
+
+  @Patch(':id/featured-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: join(process.cwd(), 'uploads', 'courses'),
+      filename: (req, file, cb) => {
+        const name = `featured-${uuid()}${extname(file.originalname)}`;
+        cb(null, name);
+      },
+    }),
+    limits: { fileSize: 10 * 1024 * 1024 },
+  }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload course featured image' })
+  async uploadFeaturedImage(@Param('id') id: string, @UploadedFile() file: Express.Multer.File, @Request() req) {
+    const url = `/uploads/courses/${file.filename}`;
+    return this.coursesService.update(id, { featuredImage: url }, req.user.id);
   }
 
   // === MODULES ===
@@ -245,5 +264,57 @@ export class CoursesController {
   @ApiOperation({ summary: 'Get course analytics' })
   async getAnalytics(@Param('id') id: string, @Request() req) {
     return this.coursesService.getAnalytics(id, req.user.id);
+  }
+
+  // === ASSESSMENT ATTEMPTS ===
+
+  @Post(':courseId/assessment/submit')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Submit assessment answers (Student only)' })
+  async submitAssessment(@Param('courseId') courseId: string, @Body() dto: SubmitAssessmentDto, @Request() req) {
+    return this.coursesService.submitAssessment(courseId, req.user.id, dto.answers);
+  }
+
+  @Get(':courseId/assessment/attempts')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get my assessment attempts' })
+  async getAssessmentAttempts(@Param('courseId') courseId: string, @Request() req) {
+    return this.coursesService.getAssessmentAttempts(courseId, req.user.id);
+  }
+
+  @Get(':courseId/assessment/latest-attempt')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get my latest assessment attempt' })
+  async getLatestAssessmentAttempt(@Param('courseId') courseId: string, @Request() req) {
+    return this.coursesService.getLatestAssessmentAttempt(courseId, req.user.id);
+  }
+
+  @Get(':courseId/assessment/all-attempts')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get all assessment attempts (Teacher only)' })
+  async getAllAssessmentAttempts(@Param('courseId') courseId: string, @Request() req) {
+    return this.coursesService.getAllAssessmentAttempts(courseId, req.user.id);
+  }
+
+  // === Q&A ===
+
+  @Get(':courseId/questions')
+  @ApiOperation({ summary: 'Get all Q&A for a course' })
+  async getQuestions(@Param('courseId') courseId: string) {
+    return this.coursesService.getQuestions(courseId);
+  }
+
+  @Post(':courseId/questions')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Ask a question (Student)' })
+  async askQuestion(@Param('courseId') courseId: string, @Body('question') question: string, @Request() req) {
+    return this.coursesService.askQuestion(courseId, req.user.id, question);
+  }
+
+  @Post('questions/:questionId/answer')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Answer a question (Teacher)' })
+  async answerQuestion(@Param('questionId') questionId: string, @Body('answer') answer: string, @Request() req) {
+    return this.coursesService.answerQuestion(questionId, req.user.id, answer);
   }
 }

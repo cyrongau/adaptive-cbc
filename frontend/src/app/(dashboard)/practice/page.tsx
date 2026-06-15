@@ -1,14 +1,15 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
-import { ArrowRight, CheckCircle2, XCircle, HelpCircle, Award, Zap, Loader2, Sparkles, Brain, BookOpen, Search } from 'lucide-react';
+import { ArrowRight, CheckCircle2, XCircle, HelpCircle, Award, Zap, Loader2, Sparkles, Brain, BookOpen, Search, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
 import HtmlContent from '@/components/ui/HtmlContent';
+import XpAnimation from '@/components/ui/XpAnimation';
 
 interface Subject {
   id: string;
@@ -67,6 +68,16 @@ export default function PracticePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [xpAnimation, setXpAnimation] = useState<{ amount: number; isFirstAttempt: boolean } | null>(null);
+  const [lastAnswerXp, setLastAnswerXp] = useState(0);
+  const [adaptiveDifficultyLabel, setAdaptiveDifficultyLabel] = useState('');
+
+  // Brain Break state
+  const [showBrainBreak, setShowBrainBreak] = useState(false);
+  const [brainBreakGame, setBrainBreakGame] = useState<any>(null);
+  const [isGeneratingGame, setIsGeneratingGame] = useState(false);
+  const [lastBrainBreakMilestone, setLastBrainBreakMilestone] = useState(0);
+  const [bbQuestionIndex, setBbQuestionIndex] = useState(0);
 
   const fetchSubjects = async () => {
     try {
@@ -244,15 +255,33 @@ export default function PracticePage() {
     setError('');
 
     try {
-      await api.post('/practice/answer', {
+      const res = await api.post('/practice/answer', {
         sessionId,
         questionId: currentQuestion.id,
         userAnswer: selectedOption,
       });
 
+      const xpData = res.data;
+      if (xpData.xpAwarded > 0) {
+        setLastAnswerXp(xpData.xpAwarded);
+        setXpAnimation({ amount: xpData.xpAwarded, isFirstAttempt: xpData.isFirstAttempt });
+      } else {
+        setLastAnswerXp(0);
+      }
+
       const explanationRes = await api.get(`/practice/explanation/${sessionId}/${currentQuestion.id}`);
       setCurrentQuestion((prev) => prev ? { ...prev, explanation: explanationRes.data.explanation } : prev);
-      await fetchSession(sessionId);
+      const session = await fetchSession(sessionId);
+      if (session) {
+        const score = session.score || 0;
+        if (score < 40) {
+          setAdaptiveDifficultyLabel('Difficulty adjusting down — focusing on foundations');
+        } else if (score > 80 && session.answeredQuestions >= 3) {
+          setAdaptiveDifficultyLabel('You are doing well! Ready for harder questions.');
+        } else {
+          setAdaptiveDifficultyLabel('');
+        }
+      }
       setIsSubmitted(true);
     } catch (err: any) {
       console.error('Failed to submit answer', err);
@@ -297,7 +326,65 @@ export default function PracticePage() {
       return;
     }
 
+    // Trigger Brain Break every 10 questions
+    if (sessionStatus.answeredQuestions > 0 && sessionStatus.answeredQuestions % 10 === 0 && lastBrainBreakMilestone !== sessionStatus.answeredQuestions) {
+      setShowBrainBreak(true);
+      setLastBrainBreakMilestone(sessionStatus.answeredQuestions);
+      generateBrainBreakGame();
+      return;
+    }
+
     await fetchCurrentQuestion(sessionId);
+  };
+
+  const generateBrainBreakGame = async () => {
+    setIsGeneratingGame(true);
+    try {
+      const subjectName = subjects.find(s => s.id === selectedSubjectId)?.name || 'General Knowledge';
+      const topicName = topics.find(t => t.id === selectedTopicId)?.name;
+      
+      let bbDifficulty = 'medium';
+      if (sessionStatus && sessionStatus.score !== undefined) {
+        if (sessionStatus.score < 50) bbDifficulty = 'easy';
+        else if (sessionStatus.score > 80) bbDifficulty = 'hard';
+      }
+
+      const res = await api.post('/gamification/games/generate', {
+        subject: subjectName,
+        grade: selectedGrade,
+        topic: topicName,
+        difficulty: bbDifficulty,
+      });
+      setBrainBreakGame(res.data);
+      setBbQuestionIndex(0);
+    } catch (err) {
+      console.error('Failed to generate brain break', err);
+      setShowBrainBreak(false);
+      await fetchCurrentQuestion(sessionId!);
+    } finally {
+      setIsGeneratingGame(false);
+    }
+  };
+
+  const handleBrainBreakAnswer = async (selected: string, correct: string) => {
+    import('react-hot-toast').then(({ default: toast }) => {
+      if (selected === correct) {
+        toast.success('Correct! +10 Bonus XP', { icon: '⭐' });
+        api.post('/gamification/games/score', { score: 10 }).catch(console.error);
+      } else {
+        toast.error(`Not quite! The correct answer was: ${correct}`);
+      }
+    });
+
+    if (brainBreakGame && bbQuestionIndex < brainBreakGame.questions.length - 1) {
+      setTimeout(() => setBbQuestionIndex(prev => prev + 1), 1500);
+    } else {
+      setTimeout(() => {
+        setShowBrainBreak(false);
+        setBrainBreakGame(null);
+        fetchCurrentQuestion(sessionId!);
+      }, 2000);
+    }
   };
 
   const resetSession = () => {
@@ -523,26 +610,51 @@ export default function PracticePage() {
                       </div>
 
                       {isSubmitted && (
-                        <div className={clsx(
-                          'rounded-3xl border p-5',
-                          selectedOption === currentQuestion.correctAnswer || currentQuestion.options.some((opt) => opt.id === selectedOption && opt.isCorrect)
-                            ? 'border-emerald-200 bg-emerald-50'
-                            : 'border-amber-200 bg-amber-50'
-                        )}
-                        >
-                          <div className="flex items-start gap-3">
-                            {selectedOption === currentQuestion.correctAnswer || currentQuestion.options.some((opt) => opt.id === selectedOption && opt.isCorrect) ? (
-                              <CheckCircle2 className="mt-1 w-6 h-6 text-emerald-600" />
-                            ) : (
-                              <HelpCircle className="mt-1 w-6 h-6 text-amber-600" />
-                            )}
-                            <div>
-                              <h4 className="font-semibold text-slate-900">
-                                {selectedOption === currentQuestion.correctAnswer || currentQuestion.options.some((opt) => opt.id === selectedOption && opt.isCorrect)
-                                  ? `Perfect, ${user?.firstName || 'Student'}!`
-                                  : `Not quite right, ${user?.firstName || 'Student'}. Let's review.`}
-                              </h4>
-                              <HtmlContent html={currentQuestion.explanation} className="mt-2 text-sm leading-6 text-slate-700" renderMath={true} />
+                        <div className="space-y-3">
+                          {lastAnswerXp > 0 && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              className="rounded-3xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 p-4 flex items-center gap-3"
+                            >
+                              <Zap className="w-6 h-6 text-amber-500" />
+                              <div>
+                                <p className="font-bold text-amber-800">+{lastAnswerXp} XP Earned!</p>
+                                <p className="text-xs text-amber-600">First attempt bonus — keep it up!</p>
+                              </div>
+                            </motion.div>
+                          )}
+                          {adaptiveDifficultyLabel && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="rounded-3xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 p-3 flex items-center gap-2"
+                            >
+                              <TrendingUp className="w-4 h-4 text-indigo-500" />
+                              <p className="text-xs font-medium text-indigo-700">{adaptiveDifficultyLabel}</p>
+                            </motion.div>
+                          )}
+                          <div className={clsx(
+                            'rounded-3xl border p-5',
+                            selectedOption === currentQuestion.correctAnswer || currentQuestion.options.some((opt) => opt.id === selectedOption && opt.isCorrect)
+                              ? 'border-emerald-200 bg-emerald-50'
+                              : 'border-amber-200 bg-amber-50'
+                          )}
+                          >
+                            <div className="flex items-start gap-3">
+                              {selectedOption === currentQuestion.correctAnswer || currentQuestion.options.some((opt) => opt.id === selectedOption && opt.isCorrect) ? (
+                                <CheckCircle2 className="mt-1 w-6 h-6 text-emerald-600" />
+                              ) : (
+                                <HelpCircle className="mt-1 w-6 h-6 text-amber-600" />
+                              )}
+                              <div>
+                                <h4 className="font-semibold text-slate-900">
+                                  {selectedOption === currentQuestion.correctAnswer || currentQuestion.options.some((opt) => opt.id === selectedOption && opt.isCorrect)
+                                    ? `Perfect, ${user?.firstName || 'Student'}!`
+                                    : `Not quite right, ${user?.firstName || 'Student'}. Let's review.`}
+                                </h4>
+                                <HtmlContent html={currentQuestion.explanation} className="mt-2 text-sm leading-6 text-slate-700" renderMath={true} />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -578,6 +690,90 @@ export default function PracticePage() {
           )}
         </div>
       </div>
+
+      {xpAnimation && (
+        <XpAnimation
+          xpAmount={xpAnimation.amount}
+          isCorrect={true}
+          isFirstAttempt={xpAnimation.isFirstAttempt}
+          onComplete={() => setXpAnimation(null)}
+        />
+      )}
+
+      {/* Brain Break Modal */}
+      {showBrainBreak && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl"
+          >
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white text-center relative">
+              <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-80" />
+              <h2 className="text-3xl font-black tracking-tight">Brain Break!</h2>
+              <p className="text-indigo-100 font-medium mt-1">You answered 10 questions. Time for a quick mini-game!</p>
+              
+              <button 
+                onClick={() => {
+                  setShowBrainBreak(false);
+                  fetchCurrentQuestion(sessionId!);
+                }}
+                className="absolute top-4 right-4 text-white/50 hover:text-white"
+              >
+                Skip
+              </button>
+            </div>
+            
+            <div className="p-8 min-h-[300px] flex flex-col justify-center">
+              {isGeneratingGame ? (
+                <div className="text-center text-indigo-600">
+                  <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
+                  <p className="font-bold animate-pulse">AI is crafting your game...</p>
+                </div>
+              ) : brainBreakGame ? (
+                <div>
+                  <div className="mb-6 text-center">
+                    <span className="text-sm font-bold text-indigo-500 uppercase tracking-wider bg-indigo-50 px-3 py-1 rounded-full">
+                      {brainBreakGame.title} • Q{bbQuestionIndex + 1}/{brainBreakGame.questions.length}
+                    </span>
+                    <h3 className="text-2xl font-semibold text-slate-800 mt-6">
+                      {brainBreakGame.questions[bbQuestionIndex].prompt}
+                    </h3>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    {brainBreakGame.questions[bbQuestionIndex].options?.map((opt: string, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => handleBrainBreakAnswer(opt, brainBreakGame.questions[bbQuestionIndex].correctAnswer)}
+                        className="p-4 border-2 border-slate-100 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 font-bold text-slate-700 transition-all active:scale-95"
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                    {!brainBreakGame.questions[bbQuestionIndex].options && (
+                      <div className="flex gap-3">
+                        <input type="text" className="flex-1 p-4 border-2 border-slate-200 rounded-xl" placeholder="Type answer..." id="bb-game-input" />
+                        <button 
+                         onClick={() => {
+                           const val = (document.getElementById('bb-game-input') as HTMLInputElement).value;
+                           handleBrainBreakAnswer(val, brainBreakGame.questions[bbQuestionIndex].correctAnswer);
+                         }}
+                         className="bg-indigo-600 text-white px-8 rounded-xl font-bold hover:bg-indigo-700"
+                        >
+                          Submit
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-red-500">Failed to load game.</div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

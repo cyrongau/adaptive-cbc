@@ -59,6 +59,12 @@ export class AssignmentsController {
     return this.assignmentsService.findOne(id);
   }
 
+  @Get(':id/questions')
+  @ApiOperation({ summary: 'Get questions for an assignment (teacher-defined or random)' })
+  async getAssignmentQuestions(@Param('id') id: string) {
+    return this.assignmentsService.getAssignmentQuestions(id);
+  }
+
   @Put(':id')
   @ApiOperation({ summary: 'Update assignment' })
   async update(@Param('id') id: string, @Body() updateDto: UpdateAssignmentDto) {
@@ -123,5 +129,59 @@ export class AssignmentsController {
     @Request() req,
   ) {
     return this.assignmentsService.gradeSubmission(id, submissionId, req.user.id, body.score);
+  }
+
+  @Get(':id/submissions/:submissionId')
+  @ApiOperation({ summary: 'Get submission with student details' })
+  async getSubmissionWithStudent(
+    @Param('id') id: string,
+    @Param('submissionId') submissionId: string,
+  ) {
+    return this.assignmentsService.getSubmissionWithStudent(submissionId, id);
+  }
+
+  @Post(':id/submissions/:submissionId/comments')
+  @ApiOperation({ summary: 'Add a comment to a submission' })
+  async addComment(
+    @Param('id') id: string,
+    @Param('submissionId') submissionId: string,
+    @Body() body: { content: string; questionId?: string; parentId?: string },
+    @Request() req,
+  ) {
+    return this.assignmentsService.addComment(
+      id, submissionId, req.user.id, body.content, req.user.role,
+      body.questionId, body.parentId,
+    );
+  }
+
+  @Get(':id/submissions/:submissionId/comments')
+  @ApiOperation({ summary: 'Get comments for a submission' })
+  async getComments(
+    @Param('id') id: string,
+    @Param('submissionId') submissionId: string,
+  ) {
+    return this.assignmentsService.getCommentsForSubmission(submissionId);
+  }
+
+  @Get('comments/unread')
+  @ApiOperation({ summary: 'Get unread comment count for current user' })
+  async getUnreadCommentCount(@Request() req) {
+    const count = await this.assignmentsService.getUnreadCommentCount(req.user.id);
+    return { count };
+  }
+
+  @Get(':id/submissions/:submissionId/detail')
+  @ApiOperation({ summary: 'Get full submission detail with questions and AI report' })
+  async getSubmissionDetail(
+    @Param('id') id: string,
+    @Param('submissionId') submissionId: string,
+  ) {
+    return this.assignmentsService.getSubmissionDetail(submissionId, id);
+  }
+
+  @Get('student/:studentId/progress')
+  @ApiOperation({ summary: 'Get comprehensive progress summary for a student' })
+  async getStudentProgress(@Param('studentId') studentId: string) {
+    return this.assignmentsService.getStudentProgressSummary(studentId);
   }
 }

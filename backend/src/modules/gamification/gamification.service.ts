@@ -4,6 +4,8 @@ import { Repository, MoreThanOrEqual } from 'typeorm';
 import { Tournament, TournamentParticipant, UserBadge, Leaderboard, TournamentStatus } from './entities/gamification.entity';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/entities/user.entity';
+import { AiService } from '../ai/ai.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class GamificationService {
@@ -17,7 +19,63 @@ export class GamificationService {
     @InjectRepository(Leaderboard)
     private leaderboardRepository: Repository<Leaderboard>,
     private usersService: UsersService,
+    private aiService: AiService,
   ) {}
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async spawnDailyTournament() {
+    console.log('Running daily tournament spawner...');
+    const now = new Date();
+    const activeDaily = await this.tournamentRepository.findOne({
+      where: {
+        name: `Daily Challenge - ${now.toISOString().split('T')[0]}`,
+      }
+    });
+
+    if (!activeDaily) {
+      const endTime = new Date(now);
+      endTime.setHours(23, 59, 59, 999);
+      
+      const newTournament = this.tournamentRepository.create({
+        name: `Daily Challenge - ${now.toISOString().split('T')[0]}`,
+        description: 'Compete in the daily brain challenge to earn bonus XP and badges!',
+        startTime: now,
+        endTime: endTime,
+        isActive: true,
+        status: TournamentStatus.ACTIVE,
+      });
+      await this.tournamentRepository.save(newTournament);
+      console.log(`Spawned new daily tournament: ${newTournament.name}`);
+    }
+  }
+
+  async generateAIGame(subject: string, grade: number, topic?: string, difficulty?: string): Promise<any> {
+    const t = topic || subject;
+    const level = difficulty || 'medium';
+    return this.aiService.generateAdaptiveGame(subject, t, grade, level);
+  }
+
+  private getFallbackGame(subject: string) {
+    return {
+      type: 'trivia',
+      title: `${subject} Quick Quiz`,
+      questions: [
+        {
+          prompt: `What is a basic concept in ${subject}?`,
+          options: ['Concept A', 'Concept B', 'Concept C', 'Concept D'],
+          correctAnswer: 'Concept A'
+        }
+      ]
+    };
+  }
+
+  async submitGameScore(userId: string, score: number): Promise<{ xpAwarded: number }> {
+    const xpToAward = Math.floor(score * 10);
+    if (xpToAward > 0) {
+      await this.usersService.addXpPoints(userId, xpToAward);
+    }
+    return { xpAwarded: xpToAward };
+  }
 
   async findAllTournaments(filters?: { status?: TournamentStatus; subjectId?: string }): Promise<Tournament[]> {
     const query = this.tournamentRepository.createQueryBuilder('tournament')

@@ -14,6 +14,7 @@ import {
   ShieldCheck, Activity, UserCheck, AlertCircle, ClipboardCheck,
   School, AlarmCheck, ListChecks,
 } from 'lucide-react';
+import RecommendationsWidget from '@/components/RecommendationsWidget';
 import Image from 'next/image';
 
 interface SchoolInfo {
@@ -50,7 +51,7 @@ interface SchoolInfo {
 }
 
 export default function DashboardOverviewPage() {
-  const { user } = useAuthStore();
+  const { user, refreshUser } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
   const [loadingSchool, setLoadingSchool] = useState(false);
@@ -76,6 +77,9 @@ export default function DashboardOverviewPage() {
 
   useEffect(() => {
     setIsMounted(true);
+    if (typeof window !== 'undefined') {
+      refreshUser();
+    }
   }, []);
 
   useEffect(() => {
@@ -470,9 +474,12 @@ export default function DashboardOverviewPage() {
                     </span>
                     <span className="text-xs text-slate-400">Code: {schoolInfo.institution.code}</span>
                     <span className="text-xs text-slate-400 capitalize">{schoolInfo.institution.type.replace('_', ' ')}</span>
-                  </div>
-                </div>
-              </div>
+          </div>
+        </div>
+
+        {/* AI Recommendations & Study Goals */}
+        <RecommendationsWidget />
+      </div>
             </div>
 
             {schoolInfo.institution.motto && (
@@ -626,9 +633,9 @@ export default function DashboardOverviewPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-slate-500">
-                          <span>{course.modulesCount || 0} modules</span>
-                          <span>{course.lessonsCount || 0} lessons</span>
-                          {course.studentsCount != null && <span>{course.studentsCount} students</span>}
+                          <span>{course.totalModules ?? 0} modules</span>
+                          <span>{course.totalLessons ?? 0} lessons</span>
+                          <span>{course.totalStudents ?? 0} students</span>
                         </div>
                       </Link>
                     ))}

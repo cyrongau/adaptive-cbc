@@ -10,7 +10,7 @@ import {
   ArrowRight, Star, CheckCircle, Search, Play, Clock, Award,
   ChevronRight, BookMarked, TrendingUp, Target, Sparkles,
   FileText, Globe, Scissors, Milestone, User, HelpCircle,
-  Video, Compass, ShieldAlert, Check, Building2
+  Video, Compass, ShieldAlert, Check, Building2, Palette, Sprout, Music
 } from 'lucide-react';
 
 const modernLearningFeatures = [
@@ -40,41 +40,27 @@ const modernLearningFeatures = [
   },
 ];
 
-const featuredCourses = [
-  {
-    id: 1,
-    title: 'Grade 4 Math Mastery',
-    subject: 'MATHEMATICS',
-    description: 'Master fractions, decimals, and basic algebra through interactive stories and puzzles.',
-    price: 1200,
-    rating: 4.8,
-    reviews: '2.4K',
-    imageGradient: 'from-[#006a34]/20 to-[#268549]/10',
-    icon: Target,
-  },
-  {
-    id: 2,
-    title: 'Science Explorers',
-    subject: 'SCIENCE',
-    description: 'Explore the human body, plants, and environmental conservation in high...',
-    price: 950,
-    rating: 4.9,
-    reviews: '1.8K',
-    imageGradient: 'from-[#455f88]/20 to-[#a3bcdd]/10',
-    icon: Compass,
-  },
-  {
-    id: 3,
-    title: 'Our Heritage & Resources',
-    subject: 'SOCIAL STUDIES',
-    description: "A deep dive into Kenya's rich history, geography, and civic duties for Grade 6.",
-    price: 1100,
-    rating: 4.6,
-    reviews: '1.5K',
-    imageGradient: 'from-amber-500/40 to-yellow-300/10',
-    icon: Globe,
-  },
-];
+const subjectIcons: Record<string, React.ElementType> = {
+  Mathematics: Target,
+  Science: Compass,
+  'Social Studies': Globe,
+  Kiswahili: BookOpen,
+  'Creative Arts': Palette,
+  Agriculture: Sprout,
+  Music: Music,
+};
+
+const subjectGradients: Record<string, string> = {
+  Mathematics: 'from-[#006a34]/20 to-[#268549]/10',
+  Science: 'from-[#455f88]/20 to-[#a3bcdd]/10',
+  'Social Studies': 'from-amber-500/40 to-yellow-300/10',
+  Kiswahili: 'from-[#006a34]/20 to-[#268549]/10',
+  'Creative Arts': 'from-pink-500/40 to-purple-300/10',
+  Agriculture: 'from-emerald-500/40 to-green-300/10',
+  Music: 'from-violet-500/40 to-indigo-300/10',
+};
+
+const defaultGradient = 'from-slate-400/20 to-slate-300/10';
 
 const subjectCards = [
   { name: 'Math', icon: 'Σ', color: 'text-primary bg-[#006a34]/5 border-[#006a34]/10' },
@@ -177,11 +163,23 @@ export default function HomePage() {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [featuredCourses, setFeaturedCourses] = useState<any[]>([]);
 
   useEffect(() => {
     setMounted(true);
     initialize();
+    fetchPublishedCourses();
   }, []);
+
+  const fetchPublishedCourses = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/api/v1/courses/published`);
+      if (res.ok) {
+        const data = await res.json();
+        setFeaturedCourses((data || []).slice(0, 3));
+      }
+    } catch {}
+  };
 
   const handleLogout = () => {
     logout();
@@ -589,54 +587,62 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {featuredCourses.map((c) => (
-              <div 
-                key={c.id} 
-                className="bg-white rounded-2xl overflow-hidden border border-outline/10 hover:border-primary/20 shadow-sm transition-all duration-300 card-hover"
-              >
-                {/* Course Header/Pattern Banner */}
-                <div className={`h-40 bg-gradient-to-br ${c.imageGradient} relative p-6 flex items-center justify-center border-b border-outline/5`}>
-                  <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-md">
-                    <c.icon className="w-8 h-8 text-primary" />
-                  </div>
-                </div>
-
-                {/* Course Body */}
-                <div className="p-6">
-                  <div className="flex items-center justify-between text-[11px] font-bold tracking-wider mb-2">
-                    <span className="text-secondary">{c.subject}</span>
-                    <span className="text-tertiary flex items-center font-extrabold">
-                      <Star className="w-3.5 h-3.5 fill-tertiary mr-0.5" />
-                      {c.rating} ({c.reviews})
-                    </span>
+            {featuredCourses.map((c) => {
+              const SubjectIcon = subjectIcons[c.subject] || BookOpen;
+              const gradient = subjectGradients[c.subject] || defaultGradient;
+              return (
+                <div 
+                  key={c.id} 
+                  className="bg-white rounded-2xl overflow-hidden border border-outline/10 hover:border-primary/20 shadow-sm transition-all duration-300 card-hover"
+                >
+                  {/* Course Header/Pattern Banner */}
+                  <div className={`h-40 bg-gradient-to-br ${gradient} relative p-6 flex items-center justify-center border-b border-outline/5`}>
+                    <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-md">
+                      <SubjectIcon className="w-8 h-8 text-primary" />
+                    </div>
                   </div>
 
-                  <h3 className="font-extrabold text-lg text-gray-900 mb-2 leading-tight">
-                    {c.title}
-                  </h3>
-                  
-                  <p className="text-sm text-gray-500 font-medium leading-relaxed mb-6 min-h-[40px]">
-                    {c.description}
-                  </p>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                    <div>
-                      <span className="text-xs text-gray-400 font-bold block leading-none">PRICE</span>
-                      <span className="text-lg font-extrabold text-gray-900">
-                        KSh {c.price.toLocaleString()}
+                  {/* Course Body */}
+                  <div className="p-6">
+                    <div className="flex items-center justify-between text-[11px] font-bold tracking-wider mb-2">
+                      <span className="text-secondary">{(c.subject || '').toUpperCase()}</span>
+                      <span className="text-tertiary flex items-center font-extrabold">
+                        <Star className="w-3.5 h-3.5 fill-tertiary mr-0.5" />
+                        {Number(c.averageRating || 0).toFixed(1)} ({c.totalReviews ?? 0})
                       </span>
                     </div>
+
+                    <h3 className="font-extrabold text-lg text-gray-900 mb-2 leading-tight">
+                      {c.title}
+                    </h3>
                     
-                    <Link 
-                      href={`/courses/${c.id}`} 
-                      className="bg-primary text-white font-extrabold text-xs px-5 py-2.5 rounded-lg hover:bg-primary/95 transition-all shadow-sm active:scale-95 hover:shadow"
-                    >
-                      Enroll Now
-                    </Link>
+                    <p className="text-sm text-gray-500 font-medium leading-relaxed mb-6 min-h-[40px] line-clamp-2">
+                      {c.description || 'No description'}
+                    </p>
+
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                      <div>
+                        <span className="text-xs text-gray-400 font-bold block leading-none">PRICE</span>
+                        <span className="text-lg font-extrabold text-gray-900">
+                          {!c.price || c.price === 0 ? (
+                            <span className="text-emerald-600">Free</span>
+                          ) : (
+                            `KSh ${Number(c.price).toLocaleString()}`
+                          )}
+                        </span>
+                      </div>
+                      
+                      <Link 
+                        href={`/courses/${c.id}`} 
+                        className="bg-primary text-white font-extrabold text-xs px-5 py-2.5 rounded-lg hover:bg-primary/95 transition-all shadow-sm active:scale-95 hover:shadow"
+                      >
+                        View Course
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

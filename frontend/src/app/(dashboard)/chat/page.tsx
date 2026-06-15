@@ -43,6 +43,7 @@ interface ChatMessage {
   attachmentKey?: string;
   attachmentUrl?: string;
   createdAt: string;
+  readAt?: string;
   sender: ChatUser;
   replyToId?: string;
   replyTo?: {
@@ -54,7 +55,7 @@ interface ChatMessage {
 
 interface ChatConversation {
   id: string;
-  type: 'support' | 'direct' | 'admin' | 'community' | 'teacher_student' | 'admin_initiated';
+  type: 'support' | 'direct' | 'admin' | 'community' | 'teacher_student' | 'admin_initiated' | 'ai_socratic';
   name?: string;
   ticket?: {
     id: string;
@@ -81,7 +82,7 @@ const EMOJI_CATEGORIES = {
 function ChatInterface() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConv, setActiveConv] = useState<ChatConversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -90,6 +91,7 @@ function ChatInterface() {
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'support' | 'community'>('all');
+  const [socketConnected, setSocketConnected] = useState(false);
 
   // WebSocket socket
   const socketRef = useRef<Socket | null>(null);
@@ -124,8 +126,39 @@ function ChatInterface() {
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearchList, setMentionSearchList] = useState<ChatUser[]>([]);
 
+  // Online users
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+
+  // New conversation search
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+
   // Responsive mobile state
   const [showLeftPane, setShowLeftPane] = useState(true);
+
+  // Socratic AI Tutor states and trigger
+  const [loadingSocratic, setLoadingSocratic] = useState(false);
+  const startSocraticConversation = async () => {
+    setLoadingSocratic(true);
+    const toastId = toast.loading('Connecting to Socratic AI Tutor...');
+    try {
+      const res = await api.post('/chat/conversations/socratic');
+      const conv: ChatConversation = res.data;
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === conv.id)) return prev;
+        return [conv, ...prev];
+      });
+      selectConversation(conv);
+      toast.success('Connected to Socratic AI Tutor!', { id: toastId });
+    } catch (err: any) {
+      console.error('Failed to start Socratic conversation', err);
+      toast.error('Failed to connect to Socratic AI Tutor.', { id: toastId });
+    } finally {
+      setLoadingSocratic(false);
+    }
+  };
 
   // Click outside listener for emoji picker
   useEffect(() => {
@@ -167,79 +200,119 @@ function ChatInterface() {
   useEffect(() => {
     if (!user) return;
 
-    // Connect to /chat namespace on backend port 3002
-    const wsUrl = process.env.NEXT_PUBLIC_API_URL 
-      ? process.env.NEXT_PUBLIC_API_URL.replace('/api/v1', '')
-      : 'http://localhost:3002';
+    let destroyed = false;
+    let socket: Socket | null = null;
 
-    const socket = io(`${wsUrl}/chat`, {
-      withCredentials: true,
-      transports: ['websocket'],
-    });
+    const connectSocket = () => {
+      if (destroyed) return;
 
-    socketRef.current = socket;
+      // Connect through the Next.js proxy (same origin → cookies are sent automatically)
+      // Polling only — Next.js rewrites forward HTTP but not WebSocket upgrades
+      socket = io(window.location.origin + '/chat', {
+        withCredentials: true,
+        transports: ['polling'],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000,
+        timeout: 20000,
+      });
 
-    socket.on('connect', () => {
-      console.log('Connected to Chat Socket Gateway!');
-      // Rejoin conversation if it was selected and socket reconnected
-      if (activeConvRef.current) {
-        socket.emit('joinConversation', { conversationId: activeConvRef.current.id });
-      }
-    });
+      socketRef.current = socket;
 
-    // Listen for incoming messages
-    socket.on('messageReceived', (message: ChatMessage & { conversationId: string }) => {
-      // If message is for the active conversation, append it
-      if (activeConvRef.current && message.conversationId === activeConvRef.current.id) {
-        setMessages((prev) => {
-          // Prevent duplicates
-          if (prev.some((m) => m.id === message.id)) return prev;
-          return [...prev, message];
-        });
-        // Mark as read immediately
-        api.post(`/chat/messages/${activeConvRef.current.id}/read`).catch(() => {});
-      } else {
-        // Increment unread count in conversations list
+      const s = socket as Socket;
+      s.on('connect', () => {
+        console.log('Connected to Chat Socket Gateway!', s.id);
+        setSocketConnected(true);
+        if (activeConvRef.current) {
+          s.emit('joinConversation', { conversationId: activeConvRef.current.id });
+        }
+      });
+
+      s.on('disconnect', (reason) => {
+        console.warn('Chat Socket disconnected:', reason);
+        setSocketConnected(false);
+      });
+
+      s.on('connect_error', (err) => {
+        console.error('Chat Socket connection error:', err.message);
+        // Only set disconnected if we were previously connected or this is the first attempt
+        setSocketConnected(false);
+      });
+
+      // Handle auth errors from the gateway (expired token, inactive user, etc.)
+      s.on('authError', (data) => {
+        console.error('Chat auth error:', data?.message);
+        setSocketConnected(false);
+      });
+
+      s.on('messageReceived', (message: ChatMessage & { conversationId: string }) => {
+        if (activeConvRef.current && message.conversationId === activeConvRef.current.id) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            return [...prev, message];
+          });
+          api.post(`/chat/messages/${activeConvRef.current.id}/read`).catch(() => {});
+        } else {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === message.conversationId
+                ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
+                : c
+            )
+          );
+        }
+      });
+
+      s.on('typing', (payload) => {
+        if (activeConvRef.current && payload.conversationId === activeConvRef.current.id && payload.userId !== user.id) {
+          setTypingUsers((prev) => {
+            const next = { ...prev };
+            if (payload.isTyping) {
+              next[payload.userId] = payload.userName;
+            } else {
+              delete next[payload.userId];
+            }
+            return next;
+          });
+        }
+      });
+
+      s.on('unreadUpdate', (payload) => {
         setConversations((prev) =>
           prev.map((c) =>
-            c.id === message.conversationId
-              ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
+            c.id === payload.conversationId
+              ? { ...c, unreadCount: (c.unreadCount || 0) + payload.unreadCount }
               : c
           )
         );
-      }
-    });
+      });
 
-    // Listen for typing events
-    socket.on('typing', (payload: { conversationId: string; userId: string; userName: string; isTyping: boolean }) => {
-      if (activeConvRef.current && payload.conversationId === activeConvRef.current.id && payload.userId !== user.id) {
-        setTypingUsers((prev) => {
-          const next = { ...prev };
-          if (payload.isTyping) {
-            next[payload.userId] = payload.userName;
-          } else {
-            delete next[payload.userId];
-          }
-          return next;
-        });
-      }
-    });
+      s.on('messagesRead', (payload) => {
+        if (activeConvRef.current && payload.conversationId === activeConvRef.current.id) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              payload.messageIds.includes(m.id) ? { ...m, readAt: payload.readAt } : m
+            )
+          );
+        }
+      });
 
-    // Listen for unread notification updates
-    socket.on('unreadUpdate', (payload: { conversationId: string; unreadCount: number }) => {
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === payload.conversationId
-            ? { ...c, unreadCount: (c.unreadCount || 0) + payload.unreadCount }
-            : c
-        )
-      );
-    });
+      s.on('onlineUserIds', (data) => {
+        if (data.conversationId === activeConvRef.current?.id) {
+          setOnlineUserIds(data.userIds || []);
+        }
+      });
+    };
+
+    connectSocket();
 
     return () => {
-      socket.disconnect();
+      destroyed = true;
+      socket?.disconnect();
+      socketRef.current = null;
     };
-  }, [user]);
+  }, [user, token]);
 
   // 3. Room subscriptions (join/leave rooms when conversation changes)
   useEffect(() => {
@@ -267,9 +340,13 @@ function ChatInterface() {
     setActiveConv(conv);
     setLoadingMessages(true);
     setTypingUsers({});
+    setOnlineUserIds([]);
     setAttachment(null);
     setReplyingTo(null);
     setShowLeftPane(false);
+
+    // Join the conversation room immediately so outgoing messages are received back
+    socketRef.current?.emit('joinConversation', { conversationId: conv.id });
 
     try {
       const res = await api.get(`/chat/messages/${conv.id}`);
@@ -282,6 +359,7 @@ function ChatInterface() {
       );
     } catch (error) {
       console.error('Failed to load messages', error);
+      toast.error('Failed to load messages. Please try again.');
     } finally {
       setLoadingMessages(false);
     }
@@ -370,6 +448,10 @@ function ChatInterface() {
     if (!inputText.trim() && !attachment) return;
 
     if (socketRef.current && activeConv) {
+      if (!socketConnected) {
+        toast.error('Not connected to chat server. Please wait or refresh the page.');
+        return;
+      }
       socketRef.current.emit('sendMessage', {
         conversationId: activeConv.id,
         message: inputText,
@@ -455,6 +537,44 @@ function ChatInterface() {
     return msgText.includes(`@${name}`);
   };
 
+  // 9. User search for new conversation
+  const searchUsers = async (query: string) => {
+    setUserSearch(query);
+    if (query.trim().length < 2) {
+      setUserSearchResults([]);
+      return;
+    }
+    setSearchingUsers(true);
+    try {
+      const res = await api.get(`/users/search`, { params: { q: query } });
+      setUserSearchResults((res.data || []).filter((u: any) => u.id !== user?.id));
+    } catch {
+      setUserSearchResults([]);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  const startNewConversation = async (targetUser: any) => {
+    try {
+      const res = await api.post('/chat/conversations', {
+        participantIds: [targetUser.id],
+        type: 'direct',
+      });
+      const conv: ChatConversation = res.data;
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === conv.id)) return prev;
+        return [conv, ...prev];
+      });
+      setShowNewChat(false);
+      setUserSearch('');
+      setUserSearchResults([]);
+      selectConversation(conv);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to start conversation');
+    }
+  };
+
   // 8. Filters & Search helper
   const filteredConversations = conversations.filter((c) => {
     // Tab filter
@@ -500,9 +620,16 @@ function ChatInterface() {
         icon: Users,
         bg: 'from-blue-50 to-indigo-50 text-blue-700 border-blue-100',
       };
+    } else if (conv.type === 'ai_socratic') {
+      return {
+        title: 'Socratic AI Tutor',
+        subtitle: 'AI Learning Agent',
+        icon: Sparkles,
+        bg: 'from-purple-50 to-indigo-50 text-purple-700 border-purple-100',
+      };
     } else {
       // Direct message: show other participant's name
-      const otherUser = conv.participants.find((p) => p.id !== user?.id);
+      const otherUser = conv.participants?.find((p) => p.id !== user?.id);
       const name = otherUser
         ? `${otherUser.firstName} ${otherUser.lastName}`
         : 'Direct Conversation';
@@ -528,10 +655,23 @@ function ChatInterface() {
       >
         {/* Search */}
         <div className="p-4 border-b border-slate-100 space-y-3">
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-emerald-600 animate-bounce-slow" />
-            Active Inbox
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-emerald-600 animate-bounce-slow" />
+              Active Inbox
+            </h1>
+            <button
+              onClick={() => { setShowNewChat(!showNewChat); setUserSearch(''); setUserSearchResults([]); }}
+              className={`p-2 rounded-xl transition-all ${
+                showNewChat
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+              }`}
+              title="New Conversation"
+            >
+              <PlusCircle className="w-5 h-5" />
+            </button>
+          </div>
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
             <input
@@ -544,7 +684,85 @@ function ChatInterface() {
           </div>
         </div>
 
+        {/* NEW CONVERSATION SEARCH PANEL */}
+        {showNewChat && (
+          <div className="flex flex-col flex-1 overflow-hidden border-b border-slate-100">
+            <div className="p-3 border-b border-slate-100">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search users by name..."
+                  value={userSearch}
+                  onChange={(e) => searchUsers(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-xs bg-slate-50/50"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {searchingUsers ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader className="w-5 h-5 text-emerald-600 animate-spin" />
+                </div>
+              ) : userSearch.trim().length >= 2 && userSearchResults.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-xs text-slate-400">No users found</p>
+                </div>
+              ) : userSearch.trim().length < 2 ? (
+                <div className="p-6 text-center">
+                  <p className="text-xs text-slate-400">Type at least 2 characters to search</p>
+                </div>
+              ) : (
+                userSearchResults.map((u: any) => (
+                  <button
+                    key={u.id}
+                    onClick={() => startNewConversation(u)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors text-left border border-transparent hover:border-slate-200"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 shrink-0">
+                      {u.firstName?.charAt(0)}{u.lastName?.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">{u.firstName} {u.lastName}</p>
+                      <p className="text-[10px] text-slate-400 capitalize truncate">{u.role?.replace('_', ' ')}</p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Tab Filters */}
+        {!showNewChat && (
+        <>
+        {/* Pinned AI Tutor quick link */}
+        <div className="px-3 pt-3 pb-1 shrink-0">
+          <button
+            onClick={startSocraticConversation}
+            disabled={loadingSocratic}
+            className="w-full flex items-center gap-3 p-3 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 hover:border-purple-500/40 rounded-xl transition-all text-left shadow-sm group hover:scale-[0.99]"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-sm border border-purple-400">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-purple-950 group-hover:text-purple-700 transition-colors">
+                  Socratic AI Tutor
+                </span>
+                <span className="px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-700 text-[8px] font-extrabold uppercase tracking-wider animate-pulse">
+                  Active
+                </span>
+              </div>
+              <p className="text-[10px] text-indigo-900/80 truncate mt-0.5">
+                Explore concepts and solve problems!
+              </p>
+            </div>
+          </button>
+        </div>
+
         <div className="flex px-4 py-2 border-b border-slate-100 gap-1 bg-slate-50/30 overflow-x-auto shrink-0">
           {(['all', 'direct', 'support', 'community'] as const).map((tab) => (
             <button
@@ -633,6 +851,8 @@ function ChatInterface() {
             })
           )}
         </div>
+        </>
+        )}
       </div>
 
       {/* RIGHT PANE: Chat View */}
@@ -658,12 +878,32 @@ function ChatInterface() {
                     {getConversationDetails(activeConv).title}
                   </h2>
                   <p className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
-                    <Circle className="w-2 h-2 text-emerald-500 fill-emerald-500" />
-                    {getConversationDetails(activeConv).subtitle}
+                    {activeConv.type !== 'community' && activeConv.type !== 'support' ? (
+                      onlineUserIds.filter(id => id !== user?.id).length > 0 ? (
+                        <>
+                          <Circle className="w-2 h-2 text-emerald-500 fill-emerald-500" />
+                          Online
+                        </>
+                      ) : (
+                        <>
+                          <Circle className="w-2 h-2 text-slate-300 fill-slate-300" />
+                          Offline
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <Circle className="w-2 h-2 text-emerald-500 fill-emerald-500" />
+                        {getConversationDetails(activeConv).subtitle}
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
 
+              <span className={`flex items-center gap-1 text-[9px] font-medium px-2 py-1 rounded-lg border ${socketConnected ? 'text-emerald-600 border-emerald-200 bg-emerald-50' : 'text-red-500 border-red-200 bg-red-50'}`}>
+                <Circle className={`w-1.5 h-1.5 ${socketConnected ? 'fill-emerald-500 text-emerald-500' : 'fill-red-500 text-red-500'}`} />
+                {socketConnected ? 'Connected' : 'Disconnected'}
+              </span>
               {activeConv.type === 'support' && activeConv.ticket && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 border border-emerald-100 text-emerald-700 uppercase tracking-wide">
                   Ticket Status: {activeConv.ticket.status}
@@ -677,6 +917,12 @@ function ChatInterface() {
                 <div className="flex flex-col items-center justify-center p-8 h-full">
                   <Loader className="w-8 h-8 text-emerald-600 animate-spin" />
                   <p className="text-xs text-slate-400 mt-2 font-medium">Fetching conversation history...</p>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-8 h-full text-center">
+                  <MessageSquare className="w-10 h-10 text-slate-300 mb-3" />
+                  <p className="text-sm font-bold text-slate-500">No messages yet</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-[220px]">Start a conversation by typing a message below.</p>
                 </div>
               ) : (
                 messages.map((msg) => {
@@ -733,6 +979,9 @@ function ChatInterface() {
                           <span className="text-[10px] font-extrabold text-slate-800">
                             {isOwn ? 'You' : `${msg.sender?.firstName || ''} ${msg.sender?.lastName || ''}`.trim() || 'User'}
                           </span>
+                          {!isOwn && onlineUserIds.includes(msg.sender?.id) && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" title="Online" />
+                          )}
                           <span className={`text-[8px] font-semibold px-1 py-0.2 rounded border ${
                             isOwn 
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
@@ -743,6 +992,15 @@ function ChatInterface() {
                           <span className="text-[8px] text-slate-400 font-medium">
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
+                          {isOwn && (
+                            <span className="flex items-center gap-0.5 ml-1" title={msg.readAt ? `Seen ${new Date(msg.readAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Sent'}>
+                              {msg.readAt ? (
+                                <CheckCheck className="w-3 h-3 text-emerald-500" />
+                              ) : (
+                                <Check className="w-3 h-3 text-slate-400" />
+                              )}
+                            </span>
+                          )}
                         </div>
 
                         {/* Reply reference preview (if message is a reply to another message) */}
@@ -760,7 +1018,7 @@ function ChatInterface() {
                         {/* Message Bubble Body */}
                         <div className={`px-4 py-2.5 rounded-2xl text-xs shadow-sm leading-relaxed ${bubbleStyle}`}>
                           {msg.message && (
-                            <p className="whitespace-pre-wrap">{renderMessageText(msg.message, activeConv.participants)}</p>
+                            <p className="whitespace-pre-wrap">{renderMessageText(msg.message, activeConv.participants || [])}</p>
                           )}
 
                           {/* Attachment Rendering */}

@@ -50,6 +50,11 @@ interface PlatformSettings {
   emailVerification: boolean;
   maintenanceMode: boolean;
   allowRegistration: boolean;
+  primaryColor?: string;
+  secondaryColor?: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  footerText?: string;
 }
 
 export default function AdminSettingsPage() {
@@ -77,6 +82,11 @@ export default function AdminSettingsPage() {
     emailVerification: true,
     maintenanceMode: false,
     allowRegistration: true,
+    primaryColor: '#006a34',
+    secondaryColor: '#455f88',
+    logoUrl: '/logo.svg',
+    faviconUrl: '/favicon.ico',
+    footerText: 'Empowering Kenyan Education',
   });
 
   const [notificationSettings, setNotificationSettings] = useState({
@@ -201,6 +211,12 @@ export default function AdminSettingsPage() {
       const response = await api.get('/settings/platform');
       if (response.data) {
         setPlatformSettings(response.data);
+        if (response.data.primaryColor) {
+          setPrimaryColor(response.data.primaryColor);
+        }
+        if (response.data.secondaryColor) {
+          setSecondaryColor(response.data.secondaryColor);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch platform settings:', error);
@@ -368,6 +384,84 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const handlePlatformLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.match(/^image\/(jpeg|jpg|png|gif|webp|svg\+xml|svg)$/)) {
+      toast.error('Only image files are allowed (JPG, PNG, GIF, WebP, SVG)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Logo must be less than 5MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      const response = await api.post('/settings/platform/logo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setPlatformSettings(prev => ({ ...prev, logoUrl: response.data.logoUrl }));
+      toast.success('Platform logo uploaded successfully!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to upload platform logo');
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
+
+  const handlePlatformFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingBanner(true);
+    try {
+      const formData = new FormData();
+      formData.append('favicon', file);
+
+      const response = await api.post('/settings/platform/favicon', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setPlatformSettings(prev => ({ ...prev, faviconUrl: response.data.faviconUrl }));
+      toast.success('Platform favicon uploaded successfully!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to upload platform favicon');
+    } finally {
+      setUploadingBanner(false);
+      if (bannerInputRef.current) bannerInputRef.current.value = '';
+    }
+  };
+
+  const handleSavePlatformBranding = async () => {
+    setLoading(true);
+    try {
+      await api.patch('/settings/platform', {
+        primaryColor,
+        secondaryColor,
+        footerText: platformSettings.footerText,
+        platformName: platformSettings.platformName,
+      });
+      setPlatformSettings(prev => ({
+        ...prev,
+        primaryColor,
+        secondaryColor,
+      }));
+      toast.success('Platform branding saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save platform branding');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSaveIntegration = async (type: string, config: any) => {
     try {
       await api.post(`/integrations/${type}/config`, config);
@@ -451,6 +545,7 @@ export default function AdminSettingsPage() {
 
   const superAdminTabs = [
     { id: 'platform', label: 'Platform', icon: Settings },
+    { id: 'branding', label: 'Branding', icon: Palette },
     { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
@@ -528,6 +623,149 @@ export default function AdminSettingsPage() {
           >
             <Save className="w-4 h-4" /> Save Settings
           </button>
+        </div>
+      )}
+
+      {/* Platform Branding (for super_admin) */}
+      {activeTab === 'branding' && isSuperAdmin && (
+        <div className="space-y-6">
+          {/* Platform Logo Upload */}
+          <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6 space-y-6">
+            <h3 className="text-lg font-bold text-[#dae2fd] flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-[#7eda95]" />
+              Platform Logo
+            </h3>
+
+            <div className="flex items-center gap-6">
+              <div className="w-24 h-24 rounded-xl bg-[#060e20] border border-[#3f4940] flex items-center justify-center overflow-hidden">
+                {platformSettings?.logoUrl ? (
+                  <img src={platformSettings.logoUrl} alt="Platform Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <Building2 className="w-10 h-10 text-[#3f4940]" />
+                )}
+              </div>
+              <div className="flex-1 space-y-3">
+                <p className="text-sm text-[#becabd]">Upload your platform logo. Supported formats: JPG, PNG, GIF, WebP, SVG. Max size: 5MB.</p>
+                <div className="flex gap-3">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePlatformLogoUpload}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                    className="px-4 py-2 bg-[#47a263] text-[#003919] text-sm font-bold rounded-lg flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Platform Favicon Upload */}
+          <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6 space-y-6">
+            <h3 className="text-lg font-bold text-[#dae2fd] flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-[#7eda95]" />
+              Platform Favicon
+            </h3>
+
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 rounded-xl bg-[#060e20] border border-[#3f4940] flex items-center justify-center overflow-hidden">
+                {platformSettings?.faviconUrl ? (
+                  <img src={platformSettings.faviconUrl} alt="Platform Favicon" className="w-full h-full object-contain" />
+                ) : (
+                  <ImageIcon className="w-8 h-8 text-[#3f4940]" />
+                )}
+              </div>
+              <div className="flex-1 space-y-3">
+                <p className="text-sm text-[#becabd]">Upload your platform favicon. Supported formats: ICO, PNG. Max size: 2MB.</p>
+                <div className="flex gap-3">
+                  <input
+                    ref={bannerInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePlatformFaviconUpload}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => bannerInputRef.current?.click()}
+                    disabled={uploadingBanner}
+                    className="px-4 py-2 bg-[#47a263] text-[#003919] text-sm font-bold rounded-lg flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {uploadingBanner ? 'Uploading...' : 'Upload Favicon'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Colors & Info */}
+          <div className="bg-[#171f33] border border-[#3f4940] rounded-xl p-6 space-y-6">
+            <h3 className="text-lg font-bold text-[#dae2fd] flex items-center gap-2">
+              <Palette className="w-5 h-5 text-[#7eda95]" />
+              Brand Colors & Info
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-semibold text-[#becabd] uppercase tracking-wider mb-2">Primary Color</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-12 h-12 rounded-lg border-2 border-[#3f4940] cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="flex-1 bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2 text-[#dae2fd] text-sm font-mono focus:border-[#7eda95] outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#becabd] uppercase tracking-wider mb-2">Secondary Color</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={secondaryColor}
+                    onChange={(e) => setSecondaryColor(e.target.value)}
+                    className="w-12 h-12 rounded-lg border-2 border-[#3f4940] cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={secondaryColor}
+                    onChange={(e) => setSecondaryColor(e.target.value)}
+                    className="flex-1 bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2 text-[#dae2fd] text-sm font-mono focus:border-[#7eda95] outline-none"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-[#becabd] uppercase tracking-wider mb-2">Platform Footer Text</label>
+                <input
+                  type="text"
+                  value={platformSettings?.footerText || ''}
+                  onChange={(e) => setPlatformSettings({ ...platformSettings, footerText: e.target.value })}
+                  className="w-full bg-[#060e20] border border-[#3f4940] rounded-lg px-4 py-2.5 text-[#dae2fd] text-sm focus:border-[#7eda95] outline-none"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleSavePlatformBranding}
+              disabled={loading}
+              className="px-6 py-3 bg-[#47a263] text-[#003919] text-sm font-bold rounded-lg flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 uppercase tracking-wider"
+            >
+              <Save className="w-4 h-4" /> Save Platform Branding
+            </button>
+          </div>
         </div>
       )}
 

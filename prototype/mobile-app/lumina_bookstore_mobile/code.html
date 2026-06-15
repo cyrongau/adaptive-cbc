@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container": "#f0edec",
+                    "surface-container-low": "#f6f3f2",
+                    "on-secondary-fixed": "#00210d",
+                    "secondary-fixed": "#adf2bc",
+                    "on-primary-container": "#f6fff3",
+                    "surface": "#fcf9f8",
+                    "inverse-on-surface": "#f3f0ef",
+                    "on-tertiary-fixed-variant": "#3e4944",
+                    "inverse-surface": "#313030",
+                    "surface-variant": "#e5e2e1",
+                    "tertiary-fixed-dim": "#bdc9c3",
+                    "primary-fixed": "#9af7af",
+                    "primary-container": "#268549",
+                    "on-tertiary-fixed": "#131e1a",
+                    "on-primary-fixed-variant": "#005227",
+                    "surface-container-high": "#ebe7e7",
+                    "background": "#fcf9f8",
+                    "primary-fixed-dim": "#7eda95",
+                    "secondary-container": "#adf2bc",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed": "#00210c",
+                    "tertiary-container": "#6c7772",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#7eda95",
+                    "error-container": "#ffdad6",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#535e59",
+                    "tertiary-fixed": "#d9e5de",
+                    "surface-tint": "#006d36",
+                    "on-secondary-fixed-variant": "#09522a",
+                    "secondary-fixed-dim": "#92d6a2",
+                    "surface-dim": "#dcd9d9",
+                    "on-secondary-container": "#307146",
+                    "secondary": "#296a40",
+                    "on-tertiary-container": "#f5fff9",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-highest": "#e5e2e1",
+                    "on-error-container": "#93000a",
+                    "primary": "#006a34",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#becabd",
+                    "on-surface": "#1c1b1b",
+                    "surface-bright": "#fcf9f8",
+                    "outline": "#6f7a6f",
+                    "on-primary": "#ffffff",
+                    "on-surface-variant": "#3f4940",
+                    "on-background": "#1c1b1b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-lg": "32px",
+                    "base": "4px",
+                    "stack-sm": "8px",
+                    "stack-md": "16px",
+                    "gutter-mobile": "16px",
+                    "margin-mobile": "20px",
+                    "bottom-nav-height": "80px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Nunito Sans"],
+                    "label-lg": ["Nunito Sans"],
+                    "body-md": ["Nunito Sans"],
+                    "body-lg": ["Nunito Sans"],
+                    "label-sm": ["Nunito Sans"],
+                    "headline-md": ["Nunito Sans"]
+            },
+            "fontSize": {
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "headline-md-mobile": ["20px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-[120px]">
+<!-- Top AppBar (from JSON) -->
+<header class="fixed top-0 left-0 w-full z-50 bg-surface dark:bg-background flex justify-between items-center w-full px-margin-mobile py-stack-md">
+<div class="flex items-center gap-stack-md">
+<button class="active:scale-95 transition-transform duration-200 text-primary dark:text-primary-fixed-dim">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-md-mobile text-headline-md-mobile font-extrabold text-primary dark:text-primary-fixed-dim">Lumina CBC</h1>
+</div>
+<div class="flex items-center">
+<button class="active:scale-95 transition-transform duration-200 text-primary dark:text-primary-fixed-dim">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<main class="pt-[80px] px-margin-mobile">
+<!-- Category Tabs -->
+<section class="mt-stack-md mb-stack-lg">
+<div class="flex gap-stack-md bg-surface-container-low p-1 rounded-xl">
+<button class="flex-1 py-stack-sm text-center rounded-lg font-label-lg text-label-lg transition-all duration-300 bg-primary text-on-primary shadow-sm" id="tab-physical" onclick="switchTab('physical')">
+                    Physical Books
+                </button>
+<button class="flex-1 py-stack-sm text-center rounded-lg font-label-lg text-label-lg transition-all duration-300 text-on-surface-variant hover:bg-surface-variant/30" id="tab-ebooks" onclick="switchTab('ebooks')">
+                    E-Books
+                </button>
+</div>
+</section>
+<!-- Search & Filter -->
+<section class="mb-stack-lg">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-12 pr-4 py-4 bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-t-xl outline-none transition-all duration-300 font-body-md text-body-md" placeholder="Search resources..." type="text"/>
+</div>
+<div class="flex gap-stack-sm mt-stack-md overflow-x-auto hide-scrollbar">
+<span class="whitespace-nowrap px-4 py-1.5 bg-secondary-container text-on-secondary-container rounded-full font-label-sm text-label-sm">Mathematics</span>
+<span class="whitespace-nowrap px-4 py-1.5 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full font-label-sm text-label-sm">Science</span>
+<span class="whitespace-nowrap px-4 py-1.5 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full font-label-sm text-label-sm">Languages</span>
+<span class="whitespace-nowrap px-4 py-1.5 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full font-label-sm text-label-sm">Social Studies</span>
+</div>
+</section>
+<!-- Product Grid -->
+<section class="grid grid-cols-2 gap-gutter-mobile" id="book-grid">
+<!-- Card 1 -->
+<div class="book-card bg-surface-container-lowest rounded-xl p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.06)] border border-[#e9f5ee] flex flex-col h-full" data-category="physical">
+<div class="relative aspect-[3/4] mb-stack-sm rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist book cover for a physics textbook titled 'Modern Physics' with a deep green geometric pattern. The image is set against a soft, bright academic studio background with soft natural lighting and high-key shadows. The aesthetic is professional, organized, and scholarly." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTW0jJml4H53f3gBqQYU1g3liDW41my0A8mZ4jhYV9MkfMpH-wBcPxJES768fQurnc4lqBs0BYESGR4LvMJLt7vF5kWNVUIhi5Qz4Uw4BZWQDLEC4TwpHotDbJe2BH55WQW72aGb09LC55QSO8C0Y_A2cBCL5GojImAkxzMdfTLLIK6JLqOKImc8iWzVymTSKZdAo2k-wF1AwdX1G63wTlXsOswxHb8KwJStX3OGolcBy4wLnFOvKGdGEQ5Zs80F3ybKZtl14qMA"/>
+<span class="absolute top-2 left-2 px-2 py-0.5 bg-primary/90 text-on-primary text-[10px] font-bold rounded-sm uppercase tracking-wider">Stock Available</span>
+</div>
+<h3 class="font-label-lg text-label-lg text-on-surface line-clamp-2 mb-1">Principles of Modern Physics: Grade 12</h3>
+<p class="text-on-surface-variant font-label-sm text-label-sm mb-2">Dr. Alan Sterling</p>
+<div class="mt-auto">
+<div class="flex justify-between items-center">
+<span class="font-headline-md-mobile text-headline-md-mobile text-primary">$45.00</span>
+<button class="p-2 bg-primary-container text-on-primary-container rounded-full active:scale-90 transition-transform" onclick="addToCart('Principles of Modern Physics')">
+<span class="material-symbols-outlined text-[20px]">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="book-card bg-surface-container-lowest rounded-xl p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.06)] border border-[#e9f5ee] flex flex-col h-full" data-category="ebooks">
+<div class="relative aspect-[3/4] mb-stack-sm rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="A vibrant digital book cover for 'The World of Biology' featuring microscopic cellular patterns in academic green and white. The lighting is crisp and modern, emphasizing the digital-first nature of the product. The composition is clean and centered in a bright environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCx6icSXbg5uJJSk0PwHyOyUfmrYWCuqC-TGa3o7sMaqyCKtyxHYEYwF9epFXUU6gBrRUY6eZyN34zxP_4qRz3yw0cHMrEpxMDIaoaecRJt4Ue-BPplE3_aB-tTLVQ1wc3SK3OGjDNpdIH2GzfHaViSRnJmYFTNAoHKMGbZzvsCx-AO40QyEJIbVEWn49C-hpd0WSZgaVzz8KB2KixcMPBI-dVQ_VV4it947OJFJ_xeWlxjUqhyh5tVpTJrPP_kZRe1qg4P4RgSig"/>
+<span class="absolute top-2 left-2 px-2 py-0.5 bg-secondary text-on-secondary text-[10px] font-bold rounded-sm uppercase tracking-wider">Instant Access</span>
+</div>
+<h3 class="font-label-lg text-label-lg text-on-surface line-clamp-2 mb-1">Digital Biology: Ecosystems &amp; Evolution</h3>
+<p class="text-on-surface-variant font-label-sm text-label-sm mb-2">Prof. Sarah J.</p>
+<div class="mt-auto">
+<div class="flex justify-between items-center">
+<span class="font-headline-md-mobile text-headline-md-mobile text-primary">$22.99</span>
+<button class="p-2 bg-primary-container text-on-primary-container rounded-full active:scale-90 transition-transform" onclick="addToCart('Digital Biology')">
+<span class="material-symbols-outlined text-[20px]">cloud_download</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="book-card bg-surface-container-lowest rounded-xl p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.06)] border border-[#e9f5ee] flex flex-col h-full" data-category="physical">
+<div class="relative aspect-[3/4] mb-stack-sm rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="An elegant classic literature book cover for 'World History Volume I' with gold-leaf typography on a deep green leather-like texture. The lighting is warm and academic, suggesting a prestigious university library setting. The image is bright and high-contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-55tZh5iSuTcfeLXuYttIn7vSDI30ETtNE5uZxfOPP8XwCxF_h7shBZq-n1o8bAHbVCNpZmCelGrm3e4jkak_ow6fU_T7yh2-qYQeXUAEExIMl1urQgglIJVTufzmNcQUiNncpBfLPtOid2qnX9EGocG3nBFeDwwrYvSIO6Tm8sL7u0xJ0wVAnKbyhBgZDS76ySPRha4Bm1zSgsP3Tl2BjshiuZPy-62nM81J6Ht6CovGuAai2FARvEtPH8zMEbaBj1d5-VDy6A"/>
+<span class="absolute top-2 left-2 px-2 py-0.5 bg-primary/90 text-on-primary text-[10px] font-bold rounded-sm uppercase tracking-wider">Stock Available</span>
+</div>
+<h3 class="font-label-lg text-label-lg text-on-surface line-clamp-2 mb-1">Global History: The Renaissance Era</h3>
+<p class="text-on-surface-variant font-label-sm text-label-sm mb-2">History Dept.</p>
+<div class="mt-auto">
+<div class="flex justify-between items-center">
+<span class="font-headline-md-mobile text-headline-md-mobile text-primary">$38.50</span>
+<button class="p-2 bg-primary-container text-on-primary-container rounded-full active:scale-90 transition-transform" onclick="addToCart('Global History')">
+<span class="material-symbols-outlined text-[20px]">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="book-card bg-surface-container-lowest rounded-xl p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.06)] border border-[#e9f5ee] flex flex-col h-full" data-category="ebooks">
+<div class="relative aspect-[3/4] mb-stack-sm rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="A modern tech-focused e-book cover for 'Introduction to Algorithms' with a circuit board design in monochrome green. The style is sleek and technological, set in a bright white space with soft ambient occlusion. Professional and high-tech academic feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBz06czVFvyzkwqPc_xE2eHUFI-i_0Ltn2iQ96Gex9Q3-3DFlCI7kS2uDSFVavUfmvYTAQLAyuhLU1PlUQvVO5pmPXbovUctGoHZNQ2_mZ5NNW0hct4W4GKWIRRwNrJ4SN_rMD6dzrc6C1kyLg5kt0hyJvNZgXqavi-oiDUwvOfM0XXmM8GMgvm56M2WMJT8AkUDePWAhlhhkecggIxbttAJgvZGqYV8YAY7EAPghTJt2sG7CTuO7EX2pUMaqb6ux6l41Gepmcfcg"/>
+<span class="absolute top-2 left-2 px-2 py-0.5 bg-secondary text-on-secondary text-[10px] font-bold rounded-sm uppercase tracking-wider">Instant Access</span>
+</div>
+<h3 class="font-label-lg text-label-lg text-on-surface line-clamp-2 mb-1">Introduction to Data Algorithms</h3>
+<p class="text-on-surface-variant font-label-sm text-label-sm mb-2">Code Academy</p>
+<div class="mt-auto">
+<div class="flex justify-between items-center">
+<span class="font-headline-md-mobile text-headline-md-mobile text-primary">$15.00</span>
+<button class="p-2 bg-primary-container text-on-primary-container rounded-full active:scale-90 transition-transform" onclick="addToCart('Data Algorithms')">
+<span class="material-symbols-outlined text-[20px]">cloud_download</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Shopping Cart Button -->
+<div class="fixed bottom-[100px] right-6 z-[60]">
+<div class="absolute -top-1 -right-1 bg-error text-on-error text-[10px] font-bold px-1.5 py-0.5 rounded-full scale-0 transition-transform" id="cart-counter">0</div>
+<button class="w-[56px] h-[56px] bg-primary text-on-primary rounded-full flex items-center justify-center shadow-[0px_6px_20px_rgba(45,138,78,0.4)] active:scale-90 transition-all duration-300">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+</button>
+</div>
+<!-- Bottom NavBar (from JSON) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 h-bottom-nav-height bg-surface-container-lowest dark:bg-inverse-surface flex justify-around items-center px-gutter-mobile pb-safe rounded-t-xl shadow-[0px_-6px_20px_rgba(45,138,78,0.2)] dark:shadow-none">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-label-sm text-label-sm">Learning</span>
+</a>
+<!-- Marketplace is active based on page intent -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-2xl px-stack-md py-base transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">storefront</span>
+<span class="font-label-sm text-label-sm">Marketplace</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-stack-md py-base hover:bg-surface-variant dark:hover:bg-on-surface-variant/10 rounded-2xl transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+<script>
+        let cartCount = 0;
+        const cartCounter = document.getElementById('cart-counter');
+
+        function switchTab(type) {
+            const physicalBtn = document.getElementById('tab-physical');
+            const ebookBtn = document.getElementById('tab-ebooks');
+            const cards = document.querySelectorAll('.book-card');
+
+            if (type === 'physical') {
+                physicalBtn.classList.add('bg-primary', 'text-on-primary', 'shadow-sm');
+                physicalBtn.classList.remove('text-on-surface-variant');
+                ebookBtn.classList.remove('bg-primary', 'text-on-primary', 'shadow-sm');
+                ebookBtn.classList.add('text-on-surface-variant');
+                
+                cards.forEach(card => {
+                    if (card.dataset.category === 'physical') {
+                        card.style.display = 'flex';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            } else {
+                ebookBtn.classList.add('bg-primary', 'text-on-primary', 'shadow-sm');
+                ebookBtn.classList.remove('text-on-surface-variant');
+                physicalBtn.classList.remove('bg-primary', 'text-on-primary', 'shadow-sm');
+                physicalBtn.classList.add('text-on-surface-variant');
+
+                cards.forEach(card => {
+                    if (card.dataset.category === 'ebooks') {
+                        card.style.display = 'flex';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        function addToCart(bookTitle) {
+            cartCount++;
+            cartCounter.innerText = cartCount;
+            cartCounter.classList.remove('scale-0');
+            cartCounter.classList.add('scale-100');
+            
+            // Subtle toast feedback could be added here
+        }
+
+        // Initialize grid view
+        switchTab('physical');
+    </script>
+</body></html>
