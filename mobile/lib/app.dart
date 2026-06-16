@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/otp_screen.dart';
+import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/home/screens/home_screen.dart';
 import 'features/subjects/screens/subjects_screen.dart';
 import 'features/analytics/screens/analytics_screen.dart';
@@ -48,11 +49,17 @@ class _AdaptiveCBCAppState extends State<AdaptiveCBCApp> {
       redirect: (context, state) {
         final isAuthenticated = authProvider.currentUser != null;
         final isTwoFactorPending = authProvider.isTwoFactorPending;
+        final hasSeenOnboarding = authProvider.hasSeenOnboarding;
         final goingToLogin = state.uri.toString() == '/login';
         final goingToOtp = state.uri.toString() == '/otp';
+        final goingToOnboarding = state.uri.toString() == '/onboarding';
 
-        // 1. If not authenticated, force login/otp
+        // 1. If not authenticated, force login/otp/onboarding
         if (!isAuthenticated) {
+          if (!hasSeenOnboarding) {
+            if (goingToOnboarding) return null;
+            return '/onboarding';
+          }
           if (isTwoFactorPending) {
             if (goingToOtp) return null;
             return '/otp';
@@ -61,8 +68,8 @@ class _AdaptiveCBCAppState extends State<AdaptiveCBCApp> {
           return '/login';
         }
 
-        // 2. If authenticated and trying to go to login or OTP, redirect to correct landing
-        if (goingToLogin || goingToOtp) {
+        // 2. If authenticated and trying to go to auth or onboarding screens, redirect to correct landing
+        if (goingToLogin || goingToOtp || goingToOnboarding) {
           final role = authProvider.currentUser?['role'] ?? 'student';
           return role == 'parent' ? '/parent' : '/home';
         }
@@ -84,6 +91,10 @@ class _AdaptiveCBCAppState extends State<AdaptiveCBCApp> {
         return null;
       },
       routes: [
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => const OnboardingScreen(),
+        ),
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),

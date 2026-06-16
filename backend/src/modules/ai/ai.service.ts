@@ -82,4 +82,63 @@ Return ONLY a raw JSON object (no markdown formatting, no code blocks) matching 
       throw new InternalServerErrorException('Failed to generate adaptive game');
     }
   }
+
+  async generateAssignmentQuestions(
+    subject: string,
+    grade: number,
+    strand: string,
+    subStrand: string,
+    count: number
+  ): Promise<any[]> {
+    const apiKey = this.configService.get('OPENROUTER_API_KEY');
+    if (!apiKey) {
+      throw new InternalServerErrorException('OpenRouter API key not configured');
+    }
+
+    const systemPrompt = `You are an expert curriculum developer for an adaptive learning platform.
+Your job is to generate exactly ${count} questions for Grade ${grade} students in ${subject}.
+The questions must specifically target the strand: "${strand}" and sub-strand: "${subStrand}".
+Mix multiple choice, true/false, and short answer types.
+
+Return ONLY a raw JSON array (no markdown formatting, no code blocks) matching this schema for each question:
+[
+  {
+    "content": "The question text",
+    "type": "multiple_choice" | "true_false" | "short_answer",
+    "difficulty": "medium",
+    "marks": 2,
+    "options": [ // Only required if type is multiple_choice or true_false
+      { "text": "Option text", "isCorrect": true }
+    ],
+    "correctAnswer": "Text answer if type is short_answer",
+    "explanation": "Explanation of why the correct answer is correct."
+  }
+]`;
+
+    try {
+      const response = await axios.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          model: 'google/gemma-4-31b-it:free',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Generate the ${count} questions now.` }
+          ],
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const content = response.data.choices[0].message.content;
+      const jsonString = content.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(jsonString);
+    } catch (error: any) {
+      console.error('Error generating questions:', error.message);
+      throw new InternalServerErrorException('Failed to generate assignment questions via AI');
+    }
+  }
 }

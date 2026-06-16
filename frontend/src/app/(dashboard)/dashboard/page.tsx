@@ -12,7 +12,7 @@ import {
   Sparkles, Building2, Users, FileText, GraduationCap, MapPin,
   PlayCircle, BarChart3, ArrowRight, RotateCcw, PenTool,
   ShieldCheck, Activity, UserCheck, AlertCircle, ClipboardCheck,
-  School, AlarmCheck, ListChecks,
+  School, AlarmCheck, ListChecks, Bell,
 } from 'lucide-react';
 import RecommendationsWidget from '@/components/RecommendationsWidget';
 import Image from 'next/image';
@@ -68,6 +68,7 @@ export default function DashboardOverviewPage() {
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [timetableData, setTimetableData] = useState<any>(null);
   const [loadingTimetable, setLoadingTimetable] = useState(false);
+  const [studentAssignments, setStudentAssignments] = useState<any[]>([]);
 
   const isTeacher = user?.role === 'teacher';
   const isTutor = user?.role === 'tutor';
@@ -93,7 +94,10 @@ export default function DashboardOverviewPage() {
         fetchDashboardData();
       }
     }
-    if (isStudent) fetchEnrolledCourses();
+    if (isStudent) {
+      fetchEnrolledCourses();
+      fetchStudentAssignments();
+    }
     if (isTeacher || isTutor) {
       fetchMyCourses();
       fetchTeacherTimetable();
@@ -150,6 +154,15 @@ export default function DashboardOverviewPage() {
       setEnrolledCourses([]);
     } finally {
       setLoadingCourses(false);
+    }
+  };
+
+  const fetchStudentAssignments = async () => {
+    try {
+      const res = await api.get('/assignments/student');
+      setStudentAssignments(res.data || []);
+    } catch {
+      setStudentAssignments([]);
     }
   };
 
@@ -858,8 +871,44 @@ export default function DashboardOverviewPage() {
   const formatActivityDate = (date: string) => new Date(date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
   const formatTaskDue = (due: string) => new Date(due).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
+  // Filter pending assignments to show in the banner
+  const pendingAssignments = studentAssignments.filter(a => {
+    const isPastDue = new Date(a.dueDate) < new Date();
+    // Assuming we don't have submissions locally, or if we do, check them. 
+    // Ideally, the backend `/assignments/student` returns assignments relevant to the student.
+    // For now, we'll show published assignments that are not past due.
+    return a.status === 'published' && !isPastDue;
+  });
+
   return (
     <div className="space-y-8">
+      {/* Banner for pending assignments */}
+      {pendingAssignments.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-indigo-600 text-white rounded-xl shadow-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-2xl"></div>
+          <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-indigo-400 opacity-20 rounded-full blur-xl"></div>
+          
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+              <Bell className="w-5 h-5 text-white animate-pulse" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">You have {pendingAssignments.length} pending assignment{pendingAssignments.length > 1 ? 's' : ''}!</h3>
+              <p className="text-indigo-100 text-sm">
+                Next due: {new Date(pendingAssignments[0].dueDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+          <Link href="/assignments" className="relative z-10 shrink-0 px-5 py-2 bg-white text-indigo-600 font-bold text-sm rounded-lg hover:bg-indigo-50 transition-colors shadow-sm">
+            View Assignments
+          </Link>
+        </motion.div>
+      )}
+
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

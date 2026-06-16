@@ -283,7 +283,7 @@ function LoginForm() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={() => handleSocialLogin('Google')}
                   className="flex items-center justify-center border border-gray-100 rounded-xl py-3 hover:bg-gray-50 transition-colors" title="Google"
@@ -300,15 +300,6 @@ function LoginForm() {
                   <img src="/icons/apple.svg" alt="Apple" className="w-5 h-5" onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     (e.currentTarget.parentElement as HTMLElement)!.innerHTML = '<span class="text-xs font-bold">Apple</span>';
-                  }} />
-                </button>
-                <button 
-                  onClick={() => handleSocialLogin('Microsoft')}
-                  className="flex items-center justify-center border border-gray-100 rounded-xl py-3 hover:bg-gray-50 transition-colors" title="Microsoft"
-                >
-                  <img src="/icons/microsoft.svg" alt="Microsoft" className="w-5 h-5" onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    (e.currentTarget.parentElement as HTMLElement)!.innerHTML = '<span class="text-xs font-bold">Microsoft</span>';
                   }} />
                 </button>
               </div>

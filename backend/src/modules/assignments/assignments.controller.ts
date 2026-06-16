@@ -17,6 +17,23 @@ export class AssignmentsController {
     return this.assignmentsService.create(createDto, req.user.id);
   }
 
+  @Post('generate-questions')
+  @ApiOperation({ summary: 'Smart pick or Generate questions using AI for assignment' })
+  async generateQuestions(
+    @Body() body: { subject: string; grade: number; strand: string; subStrand: string; count: number; forceAi?: boolean },
+    @Request() req
+  ) {
+    return this.assignmentsService.generateQuestions(
+      body.subject,
+      body.grade,
+      body.strand,
+      body.subStrand,
+      body.count,
+      req.user.id,
+      body.forceAi
+    );
+  }
+
   @Get('my-assignments')
   @ApiOperation({ summary: 'Get all assignments for current teacher' })
   async findMyAssignments(@Request() req) {

@@ -58,6 +58,22 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('social-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login or register with Firebase Social Auth (Google, Apple, Phone)' })
+  async socialLogin(
+    @Body('idToken') idToken: string,
+    @Body('role') role: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (!idToken) {
+      throw new UnauthorizedException('No idToken provided');
+    }
+    const { user, tokens } = await this.authService.socialLogin(idToken, role);
+    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return { user, accessToken: tokens.accessToken };
+  }
+
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Send OTP' })

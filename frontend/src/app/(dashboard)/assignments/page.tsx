@@ -7,7 +7,7 @@ import 'react-quill/dist/quill.snow.css';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { FileText, Plus, Clock, Users, CheckCircle, XCircle, ArrowRight, Edit2, Trash2, BookOpen, Star, Send } from 'lucide-react';
+import { FileText, Plus, Clock, Users, CheckCircle, XCircle, ArrowRight, Edit2, Trash2, BookOpen, Star, Send, Sparkles } from 'lucide-react';
 import HtmlContent from '@/components/ui/HtmlContent';
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
@@ -138,6 +138,8 @@ export default function AssignmentsPage() {
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
   const [curriculumTree, setCurriculumTree] = useState<CurriculumStrand[]>([]);
   const [curriculumLoading, setCurriculumLoading] = useState(false);
+  const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const isStudent = user?.role === 'student';
   const isTeacher = user?.role === 'teacher';
@@ -228,7 +230,8 @@ export default function AssignmentsPage() {
         grade: formData.grade,
         totalPoints: formData.totalPoints,
         dueDate: new Date(formData.dueDate),
-        questionCount: formData.questionCount,
+        questionCount: generatedQuestions.length > 0 ? generatedQuestions.length : formData.questionCount,
+        questionIds: generatedQuestions.length > 0 ? generatedQuestions.map((q) => q.id) : undefined,
       });
       toast.success('Assignment created successfully!');
       setShowModal(false);
@@ -296,7 +299,7 @@ export default function AssignmentsPage() {
     }
   };
 
-  const openEditModal = (assignment: Assignment) => {
+  const openEditModal = async (assignment: Assignment) => {
     setEditingAssignment(assignment);
     setFormData({
       title: assignment.title,
@@ -310,6 +313,13 @@ export default function AssignmentsPage() {
       totalPoints: assignment.totalPoints,
       questionCount: assignment.questionCount,
     });
+    setGeneratedQuestions([]);
+    try {
+      const res = await api.get(`/assignments/${assignment.id}/questions`);
+      setGeneratedQuestions(res.data);
+    } catch {
+      console.error('Failed to load assignment questions');
+    }
   };
 
   const resetForm = () => {
@@ -326,6 +336,31 @@ export default function AssignmentsPage() {
       totalPoints: 10,
       questionCount: 5,
     });
+    setGeneratedQuestions([]);
+  };
+
+  const handleGenerateQuestions = async (forceAi = false) => {
+    if (!formData.subject || !formData.strand || !formData.subStrand || !formData.grade) {
+      toast.error('Please select Subject, Grade, Strand, and Sub-Strand first.');
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const res = await api.post('/assignments/generate-questions', {
+        subject: formData.subject,
+        grade: formData.grade,
+        strand: formData.strand,
+        subStrand: formData.subStrand,
+        count: formData.questionCount,
+        forceAi,
+      });
+      setGeneratedQuestions(res.data);
+      toast.success(forceAi ? 'Questions generated successfully!' : 'Questions picked successfully!');
+    } catch (error) {
+      toast.error('Failed to get questions');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -695,6 +730,61 @@ export default function AssignmentsPage() {
                   />
                 </div>
               </div>
+
+              {/* Questions Section */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-slate-900">Assignment Questions</h3>
+                  {!editingAssignment && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateQuestions(false)}
+                        disabled={isGenerating || generatedQuestions.length > 0}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200 disabled:opacity-50"
+                      >
+                        {isGenerating ? <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div> : <BookOpen className="w-4 h-4" />}
+                        Smart Pick
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateQuestions(true)}
+                        disabled={isGenerating || generatedQuestions.length > 0}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300 disabled:opacity-50"
+                      >
+                        {isGenerating ? <div className="w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></div> : <Sparkles className="w-4 h-4" />}
+                        AI Generate
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {generatedQuestions.length > 0 ? (
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    {generatedQuestions.map((q: any, idx: number) => (
+                      <div key={idx} className="bg-white border border-slate-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2 mb-2">
+                          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">{idx + 1}</span>
+                          <div className="text-sm font-medium text-slate-800">
+                            <HtmlContent html={q.content} renderMath={true} />
+                          </div>
+                        </div>
+                        {q.options && (
+                          <div className="ml-8 space-y-1">
+                            {q.options.map((opt: any, optIdx: number) => (
+                              <div key={optIdx} className={`text-xs px-2 py-1 rounded ${opt.isCorrect ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'text-slate-500'}`}>
+                                {['A', 'B', 'C', 'D'][optIdx]}. {opt.text}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 text-center py-4">No questions selected. Click "Generate AI Questions" or create without them.</p>
+                )}
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"

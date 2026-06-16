@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/constants.dart';
+import '../../../core/services/notification_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
@@ -11,6 +13,7 @@ class AuthProvider extends ChangeNotifier {
   String? _tempEmail;
   Map<String, dynamic>? _currentUser;
   String? _errorMessage;
+  bool _hasSeenOnboarding = false;
 
   bool get isLoading => _isLoading;
   bool get isTwoFactorPending => _isTwoFactorPending;
@@ -18,10 +21,25 @@ class AuthProvider extends ChangeNotifier {
   Map<String, dynamic>? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
+  bool get hasSeenOnboarding => _hasSeenOnboarding;
 
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  Future<void> _syncFcmToken() async {
+    final token = NotificationService().fcmToken;
+    if (token != null) {
+      try {
+        await _apiClient.dio.put(
+          AppConstants.fcmToken,
+          data: {'fcmToken': token},
+        );
+      } catch (e) {
+        print('[Auth] Failed to sync FCM token: $e');
+      }
+    }
   }
 
   Future<bool> checkSession() async {
@@ -30,11 +48,15 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      _hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
       final response = await _apiClient.dio.get(AppConstants.profile);
       if (response.statusCode == 200) {
         _currentUser = response.data;
         _isLoading = false;
         notifyListeners();
+        _syncFcmToken();
         return true;
       }
     } catch (e) {
@@ -112,12 +134,48 @@ class AuthProvider extends ChangeNotifier {
         _tempEmail = null;
         _isLoading = false;
         notifyListeners();
+        _syncFcmToken();
         return true;
       } else {
         _errorMessage = response.data['message'] ?? 'Invalid verification code';
       }
     } on DioException catch (e) {
       _errorMessage = e.response?.data['message'] ?? 'Invalid verification code';
+    } catch (e) {
+      _errorMessage = 'An unexpected error occurred';
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
+  Future<bool> socialLogin(String idToken, {String role = 'parent'}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.dio.post(
+        AppConstants.socialLogin,
+        data: {
+          'idToken': idToken,
+          'role': role,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Backend either returns user directly or sets cookies
+        _currentUser = response.data['user'] ?? response.data;
+        _isLoading = false;
+        notifyListeners();
+        _syncFcmToken();
+        return true;
+      } else {
+        _errorMessage = response.data['message'] ?? 'Social login failed';
+      }
+    } on DioException catch (e) {
+      _errorMessage = e.response?.data['message'] ?? 'Network or server error';
     } catch (e) {
       _errorMessage = 'An unexpected error occurred';
     }

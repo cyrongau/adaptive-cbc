@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lumina CBC - Onboarding</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .progress-bar-glow {
+            box-shadow: 0 0 12px rgba(0, 109, 54, 0.3);
+        }
+        .bento-inner-shadow {
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 4s ease-in-out infinite;
+        }
+        @keyframes grow {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .animate-grow {
+            animation: grow 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-surface": "#1c1b1b",
+                      "tertiary": "#535e59",
+                      "secondary-fixed-dim": "#92d6a2",
+                      "background": "#fcf9f8",
+                      "on-secondary-fixed-variant": "#09522a",
+                      "surface-container-highest": "#e5e2e1",
+                      "tertiary-fixed": "#d9e5de",
+                      "inverse-primary": "#7eda95",
+                      "surface-tint": "#006d36",
+                      "surface-container": "#f0edec",
+                      "on-tertiary": "#ffffff",
+                      "on-primary-container": "#f6fff3",
+                      "surface-bright": "#fcf9f8",
+                      "on-surface-variant": "#3f4940",
+                      "tertiary-fixed-dim": "#bdc9c3",
+                      "surface-container-low": "#f6f3f2",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary": "#296a40",
+                      "surface-variant": "#e5e2e1",
+                      "on-tertiary-container": "#f5fff9",
+                      "outline-variant": "#becabd",
+                      "on-error-container": "#93000a",
+                      "on-background": "#1c1b1b",
+                      "error-container": "#ffdad6",
+                      "outline": "#6f7a6f",
+                      "on-primary": "#ffffff",
+                      "on-secondary-container": "#307146",
+                      "on-secondary": "#ffffff",
+                      "secondary-fixed": "#adf2bc",
+                      "error": "#ba1a1a",
+                      "tertiary-container": "#6c7772",
+                      "primary-container": "#268549",
+                      "surface": "#fcf9f8",
+                      "on-secondary-fixed": "#00210d",
+                      "secondary-container": "#adf2bc",
+                      "surface-dim": "#dcd9d9",
+                      "primary-fixed-dim": "#7eda95",
+                      "primary-fixed": "#9af7af",
+                      "on-tertiary-fixed-variant": "#3e4944",
+                      "inverse-on-surface": "#f3f0ef",
+                      "on-error": "#ffffff",
+                      "on-tertiary-fixed": "#131e1a",
+                      "on-primary-fixed-variant": "#005227",
+                      "on-primary-fixed": "#00210c",
+                      "primary": "#006a34",
+                      "surface-container-high": "#ebe7e7",
+                      "inverse-surface": "#313030"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "gutter-mobile": "16px",
+                      "stack-sm": "8px",
+                      "margin-mobile": "20px",
+                      "base": "4px",
+                      "stack-md": "16px",
+                      "stack-lg": "32px",
+                      "bottom-nav-height": "80px"
+              },
+              "fontFamily": {
+                      "label-lg": ["Nunito Sans"],
+                      "headline-md": ["Nunito Sans"],
+                      "label-sm": ["Nunito Sans"],
+                      "body-lg": ["Nunito Sans"],
+                      "body-md": ["Nunito Sans"],
+                      "headline-lg": ["Nunito Sans"]
+              },
+              "fontSize": {
+                      "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                      "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "headline-md-mobile": ["20px", {"lineHeight": "26px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "400"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "800"}]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col font-body-md text-body-md overflow-x-hidden">
+<!-- Top AppBar (Identity Suppression Rule: Only generic logo for onboarding) -->
+<header class="flex justify-between items-center w-full px-margin-mobile py-stack-md bg-surface">
+<h1 class="font-headline-md text-headline-md-mobile font-extrabold text-primary">Lumina CBC</h1>
+<button class="text-on-surface-variant font-label-lg text-label-lg transition-all active:scale-95">Skip</button>
+</header>
+<main class="flex-grow flex flex-col px-margin-mobile pt-stack-md pb-stack-lg">
+<!-- Illustration Canvas: The Growing Tree of Mastery -->
+<div class="relative w-full aspect-square flex items-center justify-center mb-stack-lg animate-grow">
+<!-- Background Atmospheric Effect -->
+<div class="absolute inset-0 rounded-full bg-secondary-container/20 blur-3xl scale-75 opacity-50"></div>
+<div class="relative z-10 w-full h-full bg-surface-container-lowest rounded-[32px] border border-outline-variant/30 flex items-center justify-center overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.06)]">
+<!-- Illustration Placeholder -->
+<div class="relative w-full h-full flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A lush digital illustration of a vibrant green seedling growing into a majestic academic tree. The tree features thick foliage where shimmering gold and silver academic badges hang from branches like fruit. The background is a clean, bright academic green and white gradient with soft sunbeams, reflecting a modern, optimistic scholarly atmosphere with high-end digital art finish. Soft, ambient shadows give depth to the leaves and badges." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPB9pVuCFaRyPQPwiK2d8PUvOBzYXmPM63k_VNfQdoeB1AgfvTYir1ZqyVFJEi9FhyTsUYHpKGCicg3iLFB6-5rPGHHbxYT1Gdlb0G0aR2EJyoLPADb1i_aVPjWpIB_xxMC5yjHuwPyiWrC1P0mD5PM4T6p4yg1W6By4_0v5-qGi5akwWpP871NITFseHElA2vXdSXEbL33eAaxzM6nnSBIrmB_1N_KHCTiV0YfuZxQmmbEv-YGce7oNtTh3CZurWgSqXZBtS7WA"/>
+<!-- Floating Badge Interactions (Visual UI Elements) -->
+<div class="absolute top-[20%] right-[25%] animate-float" style="animation-delay: 0.5s;">
+<div class="bg-primary-container p-2 rounded-full shadow-lg border-2 border-white">
+<span class="material-symbols-outlined text-on-primary-container text-[20px]">workspace_premium</span>
+</div>
+</div>
+<div class="absolute top-[35%] left-[20%] animate-float" style="animation-delay: 1.2s;">
+<div class="bg-secondary p-2 rounded-full shadow-lg border-2 border-white">
+<span class="material-symbols-outlined text-white text-[20px]">military_tech</span>
+</div>
+</div>
+<div class="absolute bottom-[30%] right-[15%] animate-float" style="animation-delay: 0.8s;">
+<div class="bg-primary p-2 rounded-full shadow-lg border-2 border-white">
+<span class="material-symbols-outlined text-white text-[20px]">verified</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Copy Section -->
+<div class="text-center mb-stack-lg">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-stack-sm">
+                See Your Growth in Real-Time
+            </h2>
+<p class="text-on-surface-variant font-body-md text-body-md px-base leading-relaxed">
+                Detailed analytics and parental reports keep you informed of your progress and celebrate every milestone.
+            </p>
+</div>
+<!-- Progress Mini-Bento Dash (Previewing the UI features) -->
+<div class="grid grid-cols-2 gap-stack-sm mb-stack-lg">
+<div class="bg-surface-container-low p-stack-md rounded-xl border border-outline-variant/20 bento-inner-shadow">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary text-[18px]">trending_up</span>
+<span class="text-label-sm font-label-sm text-tertiary">Weekly Goal</span>
+</div>
+<div class="h-1.5 w-full bg-outline-variant/30 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[75%] rounded-full progress-bar-glow"></div>
+</div>
+<p class="text-label-sm font-label-sm text-on-surface mt-2">75% Complete</p>
+</div>
+<div class="bg-surface-container-low p-stack-md rounded-xl border border-outline-variant/20 bento-inner-shadow">
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-secondary text-[18px]">bar_chart</span>
+<span class="text-label-sm font-label-sm text-tertiary">Skill Level</span>
+</div>
+<p class="text-headline-md-mobile font-headline-md-mobile text-secondary">Expert</p>
+</div>
+</div>
+<!-- Action Footer -->
+<div class="mt-auto flex flex-col gap-stack-md items-center">
+<!-- Progress Indicator -->
+<div class="flex gap-2">
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-6 h-2 rounded-full bg-primary"></div>
+</div>
+<!-- Primary Action -->
+<button class="w-full bg-primary text-on-primary font-label-lg text-label-lg py-5 rounded-2xl shadow-[0px_6px_20px_rgba(45,138,78,0.2)] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2" onclick="handleGetStarted()">
+                Get Started
+                <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</main>
+<script>
+        function handleGetStarted() {
+            // Ripple effect logic or navigation logic
+            console.log("Navigating to main dashboard...");
+            const btn = event.currentTarget;
+            btn.style.backgroundColor = 'var(--tw-colors-primary-container)';
+            setTimeout(() => {
+                // Redirect or update UI state
+            }, 300);
+        }
+
+        // Simple interaction to make the tree "react" to touch
+        document.querySelector('.animate-grow').addEventListener('touchstart', function() {
+            this.style.transform = 'scale(1.02)';
+            this.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        });
+        document.querySelector('.animate-grow').addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    </script>
+</body></html>

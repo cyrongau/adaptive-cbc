@@ -5,6 +5,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
+import '../../../core/services/notification_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -26,14 +29,33 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   final List<TextEditingController> _pinControllers = List.generate(4, (_) => TextEditingController());
   final List<FocusNode> _pinFocusNodes = List.generate(4, (_) => FocusNode());
 
+  StreamSubscription<RemoteMessage>? _alertSubscription;
+
   @override
   void initState() {
     super.initState();
     _loadParentData();
+
+    // Listen for real-time parent alerts
+    _alertSubscription = NotificationService().onAlertReceived.listen((message) {
+      if (mounted) {
+        // Automatically refresh dashboard when a notification is received
+        _loadParentData();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message.notification?.title ?? 'New Alert Received!'),
+            backgroundColor: AppColors.primaryGreen,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _alertSubscription?.cancel();
     _otpController.dispose();
     for (var controller in _pinControllers) {
       controller.dispose();

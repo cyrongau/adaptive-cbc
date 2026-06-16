@@ -12,6 +12,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Otp } from './entities/otp.entity';
 import * as speakeasy from 'speakeasy';
+import { getAuth } from 'firebase-admin/auth';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import * as path from 'path';
+import * as fs from 'fs';
 
 @Injectable()
 export class AuthService {
@@ -27,7 +31,24 @@ export class AuthService {
     private otpRepository: Repository<Otp>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-  ) {}
+  ) {
+    try {
+      if (!getApps().length) {
+        const serviceAccountPath = path.join(process.cwd(), 'firebase-adminsdk.json');
+        if (fs.existsSync(serviceAccountPath)) {
+          const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+          initializeApp({
+            credential: cert(serviceAccount),
+          });
+          this.logger.log('Firebase Admin SDK initialized successfully');
+        } else {
+          this.logger.warn('firebase-adminsdk.json not found. Social login will fail.');
+        }
+      }
+    } catch (e) {
+      this.logger.error('Failed to initialize Firebase Admin', e);
+    }
+  }
 
   async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.usersService.findByEmail(email);
@@ -363,6 +384,63 @@ export class AuthService {
     if (updates.lastName) user.lastName = updates.lastName;
     if (updates.phone) user.phone = updates.phone;
     return this.usersRepository.save(user);
+  }
+
+  async socialLogin(idToken: string, requestedRole: string = 'parent') {
+    try {
+      const decodedToken = await getAuth().verifyIdToken(idToken);
+      const { email, phone_number, name } = decodedToken;
+
+      let user: User | undefined;
+
+      if (email) {
+        user = await this.usersService.findByEmail(email);
+      }
+      
+      if (!user && phone_number) {
+        user = await this.usersService.findByPhone(phone_number);
+      }
+
+      if (!user) {
+        // Register new user
+        const splitName = name ? name.split(' ') : ['User'];
+        const firstName = splitName[0];
+        const lastName = splitName.length > 1 ? splitName.slice(1).join(' ') : 'Unknown';
+        
+        // Ensure email is populated since schema requires it
+        const finalEmail = email || `${phone_number}@phone-login.local`;
+
+        const registerDto = {
+          email: finalEmail,
+          firstName,
+          lastName,
+          password: randomBytes(16).toString('hex'), // Random strong password
+          role: requestedRole,
+        };
+
+        user = await this.usersService.create(registerDto);
+        
+        if (phone_number) {
+          await this.usersRepository.update(user.id, { phone: phone_number });
+        }
+      }
+
+      if (!user.isActive) {
+        throw new UnauthorizedException('Account is deactivated');
+      }
+
+      if (user.isSuspended) {
+        throw new UnauthorizedException(`Account is suspended. Reason: ${user.suspensionReason || 'Contact support'}`);
+      }
+
+      const tokens = await this.generateTokens(user);
+      await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
+      
+      return { user: this.sanitizeUser(user), tokens };
+    } catch (error) {
+      this.logger.error('Social login error', error);
+      throw new UnauthorizedException('Invalid social token');
+    }
   }
 
   async generateTokensWithLevel(user: User, authLevel: string) {

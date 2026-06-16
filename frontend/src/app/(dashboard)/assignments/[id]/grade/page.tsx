@@ -155,7 +155,7 @@ export default function GradeAssignmentPage() {
                     <div>
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="font-semibold text-slate-900">
-                          Student: {submission.studentId?.slice(0, 8)}...
+                          Student: {submission.student ? `${submission.student.firstName} ${submission.student.lastName}` : `${submission.studentId?.slice(0, 8)}...`}
                         </h3>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           submission.status === 'graded' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'

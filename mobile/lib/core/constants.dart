@@ -10,7 +10,9 @@ class AppConstants {
   // Endpoints
   static const String login = '$apiPrefix/auth/login';
   static const String verifyOtp = '$apiPrefix/auth/verify-otp';
+  static const String socialLogin = '$apiPrefix/auth/social-login';
   static const String profile = '$apiPrefix/users/profile';
+  static const String fcmToken = '$apiPrefix/users/fcm-token';
   static const String subjects = '$apiPrefix/subjects';
   static const String courses = '$apiPrefix/courses';
   static const String practice = '$apiPrefix/practice';

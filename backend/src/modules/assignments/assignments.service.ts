@@ -7,6 +7,8 @@ import { AssignmentComment } from './entities/assignment-comment.entity';
 import { CreateAssignmentDto, UpdateAssignmentDto } from './dto/assignment.dto';
 import { QuestionsService } from '../questions/questions.service';
 import { UsersService } from '../users/users.service';
+import { AiService } from '../ai/ai.service';
+import { Question, QuestionStatus } from '../questions/entities/question.entity';
 
 @Injectable()
 export class AssignmentsService {
@@ -19,6 +21,7 @@ export class AssignmentsService {
     private commentRepository: Repository<AssignmentComment>,
     private questionsService: QuestionsService,
     private usersService: UsersService,
+    private aiService: AiService,
     @InjectEntityManager() private entityManager: EntityManager,
   ) {}
 
@@ -31,6 +34,66 @@ export class AssignmentsService {
       questionIds: createDto.questionIds || undefined,
     } as Assignment);
     return this.assignmentsRepository.save(assignment);
+  }
+
+  async generateQuestions(
+    subject: string,
+    grade: number,
+    strand: string,
+    subStrand: string,
+    count: number,
+    teacherId: string,
+    forceAi: boolean = false
+  ): Promise<any[]> {
+    try {
+      let resultQuestions = [];
+      let deficit = count;
+
+      if (!forceAi) {
+        // Try to find questions from the database first by matching strand/subStrand names or IDs
+        const query = this.entityManager.getRepository(Question).createQueryBuilder('question')
+          .where('question.grade = :grade', { grade })
+          .andWhere('question.status IN (:...statuses)', { statuses: [QuestionStatus.APPROVED, QuestionStatus.PUBLISHED] });
+          
+        if (strand) query.andWhere('(question.strandId = :strand OR question.topicId = :strand)', { strand });
+        if (subStrand) query.andWhere('(question.subStrandId = :subStrand OR question.topicId = :subStrand)', { subStrand });
+        
+        const existing = await query.orderBy('RANDOM()').take(count).getMany();
+        resultQuestions.push(...existing);
+        deficit = count - existing.length;
+      }
+
+      if (deficit > 0) {
+        const generated = await this.aiService.generateAssignmentQuestions(subject, grade, strand, subStrand, deficit);
+        
+        const savedQuestions = [];
+        for (const q of generated) {
+          const questionData = {
+            content: q.content,
+            type: q.type,
+            difficulty: q.difficulty,
+            marks: q.marks,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            explanation: q.explanation,
+            grade: grade,
+            status: QuestionStatus.APPROVED,
+            topicId: subStrand || strand, // In absence of real IDs, use string names or leave blank.
+            strandId: strand,
+            subStrandId: subStrand,
+            subjectId: subject, 
+            createdBy: teacherId,
+          };
+          const saved = await this.questionsService.create(questionData, teacherId);
+          savedQuestions.push(saved);
+        }
+        resultQuestions.push(...savedQuestions);
+      }
+      return resultQuestions;
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      throw new BadRequestException('Failed to generate assignment questions');
+    }
   }
 
   async findAllByTeacher(teacherId: string): Promise<Assignment[]> {
@@ -178,12 +241,27 @@ export class AssignmentsService {
     return [];
   }
 
-  async getSubmissionsForAssignment(assignmentId: string): Promise<AssignmentSubmission[]> {
+  async getSubmissionsForAssignment(assignmentId: string): Promise<any[]> {
     await this.findOne(assignmentId);
-    return this.submissionRepository.find({
+    const submissions = await this.submissionRepository.find({
       where: { assignmentId },
       order: { submittedAt: 'DESC' },
     });
+    return Promise.all(submissions.map(async (sub) => {
+      try {
+        const user = await this.usersService.findOne(sub.studentId);
+        return {
+          ...sub,
+          student: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+          }
+        };
+      } catch {
+        return sub;
+      }
+    }));
   }
 
   async getMySubmissions(studentId: string): Promise<AssignmentSubmission[]> {
