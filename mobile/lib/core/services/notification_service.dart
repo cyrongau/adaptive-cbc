@@ -61,7 +61,7 @@ class NotificationService {
       android: initializationSettingsAndroid,
       iOS: initializationSettingsDarwin,
     );
-    await _localNotifications.initialize(initializationSettings);
+    await _localNotifications.initialize(settings: initializationSettings);
 
     // Setup foreground message listener
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -108,10 +108,10 @@ class NotificationService {
     );
 
     await _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      platformChannelSpecifics,
+      id: notification.hashCode,
+      title: notification.title,
+      body: notification.body,
+      notificationDetails: platformChannelSpecifics,
     );
   }
 }

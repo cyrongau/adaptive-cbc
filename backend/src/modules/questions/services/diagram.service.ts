@@ -104,6 +104,53 @@ export class DiagramService {
     return { url, filename };
   }
 
+  async generateDiagram(
+    prompt: string,
+    subject?: string,
+    grade?: string,
+  ): Promise<{ url: string; filename: string }> {
+    if (!this.openRouterApiKey) {
+      throw new HttpException(
+        'AI image generation is not available (API key not configured). Please upload a file instead.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const aiPrompt = `Generate a clean, responsive, and beautifully styled SVG diagram for: "${prompt}".
+Subject: ${subject || 'General'}, Grade level: ${grade || 'Any'}.
+Use modern colors (soft blues, greens, oranges), clean typography, clear labels, and visual components (shapes, arrows, boxes).
+Ensure the SVG has a viewBox (e.g. 0 0 800 600), is self-contained, and is styled properly for educational purposes.
+Return a JSON object with a single key 'svg' containing the complete SVG code as a string.
+Example format: { "svg": "<svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\"0 0 800 600\\">...</svg>" }`;
+
+    try {
+      const result = await this.callOpenRouter(
+        aiPrompt,
+        'You are an expert educational illustrator who creates clean SVG diagrams for CBC curriculum questions.',
+      );
+
+      const svgContent = result.svg;
+      if (!svgContent || !svgContent.includes('<svg')) {
+        throw new Error('Invalid SVG returned from AI');
+      }
+
+      const filename = `ai-diagram-${uuid()}.svg`;
+      const filepath = path.join(this.uploadDir, filename);
+      fs.writeFileSync(filepath, svgContent);
+
+      return {
+        url: `/uploads/diagrams/${filename}`,
+        filename,
+      };
+    } catch (error) {
+      this.logger.error(`AI diagram generation failed: ${error.message}`);
+      throw new HttpException(
+        'AI diagram generation failed or is not supported. Please upload a file or use the Diagram Studio.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async enhanceDiagram(
     file: Express.Multer.File,
     instructions?: string,

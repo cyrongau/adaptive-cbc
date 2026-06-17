@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:better_player/better_player.dart';
+import 'package:better_player_plus/better_player_plus.dart';
 import '../../../core/constants.dart';
 import '../../../core/theme/app_colors.dart';
 

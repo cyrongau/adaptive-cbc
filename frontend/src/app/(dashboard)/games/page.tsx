@@ -102,7 +102,7 @@ export default function GameHub() {
             <p className="text-indigo-100 font-medium text-sm mb-1 uppercase tracking-wider">Your XP</p>
             <p className="text-4xl font-black text-yellow-300 drop-shadow-sm flex items-center gap-2">
               <Star className="w-8 h-8 fill-yellow-300" />
-              {user?.xpPoints || 0}
+              {(user as any)?.xpPoints || 0}
             </p>
           </div>
         </div>

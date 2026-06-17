@@ -1,4 +1,4 @@
-package com.adaptive.cbc.adaptive_cbc_mobile
+package com.adaptive.cbc.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

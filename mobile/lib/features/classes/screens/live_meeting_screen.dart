@@ -374,8 +374,8 @@ class _LiveMeetingScreenState extends State<LiveMeetingScreen> {
     }
 
     // Prioritize screen share over camera
-    RemoteTrackPublication? primaryTrack;
-    RemoteTrackPublication? secondaryTrack;
+    TrackPublication? primaryTrack;
+    TrackPublication? secondaryTrack;
 
     for (var pub in videoTracks) {
       if (pub.source == TrackSource.screenShareVideo) {

@@ -136,7 +136,7 @@ interface FormData {
   learningOutcomeId: string;
   type: string;
   content: string;
-  options: { id: string; text: string; isCorrect: boolean }[];
+  options: { id: string; text: string; isCorrect: boolean; imageUrl?: string }[];
   correctAnswer: string;
   trueFalseCorrect: boolean;
   matchingPairs: MatchingPair[];
@@ -316,6 +316,12 @@ function CreateQuestionWizardContent() {
   const [form, setForm] = useState<FormData>({ ...defaultFormData, options: defaultFormData.options.map(o => ({ ...o })) });
   const [submitting, setSubmitting] = useState(false);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+
+  const [showDiagramPanel, setShowDiagramPanel] = useState(false);
+  const [diagramMethod, setDiagramMethod] = useState<'upload' | 'ai' | 'link'>('upload');
+  const [diagramAiPrompt, setDiagramAiPrompt] = useState('');
+  const [diagramAiGenerating, setDiagramAiGenerating] = useState(false);
+  const [diagramLinkInput, setDiagramLinkInput] = useState('');
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [curriculumTree, setCurriculumTree] = useState<CurriculumTree[]>([]);
@@ -524,6 +530,9 @@ function CreateQuestionWizardContent() {
       bloomsTaxonomy: form.bloomsTaxonomy || null,
       competencyTags: form.competencyTags.length > 0 ? form.competencyTags : null,
       sourceType: isOcrImport ? 'ocr_imported' : 'manual',
+      questionMedia: form.questionMedia.length > 0 ? form.questionMedia : null,
+      mediaUrl: form.questionMedia.length > 0 ? form.questionMedia[0].url : null,
+      mediaType: form.questionMedia.length > 0 ? form.questionMedia[0].type : null,
     };
   };
 
@@ -876,6 +885,244 @@ function CreateQuestionWizardContent() {
             />
           </div>
 
+          {/* Collapsible Diagram / Illustration panel */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+            <button
+              type="button"
+              onClick={() => setShowDiagramPanel(!showDiagramPanel)}
+              className="w-full flex items-center justify-between p-4 bg-slate-50 border-b border-slate-200 hover:bg-slate-100/80 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-slate-500" />
+                <span className="font-semibold text-slate-700 text-sm">Question Diagram & Illustration</span>
+                {form.questionMedia.length > 0 && (
+                  <span className="bg-[#47a263]/10 text-[#47a263] text-xs font-semibold px-2 py-0.5 rounded-full">
+                    Attached
+                  </span>
+                )}
+              </div>
+              <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showDiagramPanel ? 'rotate-90' : ''}`} />
+            </button>
+
+            {showDiagramPanel && (
+              <div className="p-4 space-y-4">
+                {/* Method selector tabs */}
+                <div className="flex border-b border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setDiagramMethod('upload')}
+                    className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                      diagramMethod === 'upload'
+                        ? 'border-[#47a263] text-[#47a263]'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Upload Image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiagramMethod('ai')}
+                    className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                      diagramMethod === 'ai'
+                        ? 'border-[#47a263] text-[#47a263]'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    AI Generate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiagramMethod('link')}
+                    className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                      diagramMethod === 'link'
+                        ? 'border-[#47a263] text-[#47a263]'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Link from Diagram Studio
+                  </button>
+                </div>
+
+                {/* Tab content */}
+                {diagramMethod === 'upload' && (
+                  <div className="space-y-3">
+                    {form.questionMedia.length > 0 ? (
+                      <div className="relative w-full max-w-md h-48 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
+                        <img
+                          src={form.questionMedia[0].url}
+                          alt={form.questionMedia[0].alt || 'Question diagram'}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateForm('questionMedia', [])}
+                          className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-[#47a263] transition-colors cursor-pointer block bg-slate-50/50">
+                        <ImageIcon className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-slate-700">Upload diagram image</p>
+                        <p className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP, SVG up to 5MB</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const uploadToast = toast.loading('Uploading diagram...');
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              const res = await api.post('/diagrams/upload', formData, {
+                                headers: { 'Content-Type': 'multipart/form-data' },
+                              });
+                              updateForm('questionMedia', [{ type: file.type || 'image/png', url: res.data.url, alt: file.name }]);
+                              toast.success('Diagram uploaded successfully', { id: uploadToast });
+                            } catch (err: any) {
+                              toast.error(err?.response?.data?.message || 'Upload failed', { id: uploadToast });
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+
+                {diagramMethod === 'ai' && (
+                  <div className="space-y-4">
+                    {form.questionMedia.length > 0 && (
+                      <div className="relative w-full max-w-md h-48 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
+                        <img
+                          src={form.questionMedia[0].url}
+                          alt={form.questionMedia[0].alt || 'AI generated diagram'}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateForm('questionMedia', [])}
+                          className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-slate-600">AI Prompt</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={diagramAiPrompt}
+                          onChange={(e) => setDiagramAiPrompt(e.target.value)}
+                          placeholder="e.g. Draw a labeled diagram of the human digestive system"
+                          className="flex-1 p-3 border border-slate-200 rounded-xl outline-none focus:border-[#47a263]"
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!diagramAiPrompt.trim()) {
+                              toast.error('Please enter a description prompt');
+                              return;
+                            }
+                            setDiagramAiGenerating(true);
+                            const genToast = toast.loading('AI is rendering diagram...');
+                            try {
+                              const res = await api.post('/diagrams/generate', {
+                                prompt: diagramAiPrompt,
+                                subject: subjects.find(s => s.id === form.subjectId)?.name,
+                                grade: String(form.grade),
+                              });
+                              updateForm('questionMedia', [{ type: 'image/svg+xml', url: res.data.url, alt: diagramAiPrompt }]);
+                              toast.success('AI Diagram generated successfully', { id: genToast });
+                            } catch (err: any) {
+                              toast.error(err?.response?.data?.message || 'AI Generation failed. Please try a different prompt or upload.', { id: genToast });
+                            } finally {
+                              setDiagramAiGenerating(false);
+                            }
+                          }}
+                          disabled={diagramAiGenerating}
+                          className="px-4 py-2 bg-[#47a263] text-white rounded-xl font-medium text-sm hover:bg-[#3d8c55] transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {diagramAiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                          Generate
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400">Creates a custom SVG diagram based on your prompt (e.g. geometry shapes, process charts).</p>
+                    </div>
+                  </div>
+                )}
+
+                {diagramMethod === 'link' && (
+                  <div className="space-y-4">
+                    {form.questionMedia.length > 0 && (
+                      <div className="relative w-full max-w-md h-48 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
+                        <img
+                          src={form.questionMedia[0].url}
+                          alt={form.questionMedia[0].alt || 'Linked diagram'}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateForm('questionMedia', []);
+                            setDiagramLinkInput('');
+                          }}
+                          className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex gap-4 items-center">
+                      <a
+                        href="/author-studio/diagrams"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 rounded-xl text-sm font-semibold flex items-center gap-1.5 transition-colors"
+                      >
+                        Open Diagram Studio
+                        <span className="text-xs">↗</span>
+                      </a>
+                      <p className="text-xs text-slate-500">Create, enhance, or vectorize diagrams in a full workspace, then paste the URL below.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-slate-600">Diagram URL</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={diagramLinkInput}
+                          onChange={(e) => setDiagramLinkInput(e.target.value)}
+                          placeholder="e.g. /uploads/diagrams/diagram-uuid.png"
+                          className="flex-1 p-3 border border-slate-200 rounded-xl outline-none focus:border-[#47a263]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!diagramLinkInput.trim()) {
+                              toast.error('Please paste a diagram URL');
+                              return;
+                            }
+                            updateForm('questionMedia', [{ type: 'image/png', url: diagramLinkInput, alt: 'Linked diagram' }]);
+                            toast.success('Diagram URL linked');
+                          }}
+                          className="px-4 py-2 bg-[#47a263] text-white rounded-xl font-medium text-sm hover:bg-[#3d8c55] transition-colors"
+                        >
+                          Link Diagram
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {form.type === 'multiple_choice' && (
             <div className="space-y-4 pt-2">
               <label className="text-sm font-medium text-slate-700">Answer Options *</label>
@@ -898,9 +1145,54 @@ function CreateQuestionWizardContent() {
                     placeholder={`Option ${idx + 1}`}
                     className="flex-1 p-3 border border-slate-200 rounded-xl outline-none focus:border-[#47a263]"
                   />
+                  <div className="relative flex-shrink-0">
+                    {opt.imageUrl ? (
+                      <div className="relative w-12 h-12 rounded-lg border border-slate-200 overflow-hidden group">
+                        <img src={opt.imageUrl} alt={`Option ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newOptions = [...form.options];
+                            newOptions[idx] = { ...newOptions[idx], imageUrl: undefined };
+                            setForm(prev => ({ ...prev, options: newOptions }));
+                          }}
+                          className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center w-12 h-12 border border-dashed border-slate-200 rounded-xl hover:border-[#47a263] cursor-pointer hover:bg-slate-50 transition-colors">
+                        <ImageIcon className="w-5 h-5 text-slate-400" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const uploadToast = toast.loading('Uploading option image...');
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              const res = await api.post('/diagrams/upload', formData, {
+                                headers: { 'Content-Type': 'multipart/form-data' },
+                              });
+                              const newOptions = [...form.options];
+                              newOptions[idx] = { ...newOptions[idx], imageUrl: res.data.url };
+                              setForm(prev => ({ ...prev, options: newOptions }));
+                              toast.success('Option image uploaded', { id: uploadToast });
+                            } catch (err: any) {
+                              toast.error(err?.response?.data?.message || 'Failed to upload option image', { id: uploadToast });
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
               ))}
-              <p className="text-xs text-slate-400">Select the radio button next to the correct answer.</p>
+              <p className="text-xs text-slate-400">Select the radio button next to the correct answer. You can optionally attach an image to each option.</p>
             </div>
           )}
 
@@ -1050,11 +1342,49 @@ function CreateQuestionWizardContent() {
           {form.type === 'diagram_labeling' && (
             <div className="space-y-3 pt-2">
               <label className="text-sm font-medium text-slate-700">Diagram Image</label>
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-[#47a263] transition-colors cursor-pointer">
-                <ImageIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-500">Upload a diagram image</p>
-                <p className="text-xs text-slate-400 mt-1">PNG, JPG, SVG up to 5MB</p>
-              </div>
+              {form.questionMedia.length > 0 ? (
+                <div className="relative w-full max-w-md h-48 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
+                  <img
+                    src={form.questionMedia[0].url}
+                    alt={form.questionMedia[0].alt || 'Diagram labeling image'}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateForm('questionMedia', [])}
+                    className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-[#47a263] transition-colors cursor-pointer block bg-slate-50/50">
+                  <ImageIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500 font-medium">Upload diagram image</p>
+                  <p className="text-xs text-slate-450 mt-1">PNG, JPG, SVG up to 5MB</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const uploadToast = toast.loading('Uploading diagram...');
+                      try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await api.post('/diagrams/upload', formData, {
+                          headers: { 'Content-Type': 'multipart/form-data' },
+                        });
+                        updateForm('questionMedia', [{ type: file.type || 'image/png', url: res.data.url, alt: file.name }]);
+                        toast.success('Diagram uploaded successfully', { id: uploadToast });
+                      } catch (err: any) {
+                        toast.error(err?.response?.data?.message || 'Upload failed', { id: uploadToast });
+                      }
+                    }}
+                  />
+                </label>
+              )}
             </div>
           )}
         </div>
@@ -1392,7 +1722,17 @@ function CreateQuestionWizardContent() {
               )}
             </div>
 
-            <div className="prose max-w-none text-slate-800 text-sm">
+            {form.questionMedia.length > 0 && (
+              <div className="mb-4 max-w-lg rounded-xl overflow-hidden border border-slate-200 bg-white p-2">
+                <img
+                  src={form.questionMedia[0].url}
+                  alt={form.questionMedia[0].alt || 'Question diagram'}
+                  className="max-h-64 object-contain mx-auto"
+                />
+              </div>
+            )}
+
+            <div className="prose max-w-none text-slate-800 text-sm mb-4">
               <HtmlWithMath html={form.content} />
             </div>
 
@@ -1410,8 +1750,15 @@ function CreateQuestionWizardContent() {
                     }`}>
                       {String.fromCharCode(65 + idx)}
                     </span>
-                    <span className="text-sm">{opt.text}</span>
-                    {opt.isCorrect && <CheckCircle className="w-4 h-4 text-[#47a263] ml-auto" />}
+                    <div className="flex flex-1 items-center gap-3 justify-between">
+                      <span className="text-sm">{opt.text}</span>
+                      {opt.imageUrl && (
+                        <div className="w-12 h-12 rounded-lg border border-slate-200 overflow-hidden bg-white flex-shrink-0">
+                          <img src={opt.imageUrl} alt={`Option ${String.fromCharCode(65 + idx)}`} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+                    {opt.isCorrect && <CheckCircle className="w-4 h-4 text-[#47a263]" />}
                   </div>
                 ))}
               </div>

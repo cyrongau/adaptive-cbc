@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, UseInterceptors, UploadedFile, Request, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, UseInterceptors, UploadedFile, Request, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -15,6 +15,26 @@ export class DiagramController {
   @ApiOperation({ summary: 'Get subject-specific diagram templates' })
   getTemplates() {
     return this.diagramService.getTemplates();
+  }
+
+  @Post('upload')
+  @ApiOperation({ summary: 'Upload a diagram or option image' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadDiagram(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new HttpException('No file uploaded', HttpStatus.BAD_REQUEST);
+    return this.diagramService.saveUpload(file);
+  }
+
+  @Post('generate')
+  @ApiOperation({ summary: 'Generate a diagram image from text prompt' })
+  async generateDiagram(
+    @Body('prompt') prompt: string,
+    @Body('subject') subject?: string,
+    @Body('grade') grade?: string,
+  ) {
+    if (!prompt) throw new HttpException('Prompt is required', HttpStatus.BAD_REQUEST);
+    return this.diagramService.generateDiagram(prompt, subject, grade);
   }
 
   @Post('enhance')
@@ -50,3 +70,4 @@ export class DiagramController {
     return this.diagramService.labelDiagram(file, subject);
   }
 }
+
