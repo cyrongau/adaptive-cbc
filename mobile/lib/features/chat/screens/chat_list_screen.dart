@@ -235,50 +235,40 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return Center(
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.accentGolden.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline,
-                size: 80,
-                color: AppColors.accentGolden,
-              ),
-            ),
+            Icon(Icons.forum_rounded, size: 80, color: AppColors.primary.withOpacity(0.3)),
             const SizedBox(height: 24),
             const Text(
-              'No conversations yet',
+              'No Messages Yet',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppColors.primaryGreen,
+                color: AppColors.onSurface,
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Start messaging your teachers, peers, or support assistants to get real-time learning help.',
+            Text(
+              'Start a conversation with your teachers, peers, or support assistants to get real-time learning help.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey, fontSize: 15, height: 1.4),
+              style: TextStyle(color: AppColors.onSurfaceVariant.withOpacity(0.8), fontSize: 15, height: 1.4),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () {
                 setState(() {
                   _isSearching = true;
                 });
               },
-              icon: const Icon(Icons.search, color: Colors.white),
+              icon: const Icon(Icons.search_rounded, color: Colors.white),
               label: const Text('Find People to Chat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
               ),
             ),
           ],

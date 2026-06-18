@@ -284,18 +284,40 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     }
 
     if (topics.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.info_outline, size: 16, color: AppColors.onSurfaceVariant),
-            SizedBox(width: 8),
-            Text(
-              'No active study units for this subject yet.',
-              style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
-            ),
-          ],
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 32.0),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24.0),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.onSurfaceVariant.withOpacity(0.1)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.auto_stories_rounded, size: 64, color: AppColors.primary.withOpacity(0.3)),
+              const SizedBox(height: 16),
+              const Text(
+                'No units yet!',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Units for this subject are currently being updated by the curriculum team. Check back soon.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.onSurfaceVariant.withOpacity(0.8),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

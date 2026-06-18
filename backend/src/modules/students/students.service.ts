@@ -49,165 +49,212 @@ export class StudentsService {
   ) {}
 
   async register(dto: RegisterStudentDto) {
-    const existingUsername = await this.studentProfileRepository.findOne({
-      where: { username: dto.username },
-    });
-    if (existingUsername) {
-      throw new ConflictException('Username already taken');
-    }
-
-    const existingUser = await this.usersRepository.findOne({
-      where: { email: `${dto.username}@student.adaptivecbc.local` },
-    });
-    if (existingUser) {
-      throw new ConflictException('Username conflict');
-    }
-
-    const pinHash = await argon2.hash(dto.pin);
-
-    const user = this.usersRepository.create({
-      email: `${dto.username}@student.adaptivecbc.local`,
-      password: pinHash,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      role: UserRole.STUDENT,
-      grade: dto.grade,
-      isActive: true,
-      isEmailVerified: true,
-    });
-    const savedUser = await this.usersRepository.save(user);
-
-    let status = StudentStatus.PARENT_PENDING;
-    let linked = false;
-
-    if (dto.parentEmail) {
-      const parentUser = await this.usersRepository.findOne({
-        where: { email: dto.parentEmail },
+    try {
+      const existingUsername = await this.studentProfileRepository.findOne({
+        where: { username: dto.username },
       });
-      if (parentUser && parentUser.role === UserRole.PARENT) {
+      if (existingUsername) {
+        throw new ConflictException('Username already taken');
+      }
+
+      const existingUser = await this.usersRepository.findOne({
+        where: { email: `${dto.username}@student.adaptivecbc.local` },
+      });
+      if (existingUser) {
+        throw new ConflictException('Username conflict');
+      }
+
+      const pinHash = await argon2.hash(dto.pin);
+
+      const user = this.usersRepository.create({
+        email: `${dto.username}@student.adaptivecbc.local`,
+        password: pinHash,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        role: UserRole.STUDENT,
+        grade: dto.grade,
+        isActive: true,
+        isEmailVerified: true,
+      });
+      const savedUser = await this.usersRepository.save(user);
+
+      let status = StudentStatus.PARENT_PENDING;
+      let linked = false;
+
+      if (dto.parentEmail) {
+        const parentUser = await this.usersRepository.findOne({
+          where: { email: dto.parentEmail },
+        });
+        if (parentUser && parentUser.role === UserRole.PARENT) {
+          await this.relationshipsService.createRelationship({
+            userId: savedUser.id,
+            relatedUserId: parentUser.id,
+            relatedUserEmail: parentUser.email,
+            relationshipType: 'parent' as any,
+          });
+          status = StudentStatus.PARENT_VERIFIED;
+          linked = true;
+        }
+      }
+
+      if (!linked && dto.parentEmail) {
         await this.relationshipsService.createRelationship({
           userId: savedUser.id,
-          relatedUserId: parentUser.id,
-          relatedUserEmail: parentUser.email,
+          relatedUserEmail: dto.parentEmail,
+          relatedUserPhone: dto.parentPhone,
           relationshipType: 'parent' as any,
         });
-        status = StudentStatus.PARENT_VERIFIED;
-        linked = true;
       }
-    }
 
-    if (!linked && dto.parentEmail) {
-      await this.relationshipsService.createRelationship({
+      const profile = this.studentProfileRepository.create({
         userId: savedUser.id,
-        relatedUserEmail: dto.parentEmail,
-        relatedUserPhone: dto.parentPhone,
-        relationshipType: 'parent' as any,
+        username: dto.username,
+        pinHash,
+        grade: dto.grade,
+        studentStatus: status,
+        parentEmail: dto.parentEmail,
+        parentPhone: dto.parentPhone,
       });
+      const savedProfile = await this.studentProfileRepository.save(profile);
+
+      this.logger.log(`Student registered: ${dto.username} (status: ${status})`);
+
+      return {
+        studentId: savedProfile.id,
+        userId: savedUser.id,
+        username: savedProfile.username,
+        status: savedProfile.studentStatus,
+        message: status === StudentStatus.PARENT_VERIFIED
+          ? 'Account created and linked to parent'
+          : 'Account created. Parent invitation sent.',
+      };
+    } catch (error) {
+      this.logger.error(`Student registration failed for ${dto.username}: ${error.message}`, error.stack);
+      if (error instanceof ConflictException || error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new BadRequestException('Registration failed. Please try again or contact support.');
     }
-
-    const profile = this.studentProfileRepository.create({
-      userId: savedUser.id,
-      username: dto.username,
-      pinHash,
-      grade: dto.grade,
-      studentStatus: status,
-      parentEmail: dto.parentEmail,
-      parentPhone: dto.parentPhone,
-    });
-    const savedProfile = await this.studentProfileRepository.save(profile);
-
-    this.logger.log(`Student registered: ${dto.username} (status: ${status})`);
-
-    return {
-      studentId: savedProfile.id,
-      userId: savedUser.id,
-      username: savedProfile.username,
-      status: savedProfile.studentStatus,
-      message: status === StudentStatus.PARENT_VERIFIED
-        ? 'Account created and linked to parent'
-        : 'Account created. Parent invitation sent.',
-    };
   }
 
   async studentLogin(dto: StudentLoginDto, requestIp?: string) {
     const identifier = dto.identifier.trim();
+    const normalizedIdentifier = identifier.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
-    let profile = await this.studentProfileRepository.findOne({
+    let profiles: StudentProfile[] = [];
+
+    const exactProfile = await this.studentProfileRepository.findOne({
       where: { username: identifier },
     });
-
-    if (!profile) {
-      profile = await this.studentProfileRepository.findOne({
-        where: { admissionNumber: ILike(identifier) },
-      });
+    if (exactProfile) {
+      profiles.push(exactProfile);
     }
 
-    if (!profile) {
+    if (profiles.length === 0 && normalizedIdentifier.length > 0) {
+      profiles = await this.studentProfileRepository.createQueryBuilder('profile')
+        .where("REGEXP_REPLACE(LOWER(profile.admissionNumber), '[^a-z0-9]', '', 'g') = :normalizedIdentifier", { normalizedIdentifier })
+        .getMany();
+    }
+
+    if (profiles.length === 0 && normalizedIdentifier.length > 0) {
       const results = await Promise.all([
         this.entityManager.query(
-          `SELECT "studentId", "admissionNumber" FROM institution_students WHERE LOWER("admissionNumber") = LOWER($1) AND "isActive" = true LIMIT 1`,
-          [identifier],
+          `SELECT "studentId", "admissionNumber" FROM institution_students WHERE REGEXP_REPLACE(LOWER("admissionNumber"), '[^a-z0-9]', '', 'g') = $1 AND "isActive" = true`,
+          [normalizedIdentifier],
         ),
         this.entityManager.query(
-          `SELECT "userId", "admissionNumber" FROM student_register WHERE LOWER("admissionNumber") = LOWER($1) AND "isActive" = true AND "userId" IS NOT NULL LIMIT 1`,
-          [identifier],
+          `SELECT "userId", "admissionNumber" FROM student_register WHERE REGEXP_REPLACE(LOWER("admissionNumber"), '[^a-z0-9]', '', 'g') = $1 AND "isActive" = true AND "userId" IS NOT NULL`,
+          [normalizedIdentifier],
         ),
       ]);
       const instStudents = results[0] as any[];
       const registerEntries = results[1] as any[];
 
-      const matched = instStudents?.[0] || registerEntries?.[0] as { studentId?: string; userId?: string; admissionNumber: string } | undefined;
-      if (matched) {
-        const userId = matched.studentId || matched.userId;
-        profile = await this.studentProfileRepository.findOne({ where: { userId } });
-        if (profile && !profile.admissionNumber && matched.admissionNumber) {
-          profile.admissionNumber = matched.admissionNumber;
-          await this.studentProfileRepository.save(profile);
+      const matchedEntries = [
+        ...instStudents.map(s => ({ userId: s.studentId, admissionNumber: s.admissionNumber })),
+        ...registerEntries.map(r => ({ userId: r.userId, admissionNumber: r.admissionNumber }))
+      ];
+
+      const matchedUserIds = [...new Set(matchedEntries.map(e => e.userId).filter(Boolean))];
+
+      if (matchedUserIds.length > 0) {
+        profiles = await this.studentProfileRepository.find({ where: { userId: In(matchedUserIds) } });
+
+        for (const p of profiles) {
+          if (!p.admissionNumber) {
+            const entry = matchedEntries.find(e => e.userId === p.userId);
+            if (entry && entry.admissionNumber) {
+              p.admissionNumber = entry.admissionNumber;
+              await this.studentProfileRepository.save(p);
+            }
+          }
         }
       }
     }
 
-    if (!profile) {
+    if (profiles.length === 0) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (profile.lockedUntil && profile.lockedUntil > new Date()) {
-      const minutesLeft = Math.ceil((profile.lockedUntil.getTime() - Date.now()) / 60000);
-      throw new UnauthorizedException(`Account locked. Try again in ${minutesLeft} minutes`);
+    let authenticatedProfile: StudentProfile | null = null;
+    let authError: string | null = null;
+    let profilesToLock: StudentProfile[] = [];
+
+    for (const profile of profiles) {
+      if (profile.lockedUntil && profile.lockedUntil > new Date()) {
+        const minutesLeft = Math.ceil((profile.lockedUntil.getTime() - Date.now()) / 60000);
+        authError = `Account locked. Try again in ${minutesLeft} minutes`;
+        continue;
+      }
+
+      let pinValid = false;
+      try {
+        pinValid = await argon2.verify(profile.pinHash, dto.pin);
+      } catch {
+        pinValid = false;
+      }
+
+      if (pinValid) {
+        authenticatedProfile = profile;
+        break;
+      } else {
+        profilesToLock.push(profile);
+      }
     }
 
-    let pinValid = false;
-    try {
-      pinValid = await argon2.verify(profile.pinHash, dto.pin);
-    } catch {
-      pinValid = false;
-    }
+    if (!authenticatedProfile) {
+      for (const profile of profilesToLock) {
+        profile.failedPinAttempts += 1;
+        if (profile.failedPinAttempts >= 5) {
+          profile.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+          profile.failedPinAttempts = 0;
 
-    if (!pinValid) {
-      profile.failedPinAttempts += 1;
-      if (profile.failedPinAttempts >= 5) {
-        profile.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
-        profile.failedPinAttempts = 0;
+          await this.securityEventRepository.save({
+            userId: profile.userId,
+            eventType: 'account_locked',
+            riskLevel: RiskLevel.HIGH,
+            metadata: { reason: 'Too many failed PIN attempts' },
+          });
+        }
+        await this.studentProfileRepository.save(profile);
 
-        await this.securityEventRepository.save({
+        await this.loginAttemptRepository.save({
           userId: profile.userId,
-          eventType: 'account_locked',
-          riskLevel: RiskLevel.HIGH,
-          metadata: { reason: 'Too many failed PIN attempts' },
+          success: false,
+          ip: requestIp,
+          deviceFingerprint: dto.deviceFingerprint,
         });
       }
-      await this.studentProfileRepository.save(profile);
 
-      await this.loginAttemptRepository.save({
-        userId: profile.userId,
-        success: false,
-        ip: requestIp,
-        deviceFingerprint: dto.deviceFingerprint,
-      });
-
-      const remaining = 5 - profile.failedPinAttempts;
-      throw new UnauthorizedException(`Invalid PIN. ${remaining} attempt(s) remaining`);
+      if (authError) {
+        throw new UnauthorizedException(authError);
+      } else {
+        const remaining = 5 - (profilesToLock[0]?.failedPinAttempts || 5);
+        throw new UnauthorizedException(`Invalid PIN. ${remaining} attempt(s) remaining`);
+      }
     }
+
+    const profile = authenticatedProfile;
 
     profile.failedPinAttempts = 0;
     profile.lockedUntil = null;
@@ -237,6 +284,26 @@ export class StudentsService {
         requiresParentApproval: true,
         message: 'Your parent must complete registration before you can log in.',
       };
+    }
+
+    if (dto.deviceFingerprint) {
+      const pendingDevice = await this.trustedDeviceRepository.findOne({
+        where: {
+          userId: profile.userId,
+          fingerprint: dto.deviceFingerprint,
+          isApproved: false,
+          isActive: true,
+        },
+      });
+
+      if (pendingDevice) {
+        return {
+          requiresDeviceApproval: true,
+          deviceId: pendingDevice.deviceId,
+          riskLevel: pendingDevice.riskLevel,
+          message: 'Device approval is still pending. Your parent or school must approve this device.',
+        };
+      }
     }
 
     const riskEval = await this.riskEngineService.evaluate(profile.userId, {
@@ -281,6 +348,8 @@ export class StudentsService {
         fingerprint: dto.deviceFingerprint || deviceId,
         browserSignature: dto.browserSignature,
         osSignature: dto.osSignature,
+        ipAddress: requestIp,
+        location: (requestIp === '::1' || requestIp === '127.0.0.1') ? 'Local Network' : 'Unknown Location',
         riskScore: riskEval.score,
         riskLevel: DeviceRiskLevel.MEDIUM,
         isApproved: false,
@@ -372,6 +441,8 @@ export class StudentsService {
       } else {
         return [];
       }
+    } else if (role === UserRole.INSTITUTION_ADMIN) {
+      // Logic for institution admin pending approvals...
     }
 
     const devices = await query.getMany();
@@ -391,36 +462,116 @@ export class StudentsService {
     });
   }
 
-  async initiateRecovery(identifier: string) {
-    const profile = await this.studentProfileRepository.findOne({
-      where: [
-        { username: identifier },
-        { admissionNumber: identifier },
-      ],
+  async getDevicesForParent(parentId: string) {
+    const relationships = await this.relationshipsService.getChildrenForParent(parentId);
+    const childIds = relationships.map(r => r.userId);
+    
+    if (childIds.length === 0) {
+      return [];
+    }
+    
+    const devices = await this.trustedDeviceRepository.createQueryBuilder('d')
+      .where('d.userId IN (:...childIds)', { childIds })
+      .andWhere('d.isActive = true')
+      .orderBy('d.createdAt', 'DESC')
+      .getMany();
+      
+    const userIds = [...new Set(devices.map(d => d.userId))];
+    const users = await this.usersRepository.find({ where: { id: In(userIds) } });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    return devices.map(d => {
+      const u = userMap.get(d.userId);
+      return {
+        id: d.id,
+        deviceId: d.deviceId,
+        userId: d.userId,
+        studentName: u ? `${u.firstName} ${u.lastName}` : 'Unknown',
+        ipAddress: d.ipAddress,
+        location: d.location,
+        browserSignature: d.browserSignature,
+        osSignature: d.osSignature,
+        isApproved: d.isApproved,
+        riskLevel: d.riskLevel,
+        lastLoginAt: d.lastLoginAt,
+        createdAt: d.createdAt,
+      };
     });
-    if (!profile) {
+  }
+
+  async initiateRecovery(identifier: string) {
+    identifier = identifier.trim();
+    const normalizedIdentifier = identifier.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+    let profiles: StudentProfile[] = [];
+
+    const exactProfile = await this.studentProfileRepository.findOne({
+      where: { username: identifier },
+    });
+    if (exactProfile) {
+      profiles.push(exactProfile);
+    }
+
+    if (profiles.length === 0 && normalizedIdentifier.length > 0) {
+      profiles = await this.studentProfileRepository.createQueryBuilder('profile')
+        .where("REGEXP_REPLACE(LOWER(profile.admissionNumber), '[^a-z0-9]', '', 'g') = :normalizedIdentifier", { normalizedIdentifier })
+        .getMany();
+    }
+
+    if (profiles.length === 0 && normalizedIdentifier.length > 0) {
+      const results = await Promise.all([
+        this.entityManager.query(
+          `SELECT "studentId", "admissionNumber" FROM institution_students WHERE REGEXP_REPLACE(LOWER("admissionNumber"), '[^a-z0-9]', '', 'g') = $1 AND "isActive" = true`,
+          [normalizedIdentifier],
+        ),
+        this.entityManager.query(
+          `SELECT "userId", "admissionNumber" FROM student_register WHERE REGEXP_REPLACE(LOWER("admissionNumber"), '[^a-z0-9]', '', 'g') = $1 AND "isActive" = true AND "userId" IS NOT NULL`,
+          [normalizedIdentifier],
+        ),
+      ]);
+      const instStudents = results[0] as any[];
+      const registerEntries = results[1] as any[];
+
+      const matchedEntries = [
+        ...instStudents.map(s => ({ userId: s.studentId, admissionNumber: s.admissionNumber })),
+        ...registerEntries.map(r => ({ userId: r.userId, admissionNumber: r.admissionNumber }))
+      ];
+
+      const matchedUserIds = [...new Set(matchedEntries.map(e => e.userId).filter(Boolean))];
+
+      if (matchedUserIds.length > 0) {
+        profiles = await this.studentProfileRepository.find({ where: { userId: In(matchedUserIds) } });
+      }
+    }
+
+    if (profiles.length === 0) {
       return { message: 'If the account exists, a recovery code has been sent' };
     }
 
     const otp = process.env.NODE_ENV === 'development' ? '123456' : randomInt(100000, 999999).toString();
-    const recovery = this.accountRecoveryRepository.create({
-      userId: profile.userId,
-      type: RecoveryType.PIN_RESET,
-      otp,
-      otpExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
-    });
-    const saved = await this.accountRecoveryRepository.save(recovery);
+    let savedRecoveryId = null;
 
-    if (profile.parentEmail) {
-      await this.emailService.send({
-        to: profile.parentEmail,
-        subject: 'PIN Reset Code - Adaptive CBC',
-        html: `Your child requested a PIN reset. Code: ${otp}. Expires in 15 minutes.`,
+    for (const profile of profiles) {
+      const recovery = this.accountRecoveryRepository.create({
+        userId: profile.userId,
+        type: RecoveryType.PIN_RESET,
+        otp,
+        otpExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
       });
+      const saved = await this.accountRecoveryRepository.save(recovery);
+      if (!savedRecoveryId) savedRecoveryId = saved.id;
+
+      if (profile.parentEmail) {
+        await this.emailService.send({
+          to: profile.parentEmail,
+          subject: 'PIN Reset Code - Adaptive CBC',
+          html: `Your child requested a PIN reset. Code: ${otp}. Expires in 15 minutes.`,
+        });
+      }
     }
 
     return {
-      recoveryId: saved.id,
+      recoveryId: savedRecoveryId,
       message: 'If the account exists, a recovery code has been sent to the parent',
     };
   }

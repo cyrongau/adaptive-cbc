@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/constants.dart';
 import '../../../core/services/notification_service.dart';
+import 'dart:math';
 
 class AuthProvider extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
@@ -14,6 +15,9 @@ class AuthProvider extends ChangeNotifier {
   Map<String, dynamic>? _currentUser;
   String? _errorMessage;
   bool _hasSeenOnboarding = false;
+  bool _requiresDeviceApproval = false;
+  String? _pendingDeviceId;
+  String? _deviceFingerprint;
 
   bool get isLoading => _isLoading;
   bool get isTwoFactorPending => _isTwoFactorPending;
@@ -22,9 +26,16 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
   bool get hasSeenOnboarding => _hasSeenOnboarding;
+  bool get requiresDeviceApproval => _requiresDeviceApproval;
+  String? get pendingDeviceId => _pendingDeviceId;
 
   void clearError() {
     _errorMessage = null;
+    notifyListeners();
+  }
+
+  void completeOnboarding() {
+    _hasSeenOnboarding = true;
     notifyListeners();
   }
 
@@ -50,6 +61,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+      _deviceFingerprint = prefs.getString('device_fingerprint');
 
       final response = await _apiClient.dio.get(AppConstants.profile);
       if (response.statusCode == 200) {
@@ -85,20 +97,124 @@ class AuthProvider extends ChangeNotifier {
         },
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
         final data = response.data;
-        if (data['isTwoFactorPending'] == true) {
+        if (data is Map && data['isTwoFactorPending'] == true) {
           _isTwoFactorPending = true;
           _tempEmail = data['tempEmail'];
           _isLoading = false;
           notifyListeners();
           return true;
+        } else {
+          _currentUser = (data is Map) ? (data['user'] ?? data) : null;
+          _isLoading = false;
+          notifyListeners();
+          _syncFcmToken();
+          return true;
         }
       } else {
-        _errorMessage = response.data['message'] ?? 'Authentication failed';
+        final data = response.data;
+        _errorMessage = (data is Map) ? (data['message'] ?? 'Authentication failed') : 'Authentication failed';
       }
     } on DioException catch (e) {
       _errorMessage = e.response?.data['message'] ?? 'Network or server error';
+    } catch (e) {
+      _errorMessage = 'An unexpected error occurred';
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
+  void clearDeviceApprovalState() {
+    _requiresDeviceApproval = false;
+    _pendingDeviceId = null;
+    notifyListeners();
+  }
+
+  Future<bool> notifyParentForDeviceApproval(String deviceId) async {
+    try {
+      final response = await _apiClient.dio.post(
+        AppConstants.notifyParent,
+        data: {'deviceId': deviceId},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('[Auth] Failed to notify parent: $e');
+      return false;
+    }
+  }
+
+  Future<String> _ensureDeviceFingerprint() async {
+    if (_deviceFingerprint != null) return _deviceFingerprint!;
+    final prefs = await SharedPreferences.getInstance();
+    _deviceFingerprint = prefs.getString('device_fingerprint');
+    if (_deviceFingerprint == null) {
+      final random = Random.secure();
+      final values = List<int>.generate(16, (i) => random.nextInt(256));
+      _deviceFingerprint = values.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+      await prefs.setString('device_fingerprint', _deviceFingerprint!);
+    }
+    return _deviceFingerprint!;
+  }
+
+  Future<bool> studentLogin(String identifier, String pin, {String? deviceFingerprint}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    
+    // Use persistent fingerprint if none is explicitly passed
+    final actualFingerprint = deviceFingerprint ?? await _ensureDeviceFingerprint();
+
+    if (deviceFingerprint == null) {
+      _requiresDeviceApproval = false;
+      _pendingDeviceId = null;
+    }
+    notifyListeners();
+
+    try {
+      final dataPayload = {
+        'identifier': identifier,
+        'pin': pin,
+        'deviceFingerprint': actualFingerprint,
+      };
+      
+      final response = await _apiClient.dio.post(
+        AppConstants.studentLogin,
+        data: dataPayload,
+      );
+
+      final data = response.data;
+      if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
+        if (data is Map && data['requiresDeviceApproval'] == true) {
+          _requiresDeviceApproval = true;
+          _pendingDeviceId = data['deviceId'];
+          _errorMessage = data['message'] ?? 'Device approval required from parent.';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        } else if (data is Map && data['requiresParentApproval'] == true) {
+          _errorMessage = data['message'] ?? 'Parent approval required.';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        } else {
+          _currentUser = (data is Map) ? (data['user'] ?? data) : null;
+          _isLoading = false;
+          notifyListeners();
+          _syncFcmToken();
+          return true;
+        }
+      } else {
+        _errorMessage = (data is Map) ? (data['message'] ?? 'Authentication failed') : 'Authentication failed';
+      }
+    } on DioException catch (e) {
+      if (e.response?.data is Map && e.response?.data['message'] != null) {
+        final msg = e.response?.data['message'];
+        _errorMessage = (msg is List) ? msg.join(', ') : msg.toString();
+      } else {
+        _errorMessage = 'Network or server error';
+      }
     } catch (e) {
       _errorMessage = 'An unexpected error occurred';
     }

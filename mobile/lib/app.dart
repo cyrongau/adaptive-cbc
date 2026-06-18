@@ -25,6 +25,15 @@ import 'features/classes/screens/teacher_cockpit_screen.dart';
 import 'features/ai/screens/ai_chat_screen.dart';
 import 'features/parent/screens/parent_report_detail_screen.dart';
 import 'features/gamification/screens/achievements_screen.dart';
+import 'features/library/screens/library_screen.dart';
+import 'features/questions/screens/questions_screen.dart';
+import 'features/materials/screens/materials_screen.dart';
+import 'features/school/screens/school_screen.dart';
+import 'features/teachers/screens/teachers_screen.dart';
+import 'features/store/screens/store_screen.dart';
+import 'features/schedule/screens/schedule_screen.dart';
+import 'features/progress/screens/progress_screen.dart';
+import 'features/leaderboard/screens/leaderboard_screen.dart';
 import 'shared/widgets/bottom_nav_shell.dart';
 
 class AdaptiveCBCApp extends StatefulWidget {
@@ -180,6 +189,42 @@ class _AdaptiveCBCAppState extends State<AdaptiveCBCApp> {
         GoRoute(
           path: '/achievements',
           builder: (context, state) => const AchievementsScreen(),
+        ),
+        GoRoute(
+          path: '/library',
+          builder: (context, state) => const LibraryScreen(),
+        ),
+        GoRoute(
+          path: '/questions',
+          builder: (context, state) => const QuestionsScreen(),
+        ),
+        GoRoute(
+          path: '/materials',
+          builder: (context, state) => const MaterialsScreen(),
+        ),
+        GoRoute(
+          path: '/school',
+          builder: (context, state) => const SchoolScreen(),
+        ),
+        GoRoute(
+          path: '/teachers',
+          builder: (context, state) => const TeachersScreen(),
+        ),
+        GoRoute(
+          path: '/store',
+          builder: (context, state) => const StoreScreen(),
+        ),
+        GoRoute(
+          path: '/schedule',
+          builder: (context, state) => const ScheduleScreen(),
+        ),
+        GoRoute(
+          path: '/progress',
+          builder: (context, state) => const ProgressScreen(),
+        ),
+        GoRoute(
+          path: '/leaderboard',
+          builder: (context, state) => const LeaderboardScreen(),
         ),
         ShellRoute(
           builder: (context, state, child) {

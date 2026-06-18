@@ -96,8 +96,41 @@ class _LiveClassesScreenState extends State<LiveClassesScreen> with SingleTicker
 
   Widget _buildClassesTab() {
     if (_classes.isEmpty) {
-      return const Center(
-        child: Text('No upcoming live classes at the moment.', style: TextStyle(color: AppColors.onSurfaceVariant)),
+      return RefreshIndicator(
+        onRefresh: _fetchData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.video_call_rounded, size: 80, color: AppColors.primary.withOpacity(0.3)),
+                const SizedBox(height: 24),
+                const Text(
+                  'No Live Classes',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'There are no upcoming live classes scheduled for your grade at the moment. Pull down to refresh.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.onSurfaceVariant.withOpacity(0.8),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 

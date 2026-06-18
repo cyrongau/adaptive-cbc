@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -45,23 +46,113 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _submitStudent() async {
     if (!_studentFormKey.currentState!.validate()) return;
-    await _handleLogin(
-      _studentIdController.text.trim(),
-      _studentPinController.text,
-    );
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final identifier = _studentIdController.text.trim();
+    final pin = _studentPinController.text;
+    
+    final success = await authProvider.studentLogin(identifier, pin);
+    
+    if (!success && authProvider.requiresDeviceApproval) {
+      _showDeviceApprovalDialog(authProvider, identifier, pin);
+      return;
+    }
+    
+    _navigateOnSuccess(success, authProvider);
+  }
+
+  void _showDeviceApprovalDialog(AuthProvider authProvider, String identifier, String pin) {
+    bool isWaiting = false;
+    Timer? pollingTimer;
+    int retryCount = 0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('New Device Detected'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.security, size: 48, color: AppColors.primary),
+                  const SizedBox(height: 16),
+                  Text(
+                    isWaiting 
+                        ? 'Waiting for parent approval... ($retryCount/3)'
+                        : 'Your parent must approve this new device before you can log in.',
+                    textAlign: TextAlign.center,
+                  ),
+                  if (isWaiting) ...[
+                    const SizedBox(height: 16),
+                    const CircularProgressIndicator(),
+                  ],
+                ],
+              ),
+              actions: [
+                if (!isWaiting)
+                  TextButton(
+                    onPressed: () {
+                      authProvider.clearDeviceApprovalState();
+                      Navigator.pop(dialogContext);
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                if (!isWaiting)
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (authProvider.pendingDeviceId != null) {
+                        await authProvider.notifyParentForDeviceApproval(authProvider.pendingDeviceId!);
+                      }
+                      setState(() {
+                        isWaiting = true;
+                      });
+                      
+                      pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+                        retryCount++;
+                        setState(() {});
+                        
+                        final pollSuccess = await authProvider.studentLogin(
+                          identifier, 
+                          pin, 
+                          deviceFingerprint: authProvider.pendingDeviceId
+                        );
+                        if (pollSuccess) {
+                          timer.cancel();
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                            _navigateOnSuccess(true, authProvider);
+                          }
+                        } else if (retryCount >= 12) {
+                          timer.cancel();
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                            _showError('Approval timed out. Please contact your parent manually and try again.');
+                            authProvider.clearDeviceApprovalState();
+                          }
+                        }
+                      });
+                    },
+                    child: const Text('Send Approval Request'),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      pollingTimer?.cancel();
+    });
   }
 
   Future<void> _submitAdult() async {
     if (!_adultFormKey.currentState!.validate()) return;
-    await _handleLogin(
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await authProvider.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
-  }
-
-  Future<void> _handleLogin(String identifier, String credential) async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.login(identifier, credential);
     _navigateOnSuccess(success, authProvider);
   }
 
@@ -227,10 +318,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.school_rounded,
-                  size: 64,
-                  color: AppColors.primary,
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  height: 64,
+                  width: 64,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.school_rounded,
+                    size: 64,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ),

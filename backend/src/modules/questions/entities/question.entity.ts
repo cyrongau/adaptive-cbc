@@ -14,6 +14,7 @@ export enum QuestionType {
   COMPREHENSION = 'comprehension',
   TABLE_INTERPRETATION = 'table_interpretation',
   GRAPH_ANALYSIS = 'graph_analysis',
+  DRAWING_CANVAS = 'drawing_canvas',
 }
 
 export enum DifficultyLevel {

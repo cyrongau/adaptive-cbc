@@ -17,6 +17,18 @@ export class DiagramController {
     return this.diagramService.getTemplates();
   }
 
+  @Get('library')
+  @ApiOperation({ summary: 'Get saved diagrams for the user' })
+  getLibrary(@Request() req: any, @Query('subject') subject?: string) {
+    return this.diagramService.getLibrary(req.user.id, subject);
+  }
+
+  @Post('save')
+  @ApiOperation({ summary: 'Save a diagram to the library' })
+  saveToLibrary(@Request() req: any, @Body() body: any) {
+    return this.diagramService.saveToLibrary(body, req.user.id);
+  }
+
   @Post('upload')
   @ApiOperation({ summary: 'Upload a diagram or option image' })
   @ApiConsumes('multipart/form-data')
@@ -35,6 +47,18 @@ export class DiagramController {
   ) {
     if (!prompt) throw new HttpException('Prompt is required', HttpStatus.BAD_REQUEST);
     return this.diagramService.generateDiagram(prompt, subject, grade);
+  }
+
+  @Post('remix')
+  @ApiOperation({ summary: 'Remix an existing diagram using AI' })
+  async remixDiagram(
+    @Body('imageUrl') imageUrl: string,
+    @Body('prompt') prompt: string,
+    @Body('subject') subject?: string,
+    @Body('grade') grade?: string,
+  ) {
+    if (!imageUrl || !prompt) throw new HttpException('Image URL and prompt are required', HttpStatus.BAD_REQUEST);
+    return this.diagramService.remixDiagram(imageUrl, prompt, subject, grade);
   }
 
   @Post('enhance')

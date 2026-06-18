@@ -29,8 +29,11 @@ import {
   Plus,
 } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 
-type ProcessingMode = 'enhance' | 'vectorize' | 'label';
+const DrawingCanvas = dynamic(() => import('@/components/ui/DrawingCanvas'), { ssr: false });
+
+type ProcessingMode = 'enhance' | 'vectorize' | 'label' | 'remix';
 
 interface Template {
   label: string;
@@ -70,6 +73,16 @@ interface LabeledResult {
   labels: Label[];
 }
 
+interface SavedDiagram {
+  id: string;
+  title: string;
+  url: string;
+  svgContent?: string;
+  subject?: string;
+  classifications: string[];
+  createdAt: string;
+}
+
 export default function DiagramStudioPage() {
   const { user } = useAuthStore();
   const [templates, setTemplates] = useState<TemplatesBySubject>({});
@@ -82,11 +95,29 @@ export default function DiagramStudioPage() {
   const [instructions, setInstructions] = useState('');
   const [result, setResult] = useState<EnhancedResult | VectorizedResult | LabeledResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'templates'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'templates' | 'library' | 'draw'>('upload');
+  const [library, setLibrary] = useState<SavedDiagram[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveForm, setSaveForm] = useState({ title: '', classifications: '', subject: '' });
+  const drawingRef = React.useRef<any>(null);
 
   useEffect(() => {
     fetchTemplates();
+    fetchLibrary();
   }, []);
+
+  const fetchLibrary = async () => {
+    setLibraryLoading(true);
+    try {
+      const res = await api.get('/diagrams/library');
+      setLibrary(res.data);
+    } catch (err) {
+      toast.error('Failed to load diagram library');
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
 
   const fetchTemplates = async () => {
     try {
@@ -167,6 +198,84 @@ export default function DiagramStudioPage() {
     }
   };
 
+  const handleSaveToLibrary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!saveForm.title) { toast.error('Title is required'); return; }
+    
+    let urlToSave = '';
+    let svgContent = '';
+    
+    // Determine what we are saving
+    if (activeTab === 'draw' && drawingRef.current) {
+      const dataUrl = await drawingRef.current.getSvgOrImage();
+      if (!dataUrl) { toast.error('Canvas is empty'); return; }
+      urlToSave = dataUrl; // Or upload it first, but data URL works if small
+      svgContent = dataUrl;
+    } else if (result) {
+      urlToSave = (result as any).svgUrl || (result as any).enhancedUrl || (result as LabeledResult).imageUrl;
+      svgContent = (result as any).svgContent || '';
+    } else if (previewUrl) {
+      // Just saving the uploaded image (need to upload first)
+      if (!file) return;
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/diagrams/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        urlToSave = res.data.url;
+      } catch (err) {
+        toast.error('Upload failed before saving');
+        return;
+      }
+    } else {
+      toast.error('Nothing to save');
+      return;
+    }
+
+    try {
+      await api.post('/diagrams/save', {
+        title: saveForm.title,
+        url: urlToSave,
+        svgContent,
+        subject: saveForm.subject || selectedSubject,
+        classifications: saveForm.classifications.split(',').map(s => s.trim()).filter(Boolean),
+      });
+      toast.success('Saved to library');
+      setShowSaveModal(false);
+      setSaveForm({ title: '', classifications: '', subject: '' });
+      fetchLibrary();
+      setActiveTab('library');
+    } catch (err) {
+      toast.error('Failed to save diagram');
+    }
+  };
+
+  const handleRemix = async (diagram: SavedDiagram) => {
+    const prompt = window.prompt('How would you like to remix this diagram?');
+    if (!prompt) return;
+    
+    setProcessing(true);
+    try {
+      const res = await api.post('/diagrams/remix', {
+        imageUrl: diagram.url,
+        prompt,
+      });
+      setResult({
+        id: 'remix',
+        originalUrl: diagram.url,
+        svgUrl: res.data.url,
+        svgContent: '', // Assuming URL is returned
+      });
+      setActiveTab('upload'); // Switch back to view result
+      toast.success('Diagram remixed successfully');
+    } catch (err) {
+      toast.error('Failed to remix diagram');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleTemplateSelect = async (subject: string, template: Template) => {
     setSelectedSubject(subject);
     setSelectedTemplate(template);
@@ -231,8 +340,30 @@ export default function DiagramStudioPage() {
                         : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
-                    <Layers className="w-4 h-4 inline mr-2" />
+                    <Grid3X3 className="w-4 h-4 inline mr-2" />
                     Templates
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('library')}
+                    className={`flex-1 px-4 py-3 text-sm font-medium text-center border-b-2 transition-colors ${
+                      activeTab === 'library'
+                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    <Tags className="w-4 h-4 inline mr-2" />
+                    Library
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('draw')}
+                    className={`flex-1 px-4 py-3 text-sm font-medium text-center border-b-2 transition-colors ${
+                      activeTab === 'draw'
+                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    <Image className="w-4 h-4 inline mr-2" />
+                    Whiteboard
                   </button>
                 </div>
               </div>
@@ -291,6 +422,74 @@ export default function DiagramStudioPage() {
                         <p className="text-sm">Select a subject to view available templates</p>
                       </div>
                     )}
+                  </div>
+                ) : activeTab === 'library' ? (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Saved Diagrams</h3>
+                    {libraryLoading ? (
+                      <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>
+                    ) : library.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+                        <Tags className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No saved diagrams found. Upload or draw one and save it.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {library.map((diagram) => (
+                          <div key={diagram.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden flex flex-col">
+                            <div className="h-40 bg-gray-50 dark:bg-gray-800 flex items-center justify-center p-2 relative group">
+                              {diagram.svgContent ? (
+                                <div className="w-full h-full object-contain" dangerouslySetInnerHTML={{ __html: diagram.svgContent.replace(/^data:image\/svg\+xml;utf8,/, '') }} />
+                              ) : (
+                                <img src={diagram.url} alt={diagram.title} className="max-w-full max-h-full object-contain" />
+                              )}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                <button
+                                  onClick={() => handleRemix(diagram)}
+                                  className="p-2.5 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
+                                  title="Remix with AI"
+                                >
+                                  <Wand2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(diagram.url);
+                                    toast.success('Diagram URL copied! Paste it in the Author Studio.');
+                                    setTimeout(() => window.location.href = '/author-studio/create', 1000);
+                                  }}
+                                  className="p-2.5 bg-blue-600/80 hover:bg-blue-600 rounded-full text-white transition-colors"
+                                  title="Use in Question"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="p-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                              <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate" title={diagram.title}>{diagram.title}</h4>
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {diagram.classifications.map((c, i) => (
+                                  <span key={i} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-xs rounded-full text-gray-600 dark:text-gray-300">
+                                    {c}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : activeTab === 'draw' ? (
+                  <div className="h-[500px]">
+                    <DrawingCanvas canvasRef={drawingRef} className="w-full h-full" />
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => setShowSaveModal(true)}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                      >
+                        <Save className="w-4 h-4" /> Save Drawing
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div>
@@ -475,14 +674,19 @@ export default function DiagramStudioPage() {
 
                   <div className="mt-4 flex gap-2">
                     <button
-                      onClick={() => toast.success('Saved to media library')}
+                      onClick={() => setShowSaveModal(true)}
                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"
                     >
                       <Save className="w-4 h-4" />
                       Save to Library
                     </button>
                     <button
-                      onClick={() => window.location.href = '/author-studio/create'}
+                      onClick={() => {
+                        const url = ('svgUrl' in result ? result.svgUrl : 'enhancedUrl' in result ? result.enhancedUrl : result.imageUrl);
+                        navigator.clipboard.writeText(url);
+                        toast.success('Diagram URL copied! Paste it in the Author Studio.');
+                        setTimeout(() => window.location.href = '/author-studio/create', 1000);
+                      }}
                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
                     >
                       <Plus className="w-4 h-4" />
@@ -526,6 +730,64 @@ export default function DiagramStudioPage() {
           </div>
         </div>
       </div>
+
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold mb-4">Save Diagram</h3>
+            <form onSubmit={handleSaveToLibrary}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={saveForm.title}
+                    onChange={e => setSaveForm({...saveForm, title: e.target.value})}
+                    className="w-full px-3 py-2 rounded-lg border dark:border-gray-600 dark:bg-gray-700"
+                    placeholder="e.g. Plant Cell Diagram"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Subject</label>
+                  <input
+                    type="text"
+                    value={saveForm.subject}
+                    onChange={e => setSaveForm({...saveForm, subject: e.target.value})}
+                    className="w-full px-3 py-2 rounded-lg border dark:border-gray-600 dark:bg-gray-700"
+                    placeholder="e.g. biology"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Tags / Classifications (comma separated)</label>
+                  <input
+                    type="text"
+                    value={saveForm.classifications}
+                    onChange={e => setSaveForm({...saveForm, classifications: e.target.value})}
+                    className="w-full px-3 py-2 rounded-lg border dark:border-gray-600 dark:bg-gray-700"
+                    placeholder="e.g. anatomy, grade8"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowSaveModal(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

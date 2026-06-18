@@ -34,6 +34,9 @@ interface Question {
   content: string;
   options: { id: string; text: string; isCorrect?: boolean }[];
   explanation?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  questionMedia?: { type: string; url: string; alt?: string }[];
 }
 
 export default function AssignmentResultsPage() {
@@ -186,6 +189,16 @@ export default function AssignmentResultsPage() {
                   </span>
                   <div className="flex-1">
                     <HtmlContent html={question.content} className="text-base font-semibold text-slate-900" renderMath={true} />
+                    {question.questionMedia?.map((media, i) => (
+                      <div key={i} className="mt-3 flex justify-center">
+                        <img src={media.url} alt={media.alt || 'Question diagram'} className="max-w-full h-auto rounded-xl border border-slate-200" style={{ maxHeight: '300px' }} />
+                      </div>
+                    ))}
+                    {!question.questionMedia?.length && question.mediaUrl && (
+                      <div className="mt-3 flex justify-center">
+                        <img src={question.mediaUrl} alt="Question diagram" className="max-w-full h-auto rounded-xl border border-slate-200" style={{ maxHeight: '300px' }} />
+                      </div>
+                    )}
                   </div>
                   {isCorrect === true && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
                   {isCorrect === false && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}

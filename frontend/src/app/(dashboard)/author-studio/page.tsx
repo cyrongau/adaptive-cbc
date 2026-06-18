@@ -31,6 +31,8 @@ interface QuestionSummary {
   difficulty: string;
   createdAt: string;
   topic?: { name: string };
+  mediaUrl?: string;
+  questionMedia?: { type: string; url: string; alt?: string }[];
 }
 
 interface Stats {
@@ -208,9 +210,22 @@ export default function AuthorStudioDashboard() {
                               {q.difficulty}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-800 font-medium line-clamp-2">
-                            {q.content.replace(/<[^>]*>?/gm, '')}
-                          </p>
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-slate-800 font-medium line-clamp-2">
+                                {q.content.replace(/<[^>]*>?/gm, '')}
+                              </p>
+                            </div>
+                            {(q.questionMedia && q.questionMedia.length > 0 || q.mediaUrl) && (
+                              <div className="flex-shrink-0 w-10 h-10 rounded-lg border border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center">
+                                <img
+                                  src={q.questionMedia?.[0]?.url || q.mediaUrl || ''}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-300 flex-shrink-0 ml-2" />
                       </div>

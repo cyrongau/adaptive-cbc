@@ -181,3 +181,31 @@ export class Leaderboard {
   @CreateDateColumn()
   createdAt: Date;
 }
+
+@Entity('game_history')
+export class GameHistory {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  userId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @Column()
+  subject: string;
+
+  @Column({ type: 'int', default: 0 })
+  score: number;
+
+  @Column({ type: 'int', default: 0 })
+  xpEarned: number;
+
+  @Column({ nullable: true })
+  difficulty: string;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  playedAt: Date;
+}

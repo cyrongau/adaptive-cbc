@@ -7,6 +7,7 @@ import '../../../core/constants.dart';
 import '../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import '../../gamification/widgets/streak_progress_card.dart';
+import 'full_screen_menu.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -78,6 +79,21 @@ class _HomeScreenState extends State<HomeScreen> {
               expandedHeight: 180,
               pinned: true,
               backgroundColor: AppColors.primary,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const FullScreenMenu(),
+                        fullscreenDialog: true,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
                   fit: StackFit.expand,
@@ -522,40 +538,52 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(color: AppColors.surfaceContainer),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: CircleAvatar(
-                    backgroundColor: type == 'assignment'
-                        ? Colors.amber.shade100
-                        : Colors.green.shade100,
-                    child: Icon(
-                      type == 'assignment' ? Icons.assignment_turned_in : Icons.video_camera_front,
-                      color: type == 'assignment' ? Colors.amber.shade900 : Colors.green.shade900,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    if (type == 'assignment') {
+                      context.push('/subjects');
+                    } else if (type == 'live') {
+                      context.push('/live');
+                    } else {
+                      context.push('/subjects');
+                    }
+                  },
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: CircleAvatar(
+                      backgroundColor: type == 'assignment'
+                          ? Colors.amber.shade100
+                          : Colors.green.shade100,
+                      child: Icon(
+                        type == 'assignment' ? Icons.assignment_turned_in : Icons.video_camera_front,
+                        color: type == 'assignment' ? Colors.amber.shade900 : Colors.green.shade900,
+                      ),
                     ),
-                  ),
-                  title: Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      Text('$subject • $formattedTime', style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: priorityColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                    title: Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    child: Text(
-                      priority.toUpperCase(),
-                      style: TextStyle(
-                        color: priorityColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text('$subject • $formattedTime', style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: priorityColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        priority.toUpperCase(),
+                        style: TextStyle(
+                          color: priorityColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -622,8 +650,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(color: AppColors.surfaceContainer),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    context.push('/analytics');
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
                   child: Row(
                     children: [
                       Container(
@@ -687,6 +720,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+                ),
                 ),
               );
             },

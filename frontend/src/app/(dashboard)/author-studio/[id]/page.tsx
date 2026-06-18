@@ -239,15 +239,13 @@ export default function QuestionEditor({ params }: { params: { id: string } }) {
             )}
           </div>
 
-          {question.status === 'draft' || question.status === 'flagged' ? (
-            <Link
-              href={`/author-studio/create?edit=${params.id}`}
-              className="flex items-center gap-2 px-4 py-2 bg-[#47a263] text-white rounded-lg hover:bg-[#3d8c55] transition-colors font-medium"
-            >
-              <Edit3 className="w-4 h-4" />
-              Edit Question
-            </Link>
-          ) : null}
+          <Link
+            href={`/author-studio/create?edit=${params.id}`}
+            className="flex items-center gap-2 px-4 py-2 bg-[#47a263] text-white rounded-lg hover:bg-[#3d8c55] transition-colors font-medium"
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit Question
+          </Link>
         </div>
       </div>
 

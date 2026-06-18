@@ -16,14 +16,14 @@ const AUTH_LEVEL_HIERARCHY: Record<string, number> = {
 const ROLE_ROUTES: Record<string, string[]> = {
   student: [
     '/dashboard', '/course-hub', '/classes', '/schedule', '/practice',
-    '/assignments', '/question-bank', '/school', '/library', '/store',
+    '/assignments', '/question-bank', '/attempt-history', '/school', '/library', '/store',
     '/materials', '/progress', '/leaderboard', '/chat', '/support',
-    '/settings', '/profile', '/children',
+    '/settings', '/profile', '/children', '/games',
   ],
   parent: [
     '/dashboard', '/course-hub', '/children', '/store', '/library',
     '/progress', '/chat', '/support', '/settings', '/profile',
-    '/approvals',
+    '/approvals', '/devices',
   ],
   teacher: [
     '/dashboard', '/course-hub', '/my-courses', '/students', '/classes',
@@ -44,7 +44,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
   super_admin: [
     '/dashboard', '/users', '/kyc-applications', '/verification',
     '/institutions', '/financial', '/store', '/content', '/analytics',
-    '/reports', '/chat', '/support', '/settings', '/profile',
+    '/reports', '/chat', '/support', '/settings', '/profile', '/author-studio'
   ],
 };
 
@@ -116,6 +116,7 @@ export async function middleware(request: NextRequest) {
     );
 
     if (!isAllowed) {
+      console.log('--- MIDDLEWARE REDIRECT TO DASHBOARD. isAllowed=false, pathname=', pathname, 'role=', role);
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 

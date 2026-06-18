@@ -1,9 +1,12 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuid } from 'uuid';
+import { SavedDiagram } from '../entities/saved-diagram.entity';
 
 export interface EnhancedDiagram {
   id: string;
@@ -69,10 +72,12 @@ export class DiagramService {
   private readonly logger = new Logger(DiagramService.name);
   private readonly openRouterApiKey: string;
   private readonly openRouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
-  private readonly imageModel = 'google/gemini-2.5-flash';
+  private readonly imageModel = 'google/gemini-1.5-pro';
   private readonly uploadDir: string;
 
   constructor(
+    @InjectRepository(SavedDiagram)
+    private readonly savedDiagramRepo: Repository<SavedDiagram>,
     private configService: ConfigService,
     private httpService: HttpService,
   ) {
@@ -85,6 +90,26 @@ export class DiagramService {
 
   getTemplates(): Record<string, { label: string; description: string }[]> {
     return SUBJECT_TEMPLATES;
+  }
+
+  async saveToLibrary(data: Partial<SavedDiagram>, userId: string): Promise<SavedDiagram> {
+    const diagram = this.savedDiagramRepo.create({
+      ...data,
+      createdById: userId,
+    });
+    return this.savedDiagramRepo.save(diagram);
+  }
+
+  async getLibrary(userId: string, subject?: string): Promise<SavedDiagram[]> {
+    const query = this.savedDiagramRepo.createQueryBuilder('diagram')
+      .where('diagram.createdById = :userId', { userId })
+      .orderBy('diagram.createdAt', 'DESC');
+    
+    if (subject) {
+      query.andWhere('diagram.subject = :subject', { subject });
+    }
+    
+    return query.getMany();
   }
 
   async saveUpload(file: Express.Multer.File): Promise<{ url: string; filename: string }> {
@@ -197,28 +222,80 @@ Example format: { "svg": "<svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\
 
   async vectorizeDiagram(file: Express.Multer.File): Promise<VectorizedDiagram> {
     const { url: originalUrl, filename } = await this.saveUpload(file);
+    const filepath = path.join(this.uploadDir, filename);
 
-    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
-      <rect width="800" height="600" fill="white"/>
-      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-family="Arial" font-size="20" fill="#666">
-        SVG vectorization preview — replace with AI-generated SVG
-      </text>
-      <rect x="300" y="200" width="200" height="200" fill="none" stroke="#47a263" stroke-width="2" rx="8"/>
-      <text x="400" y="300" text-anchor="middle" dominant-baseline="central" font-family="Arial" font-size="14" fill="#47a263">
-        Diagram
-      </text>
-    </svg>`;
+    if (!this.openRouterApiKey) {
+      throw new HttpException('AI vectorization requires API key configured', HttpStatus.BAD_REQUEST);
+    }
 
-    const svgFilename = `vector-${filename.replace(/\.[^.]+$/, '')}.svg`;
-    const svgPath = path.join(this.uploadDir, svgFilename);
-    fs.writeFileSync(svgPath, svgContent);
+    try {
+      const base64Image = fs.readFileSync(filepath, { encoding: 'base64' });
+      const prompt = `Convert this raster diagram into a clean, scalable SVG vector graphic. 
+Use appropriate standard colors. Only return JSON: { "svg": "<svg xmlns=\\"...\\">...</svg>" }`;
+      
+      const result = await this.callOpenRouterWithImage(prompt, base64Image, 'image/png', 'You are an expert SVG generator.');
+      
+      let svgContent = result.svg || result;
+      if (typeof svgContent !== 'string') svgContent = JSON.stringify(svgContent);
 
-    return {
-      id: uuid(),
-      originalUrl,
-      svgUrl: `/uploads/diagrams/${svgFilename}`,
-      svgContent,
-    };
+      const svgFilename = `vector-${filename.replace(/\.[^.]+$/, '')}.svg`;
+      const svgPath = path.join(this.uploadDir, svgFilename);
+      fs.writeFileSync(svgPath, svgContent);
+
+      return {
+        id: uuid(),
+        originalUrl,
+        svgUrl: `/uploads/diagrams/${svgFilename}`,
+        svgContent,
+      };
+    } catch (error) {
+      this.logger.error(`Vectorization failed: ${error.message}`);
+      throw new HttpException('Failed to vectorize diagram using AI', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async remixDiagram(
+    imageUrl: string,
+    prompt: string,
+    subject?: string,
+    grade?: string
+  ): Promise<{ url: string; filename: string }> {
+    if (!this.openRouterApiKey) {
+      throw new HttpException('AI remix requires API key configured', HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      const filename = path.basename(imageUrl);
+      const filepath = path.join(this.uploadDir, filename);
+      let base64Image = '';
+      if (fs.existsSync(filepath)) {
+        base64Image = fs.readFileSync(filepath, { encoding: 'base64' });
+      } else {
+        throw new Error('Original diagram not found locally');
+      }
+
+      const aiPrompt = `Remix and modify this diagram based on the instructions: "${prompt}".
+Subject: ${subject || 'General'}, Grade level: ${grade || 'Any'}.
+Generate a completely new SVG that incorporates the requested changes.
+Return JSON: { "svg": "<svg xmlns=\\"...\\">...</svg>" }`;
+
+      const result = await this.callOpenRouterWithImage(aiPrompt, base64Image, 'image/png', 'You are an expert SVG generator.');
+      
+      let svgContent = result.svg || result;
+      if (typeof svgContent !== 'string') svgContent = JSON.stringify(svgContent);
+
+      const remixedFilename = `remix-${uuid()}.svg`;
+      const remixedPath = path.join(this.uploadDir, remixedFilename);
+      fs.writeFileSync(remixedPath, svgContent);
+
+      return {
+        url: `/uploads/diagrams/${remixedFilename}`,
+        filename: remixedFilename,
+      };
+    } catch (error) {
+      this.logger.error(`Remix failed: ${error.message}`);
+      throw new HttpException('Failed to remix diagram using AI', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   async labelDiagram(
@@ -257,10 +334,28 @@ Example format: { "svg": "<svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\
   }
 
   private async callOpenRouter(prompt: string, systemMessage?: string): Promise<any> {
-    const messages: { role: string; content: string }[] = [];
+    const messages: any[] = [];
     if (systemMessage) messages.push({ role: 'system', content: systemMessage });
     messages.push({ role: 'user', content: prompt });
 
+    return this.executeOpenRouterCall(messages);
+  }
+
+  private async callOpenRouterWithImage(prompt: string, base64Image: string, mimeType: string, systemMessage?: string): Promise<any> {
+    const messages: any[] = [];
+    if (systemMessage) messages.push({ role: 'system', content: systemMessage });
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } }
+      ]
+    });
+
+    return this.executeOpenRouterCall(messages);
+  }
+
+  private async executeOpenRouterCall(messages: any[]): Promise<any> {
     try {
       const response = await this.httpService.axiosRef.post(
         this.openRouterUrl,
@@ -272,7 +367,7 @@ Example format: { "svg": "<svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\
             'X-Title': 'Adaptive Learning CBC',
             'Content-Type': 'application/json',
           },
-          timeout: 30000,
+          timeout: 45000,
         },
       );
 

@@ -17,6 +17,8 @@ import { RelationshipsService } from '../relationships/relationships.service';
 import { InstitutionsService } from '../institutions/institutions.service';
 import { EmailService } from '../../common/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { getEntityManagerToken } from '@nestjs/typeorm';
+import { EntityManager } from 'typeorm';
 
 jest.mock('argon2');
 jest.mock('uuid', () => ({ v4: () => 'mocked-uuid' }));
@@ -30,7 +32,7 @@ const mockRepository = () => ({
   createQueryBuilder: jest.fn(() => ({
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
-    getMany: jest.fn(),
+    getMany: jest.fn().mockResolvedValue([]),
   })),
 });
 
@@ -139,6 +141,7 @@ describe('StudentsService', () => {
         { provide: NotificationsService, useValue: mockNotificationsService() },
         { provide: JwtService, useValue: mockJwtService() },
         { provide: ConfigService, useValue: mockConfigService() },
+        { provide: getEntityManagerToken(), useValue: { query: jest.fn().mockResolvedValue([]) } },
       ],
     }).compile();
 
@@ -169,7 +172,7 @@ describe('StudentsService', () => {
         repo.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          getMany: jest.fn(),
+          getMany: jest.fn().mockResolvedValue([]),
         }));
       },
     );

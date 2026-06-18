@@ -31,7 +31,6 @@ export class AuthController {
       secure: isProd,
       sameSite: 'lax' as const,
       path: '/',
-      ...(isProd ? {} : { domain: 'localhost' }), // Share cookie across ports in dev so WebSocket on :3002 can read it
     };
 
     res.cookie('accessToken', accessToken, {

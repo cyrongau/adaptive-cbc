@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
-import { Tournament, TournamentParticipant, UserBadge, Leaderboard, TournamentStatus } from './entities/gamification.entity';
+import { Tournament, TournamentParticipant, UserBadge, Leaderboard, TournamentStatus, GameHistory } from './entities/gamification.entity';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/entities/user.entity';
 import { AiService } from '../ai/ai.service';
@@ -18,6 +18,8 @@ export class GamificationService {
     private badgeRepository: Repository<UserBadge>,
     @InjectRepository(Leaderboard)
     private leaderboardRepository: Repository<Leaderboard>,
+    @InjectRepository(GameHistory)
+    private gameHistoryRepository: Repository<GameHistory>,
     private usersService: UsersService,
     private aiService: AiService,
   ) {}
@@ -69,12 +71,29 @@ export class GamificationService {
     };
   }
 
-  async submitGameScore(userId: string, score: number): Promise<{ xpAwarded: number }> {
+  async submitGameScore(userId: string, score: number, subject: string, difficulty?: string): Promise<{ xpAwarded: number }> {
     const xpToAward = Math.floor(score * 10);
+    
+    const history = this.gameHistoryRepository.create({
+      userId,
+      subject,
+      score,
+      xpEarned: xpToAward,
+      difficulty,
+    });
+    await this.gameHistoryRepository.save(history);
+
     if (xpToAward > 0) {
       await this.usersService.addXpPoints(userId, xpToAward);
     }
     return { xpAwarded: xpToAward };
+  }
+
+  async getUserGameHistory(userId: string): Promise<GameHistory[]> {
+    return this.gameHistoryRepository.find({
+      where: { userId },
+      order: { playedAt: 'DESC' },
+    });
   }
 
   async findAllTournaments(filters?: { status?: TournamentStatus; subjectId?: string }): Promise<Tournament[]> {

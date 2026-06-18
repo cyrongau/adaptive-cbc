@@ -1,5 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:signature/signature.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -52,9 +55,21 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
   int _consecutiveQuestionsAnswered = 0;
   bool _isShowingBrainBreak = false;
 
+  late SignatureController _signatureController;
+
   @override
   void initState() {
     super.initState();
+    _signatureController = SignatureController(
+      penStrokeWidth: 3,
+      penColor: Colors.black,
+      exportBackgroundColor: Colors.transparent,
+      exportPenColor: Colors.black,
+    );
+    _signatureController.addListener(() {
+      setState(() {});
+    });
+
     if (widget.isFallback && widget.quizData != null) {
       _fallbackQuestions = widget.quizData!['questions'] ?? [];
       _totalQuestions = _fallbackQuestions.length;
@@ -71,6 +86,12 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _signatureController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchCurrentQuestion() async {
     setState(() {
       _isLoading = true;
@@ -79,6 +100,7 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
       _selectedOptionId = null;
       _correctOptionId = null;
       _aiExplanation = null;
+      _signatureController.clear();
     });
 
     try {
@@ -106,24 +128,44 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
   }
 
   Future<void> _submitAnswer() async {
-    if (_selectedOptionId == null) return;
+    final String type = _currentQuestion?['type']?.toString().toUpperCase() ?? 'MULTIPLE_CHOICE';
+    final bool isDrawing = type == 'DRAWING_CANVAS';
+
+    if (!isDrawing && _selectedOptionId == null) return;
+    if (isDrawing && _signatureController.isEmpty) return;
     
     setState(() {
       _hasSubmitted = true;
       _isLoadingExplanation = false;
     });
 
+    String? userAnswer = _selectedOptionId;
+
+    if (isDrawing) {
+      final Uint8List? pngBytes = await _signatureController.toPngBytes();
+      if (pngBytes != null) {
+        userAnswer = 'data:image/png;base64,' + base64Encode(pngBytes);
+      }
+    }
+
     if (widget.isFallback) {
       // Handle locally
-      final correctAnswerId = _currentQuestion!['correctAnswer'];
-      setState(() {
-        _isCorrect = (_selectedOptionId == correctAnswerId);
-        _correctOptionId = correctAnswerId;
-        if (_isCorrect) {
-          _score++;
-          _xpAwarded += 10;
-        }
-      });
+      if (!isDrawing) {
+        final correctAnswerId = _currentQuestion!['correctAnswer'];
+        setState(() {
+          _isCorrect = (_selectedOptionId == correctAnswerId);
+          _correctOptionId = correctAnswerId;
+          if (_isCorrect) {
+            _score++;
+            _xpAwarded += 10;
+          }
+        });
+      } else {
+        // Fallback drawing is just "submitted"
+        setState(() {
+          _isCorrect = false; // Requires teacher review
+        });
+      }
     } else {
       // Submit to backend
       try {
@@ -132,18 +174,22 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
           data: {
             'sessionId': widget.sessionId,
             'questionId': _currentQuestion!['id'],
-            'userAnswer': _selectedOptionId,
+            'userAnswer': userAnswer,
           },
         );
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           final data = response.data;
           setState(() {
-            _isCorrect = data['isCorrect'] ?? false;
-            if (_isCorrect) _score++;
-            _xpAwarded += (data['xpAwarded'] as int?) ?? 0;
-            _consecutiveQuestionsAnswered++;
-            // The API doesn't return correctOptionId directly, so we rely on the visual indicator of what the user chose
+            if (isDrawing) {
+              _isCorrect = false; // Pending review
+              _consecutiveQuestionsAnswered++;
+            } else {
+              _isCorrect = data['isCorrect'] ?? false;
+              if (_isCorrect) _score++;
+              _xpAwarded += (data['xpAwarded'] as int?) ?? 0;
+              _consecutiveQuestionsAnswered++;
+            }
           });
         }
       } catch (e) {
@@ -201,6 +247,7 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
           _selectedOptionId = null;
           _correctOptionId = null;
           _aiExplanation = null;
+          _signatureController.clear();
         });
       } else {
         _finishSession();
@@ -334,6 +381,9 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
   Widget _buildQuizInterface() {
     final questionText = _currentQuestion?['content'] ?? 'Unknown Question';
     final options = _currentQuestion?['options'] as List<dynamic>? ?? [];
+    final String type = _currentQuestion?['type']?.toString().toUpperCase() ?? 'MULTIPLE_CHOICE';
+    final bool isDrawing = type == 'DRAWING_CANVAS';
+    final String? mediaUrl = _currentQuestion?['mediaUrl'];
 
     return Column(
       children: [
@@ -403,87 +453,152 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
                 
                 const SizedBox(height: 32),
                 
-                // Options
-                ...options.map((option) {
-                  final String id = option['id'];
-                  final String text = option['text'];
-                  
-                  bool isSelected = _selectedOptionId == id;
-                  
-                  Color borderColor = AppColors.surfaceContainer;
-                  Color bgColor = Colors.white;
-                  Color textColor = AppColors.onSurface;
-                  IconData? trailingIcon;
-                  Color iconColor = Colors.transparent;
+                // Options or Canvas
+                if (isDrawing) ...[
+                  Container(
+                    height: 300,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: AppColors.surfaceContainer, width: 2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    clipBehavior: Clip.hardEdge,
+                    child: Stack(
+                      children: [
+                        if (mediaUrl != null && mediaUrl.isNotEmpty)
+                          Positioned.fill(
+                            child: Image.network(
+                              mediaUrl,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                            ),
+                          ),
+                        IgnorePointer(
+                          ignoring: _hasSubmitted,
+                          child: Signature(
+                            controller: _signatureController,
+                            backgroundColor: Colors.transparent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!_hasSubmitted)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          _signatureController.clear();
+                        },
+                        icon: const Icon(Icons.clear),
+                        label: const Text('Clear Canvas'),
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      ),
+                    ),
+                  if (_hasSubmitted)
+                    Container(
+                      margin: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.pending_actions, color: Colors.blue.shade800),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Submitted for Teacher Review. XP will be awarded once graded.',
+                              style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ] else ...[
+                  ...options.map((option) {
+                    final String id = option['id'];
+                    final String text = option['text'];
+                    
+                    bool isSelected = _selectedOptionId == id;
+                    
+                    Color borderColor = AppColors.surfaceContainer;
+                    Color bgColor = Colors.white;
+                    Color textColor = AppColors.onSurface;
+                    IconData? trailingIcon;
+                    Color iconColor = Colors.transparent;
 
-                  if (_hasSubmitted) {
-                    if (widget.isFallback) {
-                      if (id == _correctOptionId) {
-                        borderColor = Colors.green;
-                        bgColor = Colors.green.withValues(alpha: 0.1);
-                        trailingIcon = Icons.check_circle_rounded;
-                        iconColor = Colors.green;
-                      } else if (isSelected) {
-                        borderColor = Colors.red;
-                        bgColor = Colors.red.withValues(alpha: 0.1);
-                        trailingIcon = Icons.cancel_rounded;
-                        iconColor = Colors.red;
-                      }
-                    } else {
-                      // For Real API, we only know if the selected option is correct or not.
-                      if (isSelected) {
-                        if (_isCorrect) {
+                    if (_hasSubmitted) {
+                      if (widget.isFallback) {
+                        if (id == _correctOptionId) {
                           borderColor = Colors.green;
                           bgColor = Colors.green.withValues(alpha: 0.1);
                           trailingIcon = Icons.check_circle_rounded;
                           iconColor = Colors.green;
-                        } else {
+                        } else if (isSelected) {
                           borderColor = Colors.red;
                           bgColor = Colors.red.withValues(alpha: 0.1);
                           trailingIcon = Icons.cancel_rounded;
                           iconColor = Colors.red;
                         }
+                      } else {
+                        // For Real API, we only know if the selected option is correct or not.
+                        if (isSelected) {
+                          if (_isCorrect) {
+                            borderColor = Colors.green;
+                            bgColor = Colors.green.withValues(alpha: 0.1);
+                            trailingIcon = Icons.check_circle_rounded;
+                            iconColor = Colors.green;
+                          } else {
+                            borderColor = Colors.red;
+                            bgColor = Colors.red.withValues(alpha: 0.1);
+                            trailingIcon = Icons.cancel_rounded;
+                            iconColor = Colors.red;
+                          }
+                        }
                       }
+                    } else if (isSelected) {
+                      borderColor = AppColors.primary;
+                      bgColor = AppColors.primary.withValues(alpha: 0.05);
+                      textColor = AppColors.primary;
                     }
-                  } else if (isSelected) {
-                    borderColor = AppColors.primary;
-                    bgColor = AppColors.primary.withValues(alpha: 0.05);
-                    textColor = AppColors.primary;
-                  }
 
-                  return GestureDetector(
-                    onTap: _hasSubmitted ? null : () {
-                      setState(() {
-                        _selectedOptionId = id;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: borderColor, width: isSelected || _hasSubmitted ? 2 : 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              text,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: textColor,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    return GestureDetector(
+                      onTap: _hasSubmitted ? null : () {
+                        setState(() {
+                          _selectedOptionId = id;
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: bgColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: borderColor, width: isSelected || _hasSubmitted ? 2 : 1),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                text,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: textColor,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
                               ),
                             ),
-                          ),
-                          if (_hasSubmitted && trailingIcon != null)
-                            Icon(trailingIcon, color: iconColor),
-                        ],
+                            if (_hasSubmitted && trailingIcon != null)
+                              Icon(trailingIcon, color: iconColor),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ],
                 
                 if (_hasSubmitted) ...[
                   const SizedBox(height: 24),
@@ -562,7 +677,7 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _selectedOptionId == null 
+                onPressed: (!isDrawing && _selectedOptionId == null) || (isDrawing && _signatureController.isEmpty)
                     ? null 
                     : (_hasSubmitted ? _nextQuestion : _submitAnswer),
                 style: ElevatedButton.styleFrom(

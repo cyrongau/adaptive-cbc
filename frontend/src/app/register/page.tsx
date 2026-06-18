@@ -5,22 +5,21 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '../../store/authStore';
 import api from '@/lib/api';
-import { GraduationCap, ArrowRight, Loader2, Sparkles, User, Mail, Phone, ShieldAlert, Building2, Shield, BookOpen } from 'lucide-react';
+import { ArrowRight, Loader2, User, Mail, Phone, ShieldAlert, Building2, Shield, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
-type RoleType = 'student' | 'parent' | 'tutor' | 'institution_admin';
+type RoleType = 'parent' | 'tutor' | 'institution_admin';
 
 function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, register, loading, error, clearError, initialize } = useAuthStore();
   
-  const [selectedRole, setSelectedRole] = useState<RoleType>('student');
+  const [selectedRole, setSelectedRole] = useState<RoleType>('parent');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [grade, setGrade] = useState('Grade 4');
   const [institutionName, setInstitutionName] = useState('');
   const [institutionType, setInstitutionType] = useState('basic_education');
   const [county, setCounty] = useState('');
@@ -63,21 +62,12 @@ function RegisterPageContent() {
       return;
     }
 
-    if (selectedRole === 'student' && !grade) {
-      toast.error('Please select your grade');
-      return;
-    }
-
     const payload: any = {
       email,
       phone,
       fullName,
       role: selectedRole,
     };
-
-    if (selectedRole === 'student') {
-      payload.grade = grade;
-    }
 
     if (selectedRole === 'institution_admin') {
       payload.institutionApplication = {
@@ -109,7 +99,6 @@ function RegisterPageContent() {
   };
 
   const roles: { value: RoleType; label: string; icon: any; description: string }[] = [
-    { value: 'student', label: 'Student', icon: GraduationCap, description: 'Access learning materials and practice' },
     { value: 'parent', label: 'Parent', icon: User, description: 'Monitor your child\'s progress' },
     { value: 'tutor', label: 'Public Tutor', icon: BookOpen, description: 'Teach publicly and sell courses' },
     { value: 'institution_admin', label: 'School Admin', icon: Building2, description: 'Manage your institution' },
@@ -221,7 +210,7 @@ function RegisterPageContent() {
 
           {/* Role Selection */}
           {!acceptingInvite && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {roles.map((role) => (
               <button
                 key={role.value}
@@ -299,34 +288,6 @@ function RegisterPageContent() {
               </div>
             </div>
 
-            {/* Student: Grade Selection */}
-            {selectedRole === 'student' && (
-              <div className="space-y-1">
-                <label htmlFor="grade" className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  Current Class / Grade Level
-                </label>
-                <div className="relative flex items-center bg-gray-50 border border-gray-100 rounded-xl focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-white focus-within:border-primary transition-all">
-                  <GraduationCap className="w-5 h-5 text-gray-400 absolute left-4 shrink-0" />
-                  <select 
-                    id="grade"
-                    value={grade}
-                    onChange={(e) => setGrade(e.target.value)}
-                    className="w-full bg-transparent outline-none pl-12 pr-4 py-3.5 text-sm font-semibold text-gray-800 placeholder-gray-400 cursor-pointer appearance-none"
-                  >
-                    <option value="Grade 1">Grade 1 (Lower Primary)</option>
-                    <option value="Grade 2">Grade 2 (Lower Primary)</option>
-                    <option value="Grade 3">Grade 3 (Lower Primary)</option>
-                    <option value="Grade 4">Grade 4 (Upper Primary)</option>
-                    <option value="Grade 5">Grade 5 (Upper Primary)</option>
-                    <option value="Grade 6">Grade 6 (KPSEA Candidate)</option>
-                    <option value="Grade 7">Grade 7 (Junior Secondary)</option>
-                    <option value="Grade 8">Grade 8 (Junior Secondary)</option>
-                    <option value="Grade 9">Grade 9 (Junior Secondary)</option>
-                  </select>
-                  <div className="absolute right-4 pointer-events-none text-gray-400 text-xs font-bold font-mono">▼</div>
-                </div>
-              </div>
-            )}
 
             {/* Institution Admin: Institution Details */}
             {selectedRole === 'institution_admin' && (
@@ -395,12 +356,20 @@ function RegisterPageContent() {
           )}
 
           {!acceptingInvite && (
-          <p className="text-center text-sm font-semibold text-gray-500 mt-6">
-            Already have an account?{' '}
-            <Link href={searchParams.get('invitationToken') ? `/login?invitationToken=${searchParams.get('invitationToken')}` : '/login'} className="text-primary hover:underline font-extrabold">
-              Log In Here
-            </Link>
-          </p>
+          <div className="space-y-2 mt-6">
+            <p className="text-center text-sm font-semibold text-gray-500">
+              Already have an account?{' '}
+              <Link href={searchParams.get('invitationToken') ? `/login?invitationToken=${searchParams.get('invitationToken')}` : '/login'} className="text-primary hover:underline font-extrabold">
+                Log In Here
+              </Link>
+            </p>
+            <p className="text-center text-xs text-gray-400">
+              Are you a student?{' '}
+              <Link href="/register/student" className="text-primary hover:underline font-bold">
+                Student registration here
+              </Link>
+            </p>
+          </div>
           )}
         </div>
       </div>

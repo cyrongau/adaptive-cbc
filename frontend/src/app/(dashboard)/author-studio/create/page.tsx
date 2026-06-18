@@ -62,6 +62,7 @@ const QUESTION_TYPES = [
   { value: 'comprehension', label: 'Comprehension', icon: FileText },
   { value: 'table_interpretation', label: 'Table', icon: List },
   { value: 'graph_analysis', label: 'Graph Analysis', icon: BarChart },
+  { value: 'drawing_canvas', label: 'Drawing / Canvas', icon: ImageIcon },
 ];
 
 const BLOOMS_LEVELS = [
@@ -193,19 +194,13 @@ const defaultFormData: FormData = {
 
 
 
-function RichTextEditor({ value, onChange, placeholder, minHeight = 120 }: { value: string; onChange: (val: string) => void; placeholder?: string; minHeight?: number }) {
-  const [Quill, setQuill] = useState<React.ComponentType<any> | null>(null);
-  const [loadError, setLoadError] = useState(false);
+const DynamicQuill = dynamic(() => import('react-quill'), { 
+  ssr: false, 
+  loading: () => <div className="p-4 text-sm text-slate-400">Loading editor...</div> 
+});
 
-  useEffect(() => {
-    import('react-quill')
-      .then((mod) => {
-        const QuillComponent = mod.default || mod;
-        const DynamicQuill = dynamic(() => Promise.resolve(QuillComponent), { ssr: false });
-        setQuill(() => DynamicQuill);
-      })
-      .catch(() => setLoadError(true));
-  }, []);
+function RichTextEditor({ value, onChange, placeholder, minHeight = 120 }: { value: string; onChange: (val: string) => void; placeholder?: string; minHeight?: number }) {
+  const [loadError, setLoadError] = useState(false);
 
   const handleChange = (val: string) => {
     onChange(processHtmlForFormulas(val));
@@ -223,14 +218,6 @@ function RichTextEditor({ value, onChange, placeholder, minHeight = 120 }: { val
     );
   }
 
-  if (!Quill) {
-    return (
-      <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-400" style={{ minHeight: `${minHeight}px` }}>
-        Loading editor...
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white rounded-xl overflow-hidden border border-slate-200 focus-within:border-[#47a263] focus-within:ring-1 focus-within:ring-[#47a263] quill-wrapper">
       <style dangerouslySetInnerHTML={{__html: `
@@ -243,7 +230,7 @@ function RichTextEditor({ value, onChange, placeholder, minHeight = 120 }: { val
         .quill-wrapper u { text-decoration: underline; }
         .quill-wrapper s { text-decoration: line-through; }
       `}} />
-      <Quill
+      <DynamicQuill
         theme="snow"
         value={value}
         onChange={handleChange}
@@ -330,10 +317,41 @@ function CreateQuestionWizardContent() {
 
   const [newHint, setNewHint] = useState('');
   const [isOcrImport, setIsOcrImport] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
 
   const selectedStrand = curriculumTree.find(s => s.id === form.strandId);
   const selectedSubStrand = selectedStrand?.subStrands.find(ss => ss.id === form.subStrandId);
   const selectedOutcomes = selectedSubStrand?.learningOutcomes.filter(lo => lo.grade === form.grade) || [];
+
+  const mapQuestionToForm = (q: any) => {
+    const newForm = { ...defaultFormData };
+    newForm.subjectId = q.subjectId || '';
+    newForm.grade = q.grade || 4;
+    newForm.strandId = q.strandId || '';
+    newForm.subStrandId = q.subStrandId || '';
+    newForm.learningOutcomeId = q.learningOutcomeId || '';
+    newForm.type = q.type || 'multiple_choice';
+    newForm.content = q.content || '';
+    if (q.options && Array.isArray(q.options)) {
+      const opts = [...q.options];
+      while (opts.length < 4) opts.push({ id: String.fromCharCode(97 + opts.length), text: '', isCorrect: false });
+      newForm.options = opts.slice(0, 4).map((o: any) => ({ id: o.id, text: o.text || '', isCorrect: !!o.isCorrect, imageUrl: o.imageUrl }));
+    }
+    newForm.correctAnswer = q.correctAnswer || '';
+    newForm.trueFalseCorrect = q.correctAnswer === 'true';
+    if (q.matchingPairs) newForm.matchingPairs = q.matchingPairs;
+    newForm.questionMedia = q.questionMedia || [];
+    newForm.solutionSteps = q.solutionSteps?.length > 0 ? q.solutionSteps : [{ step: 1, text: '' }];
+    newForm.explanation = q.explanation || '';
+    newForm.hints = q.hints || [];
+    newForm.markingScheme = q.markingScheme || '';
+    newForm.difficulty = q.difficulty || 'medium';
+    newForm.marks = q.marks || 1;
+    newForm.estimatedTimeSeconds = q.estimatedTimeSeconds || 60;
+    newForm.bloomsTaxonomy = q.bloomsTaxonomy || '';
+    newForm.competencyTags = q.competencyTags || [];
+    return newForm;
+  };
 
   useEffect(() => {
     fetchSubjects();
@@ -360,7 +378,17 @@ function CreateQuestionWizardContent() {
   useEffect(() => {
     const source = searchParams?.get('source');
     const draftId = searchParams?.get('draftId');
-    if (source === 'ocr' && draftId) {
+    const editParam = searchParams?.get('edit');
+    if (editParam) {
+      setEditId(editParam);
+      api.get(`/questions/${editParam}`).then((res) => {
+        const q = res.data;
+        const mapped = mapQuestionToForm(q);
+        setForm(mapped);
+      }).catch(() => {
+        toast.error('Failed to load question for editing');
+      });
+    } else if (source === 'ocr' && draftId) {
       setIsOcrImport(true);
       const draft = sessionStorage.getItem(draftId);
       if (draft) {
@@ -543,9 +571,14 @@ function CreateQuestionWizardContent() {
     }
     setSubmitting(true);
     try {
-      const payload = { ...buildPayload(), status: 'draft' };
-      await api.post('/questions/structured', payload);
-      toast.success('Draft saved successfully');
+      const payload = { ...buildPayload(), status: editId ? 'pending_review' : 'draft' };
+      if (editId) {
+        await api.post(`/questions/${editId}/version`, { questionData: payload, changeReason: 'Edit and resubmit for review' });
+        toast.success('Changes saved. Question resubmitted for review.');
+      } else {
+        await api.post('/questions/structured', payload);
+        toast.success('Draft saved successfully');
+      }
       router.push('/author-studio');
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to save draft');
@@ -563,8 +596,13 @@ function CreateQuestionWizardContent() {
     setSubmitting(true);
     try {
       const payload = { ...buildPayload(), status: 'pending_review' };
-      await api.post('/questions/structured', payload);
-      toast.success('Question submitted for review');
+      if (editId) {
+        await api.post(`/questions/${editId}/version`, { questionData: payload, changeReason: 'Edit and submit for review' });
+        toast.success('Question updated and submitted for review');
+      } else {
+        await api.post('/questions/structured', payload);
+        toast.success('Question submitted for review');
+      }
       router.push('/author-studio');
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to submit question');
@@ -1122,6 +1160,16 @@ function CreateQuestionWizardContent() {
               </div>
             )}
           </div>
+
+          {form.type === 'drawing_canvas' && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-700 flex items-start gap-3">
+              <ImageIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold mb-1">Drawing / Canvas Question</p>
+                <p>Students will be provided with a virtual whiteboard to draw their answer. You can optionally upload a background image (e.g. a blank graph or a diagram to label) in the "Media" section below.</p>
+              </div>
+            </div>
+          )}
 
           {form.type === 'multiple_choice' && (
             <div className="space-y-4 pt-2">
@@ -1845,8 +1893,8 @@ function CreateQuestionWizardContent() {
           <ArrowLeft className="w-5 h-5 text-slate-600" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Create New Question</h1>
-          <p className="text-slate-500 text-sm">Author structured content for the CBC question bank</p>
+          <h1 className="text-2xl font-bold text-slate-800">{editId ? 'Edit Question' : 'Create New Question'}</h1>
+          <p className="text-slate-500 text-sm">{editId ? 'Modify existing question content' : 'Author structured content for the CBC question bank'}</p>
         </div>
       </div>
 

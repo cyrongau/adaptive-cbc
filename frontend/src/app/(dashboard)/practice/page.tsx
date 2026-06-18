@@ -8,8 +8,11 @@ import { ArrowRight, CheckCircle2, XCircle, HelpCircle, Award, Zap, Loader2, Spa
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
+import dynamic from 'next/dynamic';
 import HtmlContent from '@/components/ui/HtmlContent';
 import XpAnimation from '@/components/ui/XpAnimation';
+
+const DrawingCanvas = dynamic(() => import('@/components/ui/DrawingCanvas'), { ssr: false });
 
 interface Subject {
   id: string;
@@ -24,11 +27,15 @@ interface Topic {
 interface Question {
   id: string;
   content: string;
+  type?: string;
   options: { id: string; text: string; isCorrect?: boolean }[];
   correctAnswer?: string;
   explanation?: string;
   difficulty?: string;
   topic?: Topic;
+  mediaUrl?: string;
+  mediaType?: string;
+  questionMedia?: { type: string; url: string; alt?: string }[];
 }
 
 interface PracticeSession {
@@ -57,6 +64,7 @@ export default function PracticePage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<typeof DIFFICULTIES[number]>('medium');
   const [questionCount, setQuestionCount] = useState(5);
   const [selectedGrade, setSelectedGrade] = useState<number>(Number(user?.grade) || 4);
+  const canvasRef = React.useRef<any>(null);
   const [availableCount, setAvailableCount] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<PracticeSession | null>(null);
@@ -249,7 +257,24 @@ export default function PracticePage() {
   };
 
   const submitAnswer = async () => {
-    if (!sessionId || !currentQuestion || !selectedOption) return;
+    if (!sessionId || !currentQuestion) return;
+    
+    let answerPayload = selectedOption;
+    if (currentQuestion.type === 'drawing_canvas') {
+      if (!canvasRef.current) return;
+      if (canvasRef.current.isEmpty()) {
+        setError('Please draw an answer before submitting.');
+        return;
+      }
+      const dataUrl = await canvasRef.current.getSvgOrImage();
+      if (!dataUrl) {
+        setError('Failed to get drawing data');
+        return;
+      }
+      answerPayload = dataUrl;
+    } else {
+      if (!selectedOption) return;
+    }
 
     setIsSubmitting(true);
     setError('');
@@ -258,7 +283,7 @@ export default function PracticePage() {
       const res = await api.post('/practice/answer', {
         sessionId,
         questionId: currentQuestion.id,
-        userAnswer: selectedOption,
+        userAnswer: answerPayload,
       });
 
       const xpData = res.data;
@@ -566,32 +591,58 @@ export default function PracticePage() {
                       <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
                         <p className="text-sm uppercase tracking-[0.2em] text-indigo-600">Question {currentQuestionNumber}</p>
                         <HtmlContent html={currentQuestion.content} className="mt-4 text-xl font-semibold text-slate-900" renderMath={true} />
+                        {currentQuestion.questionMedia?.map((media, i) => (
+                          <div key={i} className="mt-4 flex justify-center">
+                            <img
+                              src={media.url}
+                              alt={media.alt || 'Question diagram'}
+                              className="max-w-full h-auto rounded-xl border border-slate-200"
+                              style={{ maxHeight: '400px' }}
+                            />
+                          </div>
+                        ))}
+                        {!currentQuestion.questionMedia?.length && currentQuestion.mediaUrl && (
+                          <div className="mt-4 flex justify-center">
+                            <img
+                              src={currentQuestion.mediaUrl}
+                              alt="Question diagram"
+                              className="max-w-full h-auto rounded-xl border border-slate-200"
+                              style={{ maxHeight: '400px' }}
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-4">
-                        {currentQuestion.options.map((option) => {
-                          const isSelected = selectedOption === option.id;
-                          const correctOptionIds = currentQuestion.options.filter((opt) => opt.isCorrect).map((opt) => opt.id);
-                          const isCorrect = isSubmitted && correctOptionIds.includes(option.id);
-                          const isWrong = isSubmitted && isSelected && !isCorrect;
+                        {currentQuestion.type === 'drawing_canvas' ? (
+                          <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden bg-white">
+                            <DrawingCanvas ref={canvasRef} readOnly={isSubmitted} />
+                          </div>
+                        ) : (
+                          currentQuestion.options.map((option) => {
+                            const isSelected = selectedOption === option.id;
+                            const correctOptionIds = currentQuestion.options.filter((opt) => opt.isCorrect).map((opt) => opt.id);
+                            const isCorrect = isSubmitted && correctOptionIds.includes(option.id);
+                            const isWrong = isSubmitted && isSelected && !isCorrect;
 
-                          return (
-                            <button
-                              key={option.id}
-                              onClick={() => !isSubmitted && setSelectedOption(option.id)}
-                              className={clsx(
-                                'w-full rounded-3xl border p-4 text-left transition',
-                                isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/70',
-                                isCorrect && 'border-emerald-500 bg-emerald-50 text-emerald-900',
-                                isWrong && 'border-red-500 bg-red-50 text-red-900'
-                              )}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-sm font-semibold text-slate-700">{option.id.toUpperCase()}</span>
-                                <span className="text-sm font-medium">{option.text}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
+                            return (
+                              <button
+                                key={option.id}
+                                onClick={() => !isSubmitted && setSelectedOption(option.id)}
+                                className={clsx(
+                                  'w-full rounded-3xl border p-4 text-left transition',
+                                  isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/70',
+                                  isCorrect && 'border-emerald-500 bg-emerald-50 text-emerald-900',
+                                  isWrong && 'border-red-500 bg-red-50 text-red-900'
+                                )}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-sm font-semibold text-slate-700">{option.id.toUpperCase()}</span>
+                                  <span className="text-sm font-medium">{option.text}</span>
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
                       </div>
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="text-sm text-slate-500">

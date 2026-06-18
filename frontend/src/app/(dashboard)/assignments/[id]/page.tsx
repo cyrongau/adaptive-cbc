@@ -7,6 +7,9 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Clock, FileText, Star, Loader2, CheckCircle, Send } from 'lucide-react';
 import HtmlContent from '@/components/ui/HtmlContent';
+import dynamic from 'next/dynamic';
+
+const DrawingCanvas = dynamic(() => import('@/components/ui/DrawingCanvas'), { ssr: false });
 
 interface Assignment {
   id: string;
@@ -34,7 +37,11 @@ interface Question {
   content: string;
   options: { id: string; text: string; isCorrect?: boolean }[];
   difficulty?: string;
+  type?: string;
   topic?: { id: string; name: string };
+  mediaUrl?: string;
+  mediaType?: string;
+  questionMedia?: { type: string; url: string; alt?: string }[];
 }
 
 interface SubjectItem {
@@ -58,6 +65,7 @@ export default function AssignmentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [questionLoading, setQuestionLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const canvasRefs = React.useRef<Record<string, any>>({});
 
   useEffect(() => {
     loadAssignment();
@@ -171,18 +179,34 @@ export default function AssignmentDetailPage() {
   const handleSubmit = async () => {
     if (!assignment) return;
 
-    const answeredCount = Object.keys(answers).length;
-    if (answeredCount < questions.length) {
-      toast.error(`Please answer all questions (${answeredCount}/${questions.length} answered)`);
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
-        questionId,
-        answer,
-      }));
+      const formattedAnswers: { questionId: string; answer: string }[] = [];
+      let missingCount = 0;
+
+      for (const question of questions) {
+        if (question.type === 'drawing_canvas') {
+          const ref = canvasRefs.current[question.id];
+          if (!ref || ref.isEmpty()) {
+            missingCount++;
+            continue;
+          }
+          const dataUrl = await ref.getSvgOrImage();
+          formattedAnswers.push({ questionId: question.id, answer: dataUrl || '' });
+        } else {
+          if (!answers[question.id]) {
+            missingCount++;
+          } else {
+            formattedAnswers.push({ questionId: question.id, answer: answers[question.id] });
+          }
+        }
+      }
+
+      if (missingCount > 0) {
+        toast.error(`Please answer all questions (${questions.length - missingCount}/${questions.length} answered)`);
+        setSubmitting(false);
+        return;
+      }
 
       await api.post(`/assignments/${id}/submit`, { answers: formattedAnswers });
 
@@ -289,7 +313,7 @@ export default function AssignmentDetailPage() {
               Answer all {questions.length} questions below
             </p>
             <p className="text-sm font-medium text-slate-700">
-              {Object.keys(answers).length}/{questions.length} answered
+              {Object.keys(answers).length + questions.filter(q => q.type === 'drawing_canvas' && canvasRefs.current[q.id] && !canvasRefs.current[q.id].isEmpty()).length}/{questions.length} answered
             </p>
           </div>
 
@@ -301,23 +325,49 @@ export default function AssignmentDetailPage() {
                 </span>
                 <div className="flex-1">
                   <HtmlContent html={question.content} className="text-lg font-semibold text-slate-900" renderMath={true} />
+                  {question.questionMedia?.map((media, i) => (
+                    <div key={i} className="mt-4 flex justify-center">
+                      <img
+                        src={media.url}
+                        alt={media.alt || 'Question diagram'}
+                        className="max-w-full h-auto rounded-xl border border-slate-200"
+                        style={{ maxHeight: '400px' }}
+                      />
+                    </div>
+                  ))}
+                  {!question.questionMedia?.length && question.mediaUrl && (
+                    <div className="mt-4 flex justify-center">
+                      <img
+                        src={question.mediaUrl}
+                        alt="Question diagram"
+                        className="max-w-full h-auto rounded-xl border border-slate-200"
+                        style={{ maxHeight: '400px' }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="ml-11 space-y-2">
-                {question.options.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => handleSelectOption(question.id, option.id)}
-                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
-                      answers[question.id] === option.id
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="text-sm font-medium">{option.text}</span>
-                  </button>
-                ))}
+                {question.type === 'drawing_canvas' ? (
+                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                    <DrawingCanvas ref={(el) => { if(el) canvasRefs.current[question.id] = el; }} />
+                  </div>
+                ) : (
+                  question.options.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => handleSelectOption(question.id, option.id)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                        answers[question.id] === option.id
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{option.text}</span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           ))}

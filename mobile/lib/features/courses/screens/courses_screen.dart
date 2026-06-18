@@ -14,112 +14,210 @@ class CoursesScreen extends StatefulWidget {
 
 class _CoursesScreenState extends State<CoursesScreen> {
   final ApiClient _apiClient = ApiClient();
-  List<dynamic> _courses = [];
-  bool _isLoading = true;
-  String? _errorMessage;
+  List<dynamic> _myCourses = [];
+  List<dynamic> _availableCourses = [];
+  bool _isLoadingMy = true;
+  bool _isLoadingAvail = true;
+  String? _errorMessageMy;
+  String? _errorMessageAvail;
 
   @override
   void initState() {
     super.initState();
-    _fetchCourses();
+    _fetchMyCourses();
+    _fetchAvailableCourses();
   }
 
-  Future<void> _fetchCourses() async {
+  Future<void> _fetchMyCourses() async {
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _isLoadingMy = true;
+      _errorMessageMy = null;
     });
 
     try {
-      final response = await _apiClient.dio.get('${AppConstants.courses}/published');
-      
+      final response = await _apiClient.dio.get(AppConstants.enrollments);
       if (response.statusCode == 200) {
+        final enrollments = response.data['data'] as List? ?? response.data as List? ?? [];
+        // Map enrollments to extract the nested course object
+        final mappedCourses = enrollments.map((e) => e['course']).where((c) => c != null).toList();
         setState(() {
-          _courses = response.data['data'] as List? ?? response.data as List? ?? [];
-          _isLoading = false;
+          _myCourses = mappedCourses;
+          _isLoadingMy = false;
         });
       } else {
         setState(() {
-          _errorMessage = response.data['message'] ?? 'Failed to load courses';
-          _isLoading = false;
+          _errorMessageMy = response.data['message'] ?? 'Failed to load enrollments';
+          _isLoadingMy = false;
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Could not load courses. Please check your connection.';
-        _isLoading = false;
+        _errorMessageMy = 'Could not load enrollments. Please check your connection.';
+        _isLoadingMy = false;
       });
     }
+  }
+
+  Future<void> _fetchAvailableCourses() async {
+    setState(() {
+      _isLoadingAvail = true;
+      _errorMessageAvail = null;
+    });
+
+    try {
+      final response = await _apiClient.dio.get(AppConstants.courses);
+      if (response.statusCode == 200) {
+        setState(() {
+          _availableCourses = response.data['data'] as List? ?? response.data as List? ?? [];
+          _isLoadingAvail = false;
+        });
+      } else {
+        setState(() {
+          _errorMessageAvail = response.data['message'] ?? 'Failed to load courses';
+          _isLoadingAvail = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessageAvail = 'Could not load courses. Please check your connection.';
+        _isLoadingAvail = false;
+      });
+    }
+  }
+
+  Widget _buildCourseList(List<dynamic> courses, bool isLoading, String? errorMessage, Future<void> Function() onRefresh, String emptyMessage, ThemeData theme) {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+        ),
+      );
+    }
+    if (errorMessage != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline_rounded, size: 64, color: AppColors.onSurfaceVariant.withOpacity(0.3)),
+            const SizedBox(height: 16),
+            Text(
+              errorMessage,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: onRefresh,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (courses.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.school_rounded, size: 80, color: AppColors.primary.withOpacity(0.3)),
+                const SizedBox(height: 24),
+                const Text(
+                  'No Courses Found',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  emptyMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.onSurfaceVariant.withOpacity(0.8),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        itemCount: courses.length,
+        itemBuilder: (context, index) {
+          final course = courses[index];
+          return _buildCourseCard(course, theme);
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Available Courses'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.primary,
-        elevation: 0,
-        centerTitle: false,
-      ),
-      body: Column(
-        children: [
-          const OfflineIndicator(),
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                    ),
-                  )
-                : _errorMessage != null
-                    ? Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.error_outline_rounded, size: 64, color: AppColors.onSurfaceVariant.withOpacity(0.3)),
-                            const SizedBox(height: 16),
-                            Text(
-                              _errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: AppColors.onSurfaceVariant),
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton(
-                              onPressed: _fetchCourses,
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : _courses.isEmpty
-                        ? const Padding(
-                            padding: EdgeInsets.all(24.0),
-                            child: Center(
-                              child: Text(
-                                'No courses available at the moment.',
-                                style: TextStyle(color: AppColors.onSurfaceVariant),
-                              ),
-                            ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _fetchCourses,
-                            color: AppColors.primary,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                              itemCount: _courses.length,
-                              itemBuilder: (context, index) {
-                                final course = _courses[index];
-                                return _buildCourseCard(course, theme);
-                              },
-                            ),
-                          ),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Courses'),
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.primary,
+          elevation: 0,
+          centerTitle: false,
+          bottom: const TabBar(
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.onSurfaceVariant,
+            indicatorColor: AppColors.primary,
+            tabs: [
+              Tab(text: 'My Courses'),
+              Tab(text: 'Available Courses'),
+            ],
           ),
-        ],
+        ),
+        body: Column(
+          children: [
+            const OfflineIndicator(),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildCourseList(
+                    _myCourses, 
+                    _isLoadingMy, 
+                    _errorMessageMy, 
+                    _fetchMyCourses, 
+                    'You are not enrolled in any courses yet. Check available courses!', 
+                    theme
+                  ),
+                  _buildCourseList(
+                    _availableCourses, 
+                    _isLoadingAvail, 
+                    _errorMessageAvail, 
+                    _fetchAvailableCourses, 
+                    'There are no published courses available right now. Pull down to refresh.', 
+                    theme
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

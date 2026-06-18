@@ -4,9 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import Link from 'next/link';
-import { Search, Loader2, BookOpen, ChevronRight, CheckCircle, XCircle, Zap, Sparkles } from 'lucide-react';
+import { Search, Loader2, BookOpen, ChevronRight, CheckCircle, XCircle, Zap, Sparkles, Clock } from 'lucide-react';
 import HtmlContent, { stripHtml } from '@/components/ui/HtmlContent';
 import XpAnimation from '@/components/ui/XpAnimation';
+import dynamic from 'next/dynamic';
+import toast from 'react-hot-toast';
+
+const DrawingCanvas = dynamic(() => import('@/components/ui/DrawingCanvas'), { ssr: false });
 
 interface Subject {
   id: string;
@@ -28,6 +32,10 @@ interface Question {
   options?: { id: string; text: string; isCorrect?: boolean }[];
   correctAnswer?: string;
   explanation?: string;
+  type?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  questionMedia?: { type: string; url: string; alt?: string }[];
 }
 
 const GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -46,9 +54,10 @@ export default function QuestionBankPage() {
   const [total, setTotal] = useState(0);
   const [revealedQuestionIds, setRevealedQuestionIds] = useState<string[]>([]);
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
-  const [questionResults, setQuestionResults] = useState<Record<string, { correct: boolean; xpAwarded: number; isFirstAttempt?: boolean } | null>>({});
+  const [questionResults, setQuestionResults] = useState<Record<string, { correct: boolean; xpAwarded: number; isFirstAttempt?: boolean; needsReview?: boolean } | null>>({});
   const [submittingQuestions, setSubmittingQuestions] = useState<Record<string, boolean>>({});
   const [xpAnimation, setXpAnimation] = useState<{ amount: number; isFirstAttempt: boolean } | null>(null);
+  const canvasRefs = React.useRef<Record<string, any>>({});
 
   const limit = 12;
 
@@ -126,9 +135,17 @@ export default function QuestionBankPage() {
     );
   };
 
-  const submitAnswer = async (questionId: string) => {
-    const answer = (questionAnswers[questionId] || '').trim();
-    if (!answer) return;
+  const submitAnswer = async (questionId: string, skip: boolean = false) => {
+    let answer = (questionAnswers[questionId] || '').trim();
+    
+    const question = questions.find(q => q.id === questionId);
+    if (question?.type === 'drawing_canvas') {
+      const ref = canvasRefs.current[questionId];
+      if (ref && !ref.isEmpty()) {
+        const dataUrl = await ref.getSvgOrImage();
+        if (dataUrl) answer = dataUrl;
+      }
+    }
 
     setSubmittingQuestions((prev) => ({ ...prev, [questionId]: true }));
     try {
@@ -140,6 +157,7 @@ export default function QuestionBankPage() {
       }
     } catch (err) {
       console.error('Failed to check answer', err);
+      toast.error('Failed to submit answer. Please try again.');
     } finally {
       setSubmittingQuestions((prev) => ({ ...prev, [questionId]: false }));
     }
@@ -248,41 +266,70 @@ export default function QuestionBankPage() {
             <div className="grid gap-4">
               {questions.map((question) => (
                 <article key={question.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        <span>Grade {question.grade}</span>
-                        <span>{question.difficulty ? question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1) : 'Medium'}</span>
-                        {question.topic && <span>{question.topic.name}</span>}
+                  {question.type === 'drawing_canvas' ? (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          <span>Grade {question.grade}</span>
+                          <span>{question.difficulty ? question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1) : 'Medium'}</span>
+                          {question.topic && <span>{question.topic.name}</span>}
+                        </div>
+                        <HtmlContent html={question.content} className="text-base font-semibold text-slate-900" renderMath={true} />
+                        {question.questionMedia?.map((media, i) => (
+                          <div key={i} className="mt-3 flex justify-center">
+                            <img
+                              src={media.url}
+                              alt={media.alt || 'Question diagram'}
+                              className="max-w-full h-auto rounded-xl border border-slate-200"
+                              style={{ maxHeight: '300px' }}
+                            />
+                          </div>
+                        ))}
+                        {!question.questionMedia?.length && question.mediaUrl && (
+                          <div className="mt-3 flex justify-center">
+                            <img
+                              src={question.mediaUrl}
+                              alt="Question diagram"
+                              className="max-w-full h-auto rounded-xl border border-slate-200"
+                              style={{ maxHeight: '300px' }}
+                            />
+                          </div>
+                        )}
                       </div>
-                      <HtmlContent html={question.content} className="text-base font-semibold text-slate-900" renderMath={true} />
-                    </div>
-                    <div className="flex flex-col items-start gap-3 sm:items-end">
+
                       {isStudent && (
-                        <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                        <div>
                           {!questionResults[question.id] ? (
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                              <input
-                                type="text"
-                                value={questionAnswers[question.id] || ''}
-                                onChange={(e) => setQuestionAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))}
-                                placeholder="Type your answer..."
-                                className="w-40 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => submitAnswer(question.id)}
-                                disabled={submittingQuestions[question.id]}
-                                className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                              >
-                                {submittingQuestions[question.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                                Submit
-                              </button>
+                            <div className="space-y-3">
+                              <div className="w-full border border-slate-200 rounded-xl overflow-hidden bg-white">
+                                <DrawingCanvas ref={(el) => { if(el) canvasRefs.current[question.id] = el; }} />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => submitAnswer(question.id)}
+                                  disabled={submittingQuestions[question.id]}
+                                  className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  {submittingQuestions[question.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                                  Submit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => submitAnswer(question.id, true)}
+                                  disabled={submittingQuestions[question.id]}
+                                  className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                                >
+                                  Skip
+                                </button>
+                              </div>
                             </div>
                           ) : (
-                            <div className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold ${questionResults[question.id]?.correct ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                            <div className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold ${questionResults[question.id]?.correct ? 'bg-emerald-100 text-emerald-800' : questionResults[question.id]?.needsReview ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
                               {questionResults[question.id]?.correct ? (
                                 <><CheckCircle className="w-4 h-4" /> Correct!</>
+                              ) : questionResults[question.id]?.needsReview ? (
+                                <><Clock className="w-4 h-4" /> Submitted for review</>
                               ) : (
                                 <><XCircle className="w-4 h-4" /> Incorrect</>
                               )}
@@ -298,22 +345,122 @@ export default function QuestionBankPage() {
                           )}
                         </div>
                       )}
-                      <Link
-                        href={`/practice?subjectId=${encodeURIComponent(question.subjectId)}&topicId=${encodeURIComponent(question.topic?.id || '')}&grade=${question.grade}`}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
-                      >
-                        Attempt
-                        <ChevronRight className="w-4 h-4" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => toggleReveal(question.id)}
-                        className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
-                      >
-                        {revealedQuestionIds.includes(question.id) ? 'Hide answer' : 'Reveal answer'}
-                      </button>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Link
+                          href={`/practice?subjectId=${encodeURIComponent(question.subjectId)}&topicId=${encodeURIComponent(question.topic?.id || '')}&grade=${question.grade}`}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                        >
+                          Attempt
+                          <ChevronRight className="w-4 h-4" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => toggleReveal(question.id)}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                        >
+                          {revealedQuestionIds.includes(question.id) ? 'Hide answer' : 'Reveal answer'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          <span>Grade {question.grade}</span>
+                          <span>{question.difficulty ? question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1) : 'Medium'}</span>
+                          {question.topic && <span>{question.topic.name}</span>}
+                        </div>
+                        <HtmlContent html={question.content} className="text-base font-semibold text-slate-900" renderMath={true} />
+                        {question.questionMedia?.map((media, i) => (
+                          <div key={i} className="mt-3 flex justify-center">
+                            <img
+                              src={media.url}
+                              alt={media.alt || 'Question diagram'}
+                              className="max-w-full h-auto rounded-xl border border-slate-200"
+                              style={{ maxHeight: '300px' }}
+                            />
+                          </div>
+                        ))}
+                        {!question.questionMedia?.length && question.mediaUrl && (
+                          <div className="mt-3 flex justify-center">
+                            <img
+                              src={question.mediaUrl}
+                              alt="Question diagram"
+                              className="max-w-full h-auto rounded-xl border border-slate-200"
+                              style={{ maxHeight: '300px' }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-start gap-3 sm:items-end">
+                        {isStudent && (
+                          <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                            {!questionResults[question.id] ? (
+                              <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                                <input
+                                  type="text"
+                                  value={questionAnswers[question.id] || ''}
+                                  onChange={(e) => setQuestionAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))}
+                                  placeholder="Type your answer..."
+                                  className="w-40 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => submitAnswer(question.id)}
+                                    disabled={submittingQuestions[question.id]}
+                                    className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    {submittingQuestions[question.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                                    Submit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => submitAnswer(question.id, true)}
+                                    disabled={submittingQuestions[question.id]}
+                                    className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                                  >
+                                    Skip
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold ${questionResults[question.id]?.correct ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                                {questionResults[question.id]?.correct ? (
+                                  <><CheckCircle className="w-4 h-4" /> Correct!</>
+                                ) : (
+                                  <><XCircle className="w-4 h-4" /> {questionResults[question.id]?.needsReview ? 'Submitted for review' : 'Incorrect'}</>
+                                )}
+                                {questionResults[question.id] && questionResults[question.id]!.xpAwarded > 0 && (
+                                  <span className="ml-1 text-xs opacity-75">
+                                    +{questionResults[question.id]!.xpAwarded} XP
+                                    {questionResults[question.id]!.isFirstAttempt && (
+                                      <Sparkles className="inline w-3 h-3 ml-1 text-amber-500" />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <Link
+                          href={`/practice?subjectId=${encodeURIComponent(question.subjectId)}&topicId=${encodeURIComponent(question.topic?.id || '')}&grade=${question.grade}`}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                        >
+                          Attempt
+                          <ChevronRight className="w-4 h-4" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => toggleReveal(question.id)}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                        >
+                          {revealedQuestionIds.includes(question.id) ? 'Hide answer' : 'Reveal answer'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {revealedQuestionIds.includes(question.id) && (
                     <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-700">

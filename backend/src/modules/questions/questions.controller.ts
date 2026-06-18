@@ -234,4 +234,43 @@ export class QuestionsController {
   ) {
     return this.questionsService.getModerationQueue({ search, subjectId, grade, status, page, limit });
   }
+
+  @Get('attempts/pending-review')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get student drawing_canvas answers that need manual review' })
+  async getPendingReviewAttempts(@Request() req: any) {
+    return this.questionsService.getPendingReviewAttempts(req.user.id);
+  }
+
+  @Put('attempts/:attemptId/evaluate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Evaluate a student answer attempt (mark as correct/incorrect)' })
+  async evaluateAttempt(
+    @Param('attemptId') attemptId: string,
+    @Body() body: { isCorrect: boolean },
+    @Request() req: any,
+  ) {
+    return this.questionsService.evaluateAttempt(attemptId, body.isCorrect, req.user.id);
+  }
+
+  @Get('attempts/reviewed-history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get previously reviewed drawing_canvas answers' })
+  async getReviewedAttempts(@Request() req: any) {
+    return this.questionsService.getReviewedAttempts();
+  }
+
+  @Get('attempts/my-performance')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get student\'s own question attempt performance' })
+  async getStudentPerformance(@Request() req: any) {
+    return this.questionsService.getStudentPerformance(req.user.id);
+  }
 }

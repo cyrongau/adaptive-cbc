@@ -11,6 +11,7 @@ import { DataSource } from 'typeorm';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.useBodyParser('json', { limit: '50mb' });
   app.use(cookieParser());
 
   app.setGlobalPrefix('api/v1');

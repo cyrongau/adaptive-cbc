@@ -26,6 +26,8 @@ export default function GradeAssignmentPage() {
   const [sendingComment, setSendingComment] = useState<Record<string, boolean>>({});
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [evaluations, setEvaluations] = useState<Record<string, Record<string, boolean>>>({});
+  const [savingEval, setSavingEval] = useState(false);
 
   useEffect(() => { loadData(); }, [id]);
 
@@ -73,9 +75,36 @@ export default function GradeAssignmentPage() {
     } finally { setGradingLoading(false); }
   };
 
+  const handleToggleEval = (submissionId: string, questionId: string, current: boolean) => {
+    setEvaluations((prev) => ({
+      ...prev,
+      [submissionId]: { ...prev[submissionId], [questionId]: !current },
+    }));
+  };
+
+  const handleSaveEvaluations = async (submissionId: string) => {
+    const evals = evaluations[submissionId];
+    if (!evals || Object.keys(evals).length === 0) {
+      toast.error('No changes to save');
+      return;
+    }
+    setSavingEval(true);
+    try {
+      const evaluationsArray = Object.entries(evals).map(([questionId, isCorrect]) => ({ questionId, isCorrect }));
+      await api.post(`/assignments/${id}/submissions/${submissionId}/evaluate-answers`, { evaluations: evaluationsArray });
+      toast.success('Evaluations saved');
+      setEvaluations((prev) => ({ ...prev, [submissionId]: {} }));
+      setSubmissionDetail(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save evaluations');
+    } finally { setSavingEval(false); }
+  };
+
   const viewDetails = async (submissionId: string) => {
     setDetailLoading(true);
     setSubmissionDetail(null);
+    setEvaluations((prev) => ({ ...prev, [submissionId]: {} }));
     try {
       const res = await api.get(`/assignments/${id}/submissions/${submissionId}/detail`);
       setSubmissionDetail(res.data);
@@ -238,36 +267,93 @@ export default function GradeAssignmentPage() {
                         </div>
 
                         {/* Question-by-question breakdown */}
-                        <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-indigo-500" />
-                          Answer Breakdown
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-indigo-500" />
+                            Answer Breakdown
+                          </h4>
+                          {submissionDetail.submission?.status !== 'graded' && submissionDetail.questions?.length > 0 && (
+                            <button
+                              onClick={() => handleSaveEvaluations(submissionDetail.submission.id)}
+                              disabled={savingEval || !evaluations[submissionDetail.submission.id] || Object.keys(evaluations[submissionDetail.submission.id] || {}).length === 0}
+                              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                              {savingEval ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                              Save Evaluations
+                            </button>
+                          )}
+                        </div>
                         <div className="space-y-4">
                           {detailLoading ? (
                             <div className="text-center py-8 text-slate-400"><Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />Loading details...</div>
                           ) : (
-                            submissionDetail.questions?.map((q: any, i: number) => (
+                            submissionDetail.questions?.map((q: any, i: number) => {
+                              const subId = submissionDetail.submission?.id;
+                              const evalCurrent = subId ? (evaluations[subId]?.[q.id] ?? q.isCorrect) : q.isCorrect;
+                              return (
                               <div key={q.id} className={`rounded-xl border p-4 ${
-                                q.isCorrect ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'
+                                evalCurrent ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'
                               }`}>
                                 <div className="flex items-start gap-3">
                                   <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                                    q.isCorrect ? 'bg-emerald-200 text-emerald-700' : 'bg-red-200 text-red-700'
+                                    evalCurrent ? 'bg-emerald-200 text-emerald-700' : 'bg-red-200 text-red-700'
                                   }`}>{i + 1}</span>
                                   <div className="flex-1 min-w-0">
                                     <HtmlContent html={q.content} className="text-sm font-semibold text-slate-900 mb-2" renderMath={true} />
+                                    {q.questionMedia?.map((media: any, i: number) => (
+                                      <div key={i} className="mt-2 flex justify-center">
+                                        <img src={media.url} alt={media.alt || 'Question diagram'} className="max-w-full h-auto rounded-lg border border-slate-200" style={{ maxHeight: '200px' }} />
+                                      </div>
+                                    ))}
+                                    {!q.questionMedia?.length && q.mediaUrl && (
+                                      <div className="mt-2 flex justify-center">
+                                        <img src={q.mediaUrl} alt="Question diagram" className="max-w-full h-auto rounded-lg border border-slate-200" style={{ maxHeight: '200px' }} />
+                                      </div>
+                                    )}
                                     <div className="grid grid-cols-2 gap-4 text-xs">
                                       <div>
                                         <p className="text-slate-400 font-medium">Student Answer</p>
-                                        <p className={`font-semibold ${q.isCorrect ? 'text-emerald-600' : 'text-red-600'}`}>
-                                          {q.studentAnswerText || '(no answer)'}
-                                        </p>
+                                        {q.studentAnswer?.startsWith('data:image/') || q.studentAnswer?.startsWith('data:image/svg+xml') ? (
+                                          <div className="mt-1 border border-slate-200 rounded-lg overflow-hidden bg-white max-w-xs">
+                                            <img src={q.studentAnswer} alt="Student drawing" className="w-full h-auto" />
+                                          </div>
+                                        ) : (
+                                          <p className={`font-semibold ${evalCurrent ? 'text-emerald-600' : 'text-red-600'}`}>
+                                            {q.studentAnswerText || '(no answer)'}
+                                          </p>
+                                        )}
                                       </div>
                                       <div>
                                         <p className="text-slate-400 font-medium">Correct Answer</p>
                                         <p className="font-semibold text-emerald-600">{q.correctAnswerText}</p>
                                       </div>
                                     </div>
+                                    {submissionDetail.submission?.status !== 'graded' && (
+                                      <div className="mt-3 flex gap-2">
+                                        <button
+                                          onClick={() => subId && handleToggleEval(subId, q.id, evalCurrent)}
+                                          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                                            evalCurrent
+                                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                              : 'bg-white text-slate-500 border border-slate-200 hover:border-emerald-300 hover:text-emerald-600'
+                                          }`}
+                                        >
+                                          <CheckCircle className="w-3.5 h-3.5" />
+                                          Correct
+                                        </button>
+                                        <button
+                                          onClick={() => subId && handleToggleEval(subId, q.id, evalCurrent)}
+                                          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                                            !evalCurrent
+                                              ? 'bg-red-100 text-red-700 border border-red-300'
+                                              : 'bg-white text-slate-500 border border-slate-200 hover:border-red-300 hover:text-red-600'
+                                          }`}
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                          Incorrect
+                                        </button>
+                                      </div>
+                                    )}
                                     {q.explanation && (
                                       <div className="mt-2 p-2 bg-white rounded-lg border border-slate-100">
                                         <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-1">Explanation</p>
@@ -276,7 +362,7 @@ export default function GradeAssignmentPage() {
                                     )}
                                   </div>
                                   <div className="flex-shrink-0">
-                                    {q.isCorrect ? (
+                                    {evalCurrent ? (
                                       <CheckCircle className="w-5 h-5 text-emerald-500" />
                                     ) : (
                                       <X className="w-5 h-5 text-red-500" />
@@ -284,7 +370,7 @@ export default function GradeAssignmentPage() {
                                   </div>
                                 </div>
                               </div>
-                            ))
+                            )})
                           )}
                         </div>
                       </div>

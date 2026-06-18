@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gamepad2, Trophy, Medal, Star, Sparkles, Brain, Clock, ChevronRight } from 'lucide-react';
+import { Gamepad2, Trophy, Medal, Star, Sparkles, Brain, Clock, ChevronRight, Calendar, Award } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
@@ -17,10 +17,13 @@ export default function GameHub() {
   
   const [tournaments, setTournaments] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [gameHistory, setGameHistory] = useState([]);
+  const [activeSubject, setActiveSubject] = useState('');
 
   useEffect(() => {
     if (activeTab === 'tournaments') fetchTournaments();
     if (activeTab === 'leaderboard') fetchLeaderboard();
+    if (activeTab === 'game-history') fetchGameHistory();
   }, [activeTab]);
 
   const fetchTournaments = async () => {
@@ -41,8 +44,18 @@ export default function GameHub() {
     }
   };
 
+  const fetchGameHistory = async () => {
+    try {
+      const res = await api.get('/gamification/games/history');
+      setGameHistory(res.data);
+    } catch (e) {
+      toast.error('Failed to load game history');
+    }
+  };
+
   const generateGame = async (subject: string) => {
     setIsGenerating(true);
+    setActiveSubject(subject);
     try {
       const res = await api.post('/gamification/games/generate', {
         subject,
@@ -75,7 +88,7 @@ export default function GameHub() {
 
   const submitGame = async () => {
     try {
-      await api.post('/gamification/games/score', { score: gameScore });
+      await api.post('/gamification/games/score', { score: gameScore, subject: activeSubject });
       toast.success(`Game Complete! You earned ${gameScore} XP!`, { duration: 4000 });
       setActiveGame(null);
     } catch (e) {
@@ -110,7 +123,7 @@ export default function GameHub() {
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-4 border-b border-slate-200 pb-2">
-        {['study-games', 'tournaments', 'leaderboard'].map((tab) => (
+        {['study-games', 'tournaments', 'leaderboard', 'game-history'].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -150,7 +163,7 @@ export default function GameHub() {
                     Question {currentQuestionIndex + 1} of {activeGame.questions.length}
                   </span>
                   <h3 className="text-xl font-semibold text-slate-800 mt-2">
-                    {activeGame.questions[currentQuestionIndex].prompt}
+                    {activeGame.questions[currentQuestionIndex].prompt || activeGame.questions[currentQuestionIndex].question || activeGame.questions[currentQuestionIndex].content}
                   </h3>
                 </div>
                 
@@ -285,6 +298,46 @@ export default function GameHub() {
                  </tbody>
                </table>
              </div>
+          </div>
+        )}
+
+        {activeTab === 'game-history' && (
+          <div className="space-y-6">
+             <div className="flex items-center justify-between">
+               <h2 className="text-2xl font-bold flex items-center gap-2"><Calendar className="text-violet-500" /> Your Game History</h2>
+               <div className="bg-violet-100 text-violet-700 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
+                 <Award className="w-4 h-4" /> Total Games: {gameHistory.length}
+               </div>
+             </div>
+             
+             {gameHistory.length === 0 ? (
+               <div className="text-center py-16 text-slate-500 border-2 border-dashed rounded-2xl">
+                 You haven't played any games yet. Start an AI Brain Builder!
+               </div>
+             ) : (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {gameHistory.map((history: any, idx: number) => (
+                   <div key={idx} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                     <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-violet-100 to-transparent opacity-50 rounded-bl-full pointer-events-none"></div>
+                     <div className="flex justify-between items-start mb-4">
+                       <div>
+                         <h3 className="font-bold text-lg text-slate-800">{history.subject}</h3>
+                         <p className="text-xs text-slate-400 font-medium">{new Date(history.playedAt).toLocaleDateString()} at {new Date(history.playedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                       </div>
+                       <div className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                         +{history.xpEarned} XP <Sparkles className="w-3 h-3" />
+                       </div>
+                     </div>
+                     <div className="flex items-center justify-between text-sm">
+                       <span className="text-slate-500 font-medium">Score: <span className="text-slate-800 font-bold">{history.score}</span></span>
+                       {history.difficulty && (
+                         <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">{history.difficulty}</span>
+                       )}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
           </div>
         )}
       </div>

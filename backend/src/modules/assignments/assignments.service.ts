@@ -281,10 +281,15 @@ export class AssignmentsService {
     const assignment = await this.findOne(assignmentId);
 
     let correctCount = 0;
+    let requiresHumanReview = false;
     const gradedAnswers = await Promise.all(
       (submission.answers || []).map(async (a) => {
         try {
           const question = await this.questionsService.findOne(a.questionId);
+          if (question.type === 'drawing_canvas' || question.type === 'long_answer') {
+            requiresHumanReview = true;
+            return { ...a, isCorrect: false }; // Score to be determined manually
+          }
           const isCorrect = question.options?.some((o) => o.isCorrect && o.id === a.answer) ?? false;
           if (isCorrect) correctCount++;
           return { ...a, isCorrect };
@@ -294,10 +299,17 @@ export class AssignmentsService {
       }),
     );
 
+    submission.answers = gradedAnswers;
+
+    if (requiresHumanReview) {
+      submission.status = 'submitted';
+      const saved = await this.submissionRepository.save(submission);
+      return saved;
+    }
+
     const percentage = gradedAnswers.length > 0 ? (correctCount / gradedAnswers.length) * 100 : 0;
     const score = Math.round((assignment.totalPoints * percentage) / 100);
 
-    submission.answers = gradedAnswers;
     submission.score = score;
     submission.status = 'graded';
     submission.gradedAt = new Date();
@@ -342,6 +354,46 @@ export class AssignmentsService {
 
     const percentage = assignment.totalPoints > 0 ? (score / assignment.totalPoints) * 100 : 0;
     const xpAwarded = Math.floor(percentage / 10);
+    await this.usersService.addXpPoints(submission.studentId, xpAwarded);
+    await this.usersService.updateStreak(submission.studentId);
+
+    await this.assignmentsRepository.update(assignmentId, {
+      gradedCount: () => '"gradedCount" + 1',
+    } as any);
+
+    return saved;
+  }
+
+  async evaluateAnswers(
+    assignmentId: string,
+    submissionId: string,
+    teacherId: string,
+    evaluations: { questionId: string; isCorrect: boolean }[],
+  ): Promise<AssignmentSubmission> {
+    const submission = await this.submissionRepository.findOne({ where: { id: submissionId, assignmentId } });
+    if (!submission) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    const evalMap = new Map(evaluations.map((e) => [e.questionId, e.isCorrect]));
+    submission.answers = (submission.answers || []).map((a) => ({
+      ...a,
+      isCorrect: evalMap.has(a.questionId) ? evalMap.get(a.questionId) : a.isCorrect,
+    }));
+
+    const correctCount = submission.answers.filter((a) => a.isCorrect).length;
+    const totalCount = submission.answers.length;
+    const percentage = totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
+
+    const assignment = await this.findOne(assignmentId);
+    submission.score = Math.round((assignment.totalPoints * percentage) / 100);
+    submission.status = 'graded';
+    submission.gradedAt = new Date();
+    submission.gradedBy = teacherId;
+
+    const saved = await this.submissionRepository.save(submission);
+
+    const xpAwarded = correctCount * 10;
     await this.usersService.addXpPoints(submission.studentId, xpAwarded);
     await this.usersService.updateStreak(submission.studentId);
 
@@ -452,6 +504,10 @@ export class AssignmentsService {
           topic: q.topic,
           strandId: q.strandId,
           subStrandId: q.subStrandId,
+          type: q.type,
+          mediaUrl: q.mediaUrl,
+          mediaType: q.mediaType,
+          questionMedia: q.questionMedia,
           studentAnswer: answer?.answer || '',
           studentAnswerText: selectedOption?.text || answer?.answer || '',
           isCorrect: answer?.isCorrect ?? false,

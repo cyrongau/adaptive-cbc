@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../../core/theme/app_colors.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -47,6 +49,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_onboarding', true);
     if (mounted) {
+      Provider.of<AuthProvider>(context, listen: false).completeOnboarding();
       context.go('/login');
     }
   }
@@ -117,9 +120,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Expanded(
-            child: Image.asset(
-              page.image,
-              fit: BoxFit.contain,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24.0),
+              child: Image.asset(
+                page.image,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(height: 32),

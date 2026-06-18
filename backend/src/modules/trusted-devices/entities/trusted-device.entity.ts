@@ -27,6 +27,12 @@ export class TrustedDevice {
   @Column({ nullable: true })
   osSignature: string;
 
+  @Column({ nullable: true })
+  ipAddress: string;
+
+  @Column({ nullable: true })
+  location: string;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   lastLoginAt: Date;
 

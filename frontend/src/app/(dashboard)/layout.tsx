@@ -42,6 +42,8 @@ import {
   ShieldAlert,
   Gamepad2,
   Video,
+  Smartphone,
+  History,
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from '@/components/NotificationBell';
@@ -56,6 +58,7 @@ const SIDEBAR_ITEMS_STUDENT = [
   { label: 'Games & Tournaments', icon: Gamepad2, href: '/games' },
   { label: 'Assignments', icon: FileText, href: '/assignments' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
+  { label: 'Attempt History', icon: History, href: '/attempt-history' },
   { label: 'School', icon: Building2, href: '/school' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
@@ -75,6 +78,7 @@ const SIDEBAR_ITEMS_AFFILIATED_STUDENT = [
   { label: 'Games & Tournaments', icon: Gamepad2, href: '/games' },
   { label: 'Assignments', icon: FileText, href: '/assignments' },
   { label: 'Question Bank', icon: BookOpen, href: '/question-bank' },
+  { label: 'Attempt History', icon: History, href: '/attempt-history' },
   { label: 'My School', icon: Building2, href: '/school' },
   { label: 'My Teachers', icon: Users, href: '/teachers' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
@@ -91,6 +95,7 @@ const SIDEBAR_ITEMS_PARENT = [
   { label: 'Course Hub', icon: BookOpen, href: '/course-hub' },
   { label: 'Children', icon: GraduationCap, href: '/children' },
   { label: 'Approvals', icon: ShieldAlert, href: '/approvals' },
+  { label: 'Devices', icon: Smartphone, href: '/devices' },
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Progress Reports', icon: BarChart2, href: '/progress' },
@@ -131,6 +136,7 @@ const SIDEBAR_ITEMS_TEACHER = [
   { label: 'Store', icon: ShoppingBag, href: '/store' },
   { label: 'Digital Library', icon: FolderOpen, href: '/library' },
   { label: 'Author Studio', icon: PenTool, href: '/author-studio' },
+  { label: 'Pending Reviews', icon: CheckCircle, href: '/author-studio/reviews' },
   { label: 'Materials', icon: FileText, href: '/materials' },
   { label: 'Inbox', icon: MessageSquare, href: '/chat' },
   { label: 'Support Desk', icon: HelpCircle, href: '/support' },
@@ -181,6 +187,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { user, token, initialize, logout } = useAuthStore();
   const branding = useBranding();
+  const [logoFailed, setLogoFailed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -260,8 +267,10 @@ export default function DashboardLayout({
         return;
       }
       if (isSuperAdmin) {
+        console.log('[DEBUG] Redirecting super admin from', pathname);
         router.push('/admin/dashboard');
       } else if (isInstitutionAdmin && isKycApproved) {
+        console.log('[DEBUG] Redirecting inst admin from', pathname);
         router.push('/admin/dashboard');
       }
     }
@@ -360,7 +369,13 @@ export default function DashboardLayout({
         <div className={`flex items-center py-5 px-4 border-b ${theme.sidebarBorder} ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3 min-w-0">
-              <img src={branding.logoUrl} alt={branding.platformName} className="w-9 h-9 shrink-0 object-contain" />
+              {logoFailed ? (
+                <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
+                  {branding.platformName.charAt(0)}
+                </div>
+              ) : (
+                <img src={branding.logoUrl} alt={branding.platformName} className="w-9 h-9 shrink-0 object-contain" onError={() => setLogoFailed(true)} />
+              )}
               <div className="min-w-0">
                 <span className="font-bold text-sm text-slate-900 tracking-tight block truncate">{branding.platformName}</span>
                 <span className="text-[10px] text-slate-500 font-medium">Learning Platform</span>
@@ -368,7 +383,13 @@ export default function DashboardLayout({
             </div>
           )}
           {sidebarCollapsed && (
-            <img src={branding.logoUrl} alt={branding.platformName} className="w-9 h-9 shrink-0 object-contain" />
+            logoFailed ? (
+              <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
+                {branding.platformName.charAt(0)}
+              </div>
+            ) : (
+              <img src={branding.logoUrl} alt={branding.platformName} className="w-9 h-9 shrink-0 object-contain" onError={() => setLogoFailed(true)} />
+            )
           )}
           <button
             onClick={toggleSidebar}

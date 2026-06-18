@@ -148,6 +148,17 @@ export class AssignmentsController {
     return this.assignmentsService.gradeSubmission(id, submissionId, req.user.id, body.score);
   }
 
+  @Post(':id/submissions/:submissionId/evaluate-answers')
+  @ApiOperation({ summary: 'Evaluate individual answers (mark correct/incorrect) for drawing_canvas and long_answer questions' })
+  async evaluateAnswers(
+    @Param('id') id: string,
+    @Param('submissionId') submissionId: string,
+    @Body() body: { evaluations: { questionId: string; isCorrect: boolean }[] },
+    @Request() req,
+  ) {
+    return this.assignmentsService.evaluateAnswers(id, submissionId, req.user.id, body.evaluations);
+  }
+
   @Get(':id/submissions/:submissionId')
   @ApiOperation({ summary: 'Get submission with student details' })
   async getSubmissionWithStudent(

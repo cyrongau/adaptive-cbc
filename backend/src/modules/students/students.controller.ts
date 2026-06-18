@@ -47,7 +47,6 @@ export class StudentsController {
       secure: isProd,
       sameSite: 'lax' as const,
       path: '/',
-      ...(isProd ? {} : { domain: 'localhost' }), // Share cookie across ports in dev so WebSocket on :3002 can read it
     };
 
     res.cookie('accessToken', accessToken, {
@@ -121,6 +120,16 @@ export class StudentsController {
   async getPendingApprovals(@Req() req: Request) {
     const user = (req as any).user;
     return this.studentsService.getPendingApprovals(user.id, user.role);
+  }
+
+  @Get('children-devices')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PARENT)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all trusted devices for a parent\'s children' })
+  async getChildrenDevices(@Req() req: Request) {
+    const user = (req as any).user;
+    return this.studentsService.getDevicesForParent(user.id);
   }
 
   @Post('enroll')

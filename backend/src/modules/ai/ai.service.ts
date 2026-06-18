@@ -7,14 +7,36 @@ export class AiService {
   constructor(private readonly configService: ConfigService) {}
 
   async getSocraticResponse(messages: { role: string; content: string }[]): Promise<string> {
-    const aiServiceUrl = this.configService.get('AI_SERVICE_URL', 'http://localhost:8002');
+    const apiKey = this.configService.get('OPENROUTER_API_KEY');
+    if (!apiKey) {
+      throw new InternalServerErrorException('OpenRouter API key not configured');
+    }
+
     try {
-      const response = await axios.post(`${aiServiceUrl}/api/tutor/chat`, {
-        messages,
-      });
-      return response.data.response;
+      const response = await axios.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          model: 'meta-llama/llama-3.1-8b-instruct:free',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful, Socratic AI tutor. Guide the student to the answer using questions and hints rather than giving the direct answer. Be encouraging and concise.',
+            },
+            ...messages,
+          ],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'HTTP-Referer': 'http://localhost:3000',
+            'X-Title': 'Adaptive CBC Platform',
+          },
+        }
+      );
+
+      return response.data.choices[0].message.content;
     } catch (error: any) {
-      console.error('Error in AiService getSocraticResponse:', error.message);
+      console.error('Error in AiService getSocraticResponse:', error.response?.data || error.message);
       throw new InternalServerErrorException('Failed to communicate with AI Service');
     }
   }

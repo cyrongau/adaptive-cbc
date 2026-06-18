@@ -128,8 +128,16 @@ export class GamificationController {
   @Post('games/score')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Submit game score for XP' })
-  async submitGameScore(@Request() req, @Body() body: { score: number }) {
-    return this.gamificationService.submitGameScore(req.user.id, body.score);
+  @ApiOperation({ summary: 'Submit game score for XP and history tracking' })
+  async submitGameScore(@Request() req, @Body() body: { score: number; subject: string; difficulty?: string }) {
+    return this.gamificationService.submitGameScore(req.user.id, body.score, body.subject, body.difficulty);
+  }
+
+  @Get('games/history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get user game history' })
+  async getGameHistory(@Request() req) {
+    return this.gamificationService.getUserGameHistory(req.user.id);
   }
 }

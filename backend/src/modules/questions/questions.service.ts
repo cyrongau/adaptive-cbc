@@ -344,11 +344,25 @@ export class QuestionsService {
     answer: string,
     selectedOptionIds: string | undefined,
     userId: string,
-  ): Promise<{ correct: boolean; correctAnswer: string; explanation?: string; xpAwarded: number; isFirstAttempt: boolean }> {
+  ): Promise<{ correct: boolean; correctAnswer: string; explanation?: string; xpAwarded: number; isFirstAttempt: boolean; needsReview?: boolean }> {
     const question = await this.findOne(id);
 
     let isCorrect = false;
     let xpAwarded = 0;
+
+    if (question.type === QuestionType.DRAWING_CANVAS) {
+      const isFirstAttempt = !(await this.hasAttemptedQuestion(userId, id));
+      await this.recordAttempt(userId, id, answer, false, 0, 'question_bank');
+      
+      return {
+        correct: false,
+        correctAnswer: 'Requires human review',
+        explanation: question.explanation,
+        xpAwarded: 0,
+        isFirstAttempt,
+        needsReview: true,
+      };
+    }
 
     if (question.options && question.options.length > 0) {
       const correctOption = question.options.find((opt) => opt.isCorrect);
@@ -557,5 +571,173 @@ export class QuestionsService {
       sourceType: QuestionSourceType.CLONED,
       sourceId: question.id,
     }, userId);
+  }
+
+  async getPendingReviewAttempts(teacherId: string): Promise<any[]> {
+    const attempts = await this.questionAttemptRepository
+      .createQueryBuilder('attempt')
+      .innerJoinAndSelect('attempt.question', 'question')
+      .where('question.type = :type', { type: QuestionType.DRAWING_CANVAS })
+      .andWhere('attempt.isCorrect = :isCorrect', { isCorrect: false })
+      .andWhere('attempt.reviewedBy IS NULL')
+      .orderBy('attempt.attemptedAt', 'DESC')
+      .limit(50)
+      .getMany();
+
+    const results = await Promise.all(
+      attempts.map(async (attempt) => {
+        let student: any = { id: attempt.userId };
+        try {
+          const user = await this.usersService.findOne(attempt.userId);
+          student = { id: user.id, firstName: user.firstName, lastName: user.lastName, grade: user.grade };
+        } catch {}
+        return {
+          id: attempt.id,
+          userId: attempt.userId,
+          questionId: attempt.questionId,
+          answer: attempt.answer,
+          isCorrect: attempt.isCorrect,
+          sessionType: attempt.sessionType,
+          attemptedAt: attempt.attemptedAt,
+          student,
+          question: {
+            id: attempt.question.id,
+            content: attempt.question.content,
+            type: attempt.question.type,
+            subjectId: attempt.question.subjectId,
+            grade: attempt.question.grade,
+            mediaUrl: attempt.question.mediaUrl,
+            questionMedia: attempt.question.questionMedia,
+            correctAnswer: attempt.question.correctAnswer,
+            explanation: attempt.question.explanation,
+          },
+        };
+      }),
+    );
+
+    return results;
+  }
+
+  async evaluateAttempt(attemptId: string, isCorrect: boolean, reviewerId: string): Promise<QuestionAttempt> {
+    const attempt = await this.questionAttemptRepository.findOne({ where: { id: attemptId } });
+    if (!attempt) {
+      throw new NotFoundException(`Attempt with ID ${attemptId} not found`);
+    }
+    attempt.isCorrect = isCorrect;
+    attempt.reviewedBy = reviewerId;
+    attempt.reviewedAt = new Date();
+    return this.questionAttemptRepository.save(attempt);
+  }
+
+  async getReviewedAttempts(): Promise<any[]> {
+    const attempts = await this.questionAttemptRepository
+      .createQueryBuilder('attempt')
+      .innerJoinAndSelect('attempt.question', 'question')
+      .where('question.type = :type', { type: QuestionType.DRAWING_CANVAS })
+      .andWhere('attempt.reviewedBy IS NOT NULL')
+      .orderBy('attempt.reviewedAt', 'DESC')
+      .limit(50)
+      .getMany();
+
+    const results = await Promise.all(
+      attempts.map(async (attempt) => {
+        let student: any = { id: attempt.userId };
+        let reviewer: any = { id: attempt.reviewedBy };
+        try {
+          const user = await this.usersService.findOne(attempt.userId);
+          student = { id: user.id, firstName: user.firstName, lastName: user.lastName, grade: user.grade };
+        } catch {}
+        try {
+          const rev = await this.usersService.findOne(attempt.reviewedBy);
+          reviewer = { id: rev.id, firstName: rev.firstName, lastName: rev.lastName };
+        } catch {}
+        return {
+          id: attempt.id,
+          userId: attempt.userId,
+          questionId: attempt.questionId,
+          answer: attempt.answer,
+          isCorrect: attempt.isCorrect,
+          sessionType: attempt.sessionType,
+          attemptedAt: attempt.attemptedAt,
+          reviewedAt: attempt.reviewedAt,
+          student,
+          reviewer,
+          question: {
+            id: attempt.question.id,
+            content: attempt.question.content,
+            type: attempt.question.type,
+            subjectId: attempt.question.subjectId,
+            grade: attempt.question.grade,
+            mediaUrl: attempt.question.mediaUrl,
+            questionMedia: attempt.question.questionMedia,
+            correctAnswer: attempt.question.correctAnswer,
+            explanation: attempt.question.explanation,
+          },
+        };
+      }),
+    );
+
+    return results;
+  }
+
+  async getStudentPerformance(userId: string): Promise<any[]> {
+    const attempts = await this.questionAttemptRepository
+      .createQueryBuilder('attempt')
+      .innerJoinAndSelect('attempt.question', 'question')
+      .where('attempt.userId = :userId', { userId })
+      .orderBy('attempt.attemptedAt', 'DESC')
+      .limit(100)
+      .getMany();
+
+    const questionStats = new Map<string, {
+      question: any;
+      attempts: any[];
+      firstAttemptCorrect: boolean;
+      totalAttempts: number;
+      totalXp: number;
+      bestAttempt: any;
+    }>();
+
+    for (const attempt of attempts) {
+      const qId = attempt.questionId;
+      if (!questionStats.has(qId)) {
+        const firstAttempt = attempts
+          .filter(a => a.questionId === qId)
+          .sort((a, b) => a.attemptNumber - b.attemptNumber)[0];
+        questionStats.set(qId, {
+          question: {
+            id: attempt.question.id,
+            content: attempt.question.content,
+            type: attempt.question.type,
+            subjectId: attempt.question.subjectId,
+            grade: attempt.question.grade,
+            mediaUrl: attempt.question.mediaUrl,
+            questionMedia: attempt.question.questionMedia,
+            correctAnswer: attempt.question.correctAnswer,
+            explanation: attempt.question.explanation,
+          },
+          attempts: [],
+          firstAttemptCorrect: firstAttempt?.isCorrect || false,
+          totalAttempts: 0,
+          totalXp: 0,
+          bestAttempt: firstAttempt,
+        });
+      }
+      const stat = questionStats.get(qId)!;
+      stat.attempts.push({
+        id: attempt.id,
+        answer: attempt.answer,
+        isCorrect: attempt.isCorrect,
+        attemptNumber: attempt.attemptNumber,
+        xpAwarded: attempt.xpAwarded,
+        sessionType: attempt.sessionType,
+        attemptedAt: attempt.attemptedAt,
+      });
+      stat.totalAttempts++;
+      stat.totalXp += attempt.xpAwarded || 0;
+    }
+
+    return Array.from(questionStats.values())
+      .sort((a, b) => new Date(b.attempts[0]?.attemptedAt).getTime() - new Date(a.attempts[0]?.attemptedAt).getTime());
   }
 }

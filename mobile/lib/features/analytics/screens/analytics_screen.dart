@@ -200,23 +200,42 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildChartSection(ThemeData theme) {
-    // Collect last 6 sessions or show default
-    List<FlSpot> spots = [];
     if (_recentActivities.isEmpty) {
-      spots = [
-        const FlSpot(0, 50),
-        const FlSpot(1, 60),
-        const FlSpot(2, 55),
-        const FlSpot(3, 75),
-        const FlSpot(4, 85),
-      ];
-    } else {
-      // Sort activities oldest to newest for chronological plotting
-      final sortedActs = List.from(_recentActivities.reversed.toList());
-      for (int i = 0; i < sortedActs.length; i++) {
-        final double score = (sortedActs[i]['score'] ?? 0).toDouble();
-        spots.add(FlSpot(i.toDouble(), score));
-      }
+      return Card(
+        elevation: 0,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColors.surfaceContainer),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 32.0),
+          child: Column(
+            children: [
+              Icon(Icons.show_chart_rounded, size: 64, color: AppColors.primary.withOpacity(0.2)),
+              const SizedBox(height: 16),
+              const Text(
+                'No Performance Data',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.onSurface),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Complete some practice sessions or quizzes to see your performance trend here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant.withOpacity(0.8)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Sort activities oldest to newest for chronological plotting
+    List<FlSpot> spots = [];
+    final sortedActs = List.from(_recentActivities.reversed.toList());
+    for (int i = 0; i < sortedActs.length; i++) {
+      final double score = (sortedActs[i]['score'] ?? 0).toDouble();
+      spots.add(FlSpot(i.toDouble(), score));
     }
 
     return Card(

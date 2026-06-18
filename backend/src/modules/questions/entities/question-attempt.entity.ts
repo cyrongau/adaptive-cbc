@@ -34,6 +34,12 @@ export class QuestionAttempt {
   @Column({ nullable: true })
   sessionId: string;
 
+  @Column({ nullable: true })
+  reviewedBy: string;
+
+  @Column({ nullable: true })
+  reviewedAt: Date;
+
   @CreateDateColumn()
   attemptedAt: Date;
 }
