@@ -7,12 +7,21 @@ import '../../auth/providers/auth_provider.dart';
 class FullScreenMenu extends StatelessWidget {
   const FullScreenMenu({super.key});
 
+  bool _isTeacherRole(String? role) {
+    return role == 'teacher' || role == 'tutor' || role == 'super_admin' || role == 'institution_admin';
+  }
+
+  bool _isStudentOnly(String? role) {
+    return !_isTeacherRole(role) && role != 'parent';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final user = Provider.of<AuthProvider>(context).currentUser;
+    final role = user?['role'] ?? 'student';
     final firstName = user?['firstName'] ?? 'Student';
     final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'S';
+    final isTeacher = _isTeacherRole(role);
 
     return Scaffold(
       backgroundColor: AppColors.primary,
@@ -57,7 +66,7 @@ class FullScreenMenu extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Adaptive CBC',
+                      isTeacher ? 'Teacher / Tutor' : 'Adaptive CBC',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 16,
@@ -74,58 +83,47 @@ class FullScreenMenu extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 children: [
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.dashboard_rounded, 
-                    title: 'Dashboard', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.go('/home');
-                    }
-                  ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.book_rounded, 
-                    title: 'Subjects & Units', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/subjects');
-                    }
-                  ),
+                  // ===== TEACHER-SPECIFIC ITEMS =====
+                  if (isTeacher) ...[
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.dashboard_rounded,
+                      title: 'Tutor Dashboard',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/tutor/dashboard');
+                      }
+                    ),
+                    const SizedBox(height: 8),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.rate_review_outlined,
+                      title: 'Answer Reviews',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/reviews');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.edit_note_rounded,
+                      title: 'Author Studio',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/author-studio');
+                      }
+                    ),
+                    const Divider(color: Colors.white24, height: 32),
+                  ],
+
+                  // ===== SHARED ITEMS =====
                   _buildMenuItem(
                     context, 
                     icon: Icons.video_camera_front_rounded, 
                     title: 'Live Classes', 
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/live-classes');
-                    }
-                  ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.assignment_rounded, 
-                    title: 'Practice & Quizzes', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/practice');
-                    }
-                  ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.emoji_events_rounded, 
-                    title: 'Gamification & Rewards', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/gamification');
-                    }
-                  ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.bar_chart_rounded, 
-                    title: 'Learning Analytics', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/analytics');
+                      context.push('/live');
                     }
                   ),
                   _buildMenuItem(
@@ -139,20 +137,20 @@ class FullScreenMenu extends StatelessWidget {
                   ),
                   _buildMenuItem(
                     context, 
+                    icon: Icons.person_search_rounded, 
+                    title: '1-on-1 Tutoring', 
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/tutors');
+                    }
+                  ),
+                  _buildMenuItem(
+                    context, 
                     icon: Icons.library_books_rounded, 
                     title: 'Digital Library', 
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/library');
-                    }
-                  ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.quiz_rounded, 
-                    title: 'Question Bank', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/questions');
                     }
                   ),
                   _buildMenuItem(
@@ -182,43 +180,120 @@ class FullScreenMenu extends StatelessWidget {
                       context.push('/teachers');
                     }
                   ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.storefront_rounded, 
-                    title: 'Reward Store', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/store');
-                    }
-                  ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.calendar_month_rounded, 
-                    title: 'My Schedule', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/schedule');
-                    }
-                  ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.trending_up_rounded, 
-                    title: 'My Progress', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/progress');
-                    }
-                  ),
-                  _buildMenuItem(
-                    context, 
-                    icon: Icons.leaderboard_rounded, 
-                    title: 'Leaderboard', 
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/leaderboard');
-                    }
-                  ),
-                  const Divider(color: Colors.white24, height: 48),
+
+                  // ===== STUDENT-ONLY ITEMS =====
+                  if (_isStudentOnly(role)) ...[
+                    const Divider(color: Colors.white24, height: 32),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.dashboard_rounded, 
+                      title: 'Dashboard', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.go('/home');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.book_rounded, 
+                      title: 'Subjects & Units', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/subjects');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.assignment_rounded, 
+                      title: 'Practice & Quizzes', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/subjects?mode=practice');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.emoji_events_rounded, 
+                      title: 'Gamification & Rewards', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/achievements');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.bar_chart_rounded, 
+                      title: 'Learning Analytics', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/analytics');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.assignment_rounded, 
+                      title: 'Assignments', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/assignments');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.history_rounded, 
+                      title: 'Attempt History', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/attempt-history');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.quiz_rounded, 
+                      title: 'Question Bank', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/questions');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.storefront_rounded, 
+                      title: 'Reward Store', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/store');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.calendar_month_rounded, 
+                      title: 'My Schedule', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/schedule');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.trending_up_rounded, 
+                      title: 'My Progress', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/progress');
+                      }
+                    ),
+                    _buildMenuItem(
+                      context, 
+                      icon: Icons.leaderboard_rounded, 
+                      title: 'Leaderboard', 
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/leaderboard');
+                      }
+                    ),
+                  ],
+                  const Divider(color: Colors.white24, height: 32),
                   _buildMenuItem(
                     context, 
                     icon: Icons.person_rounded, 

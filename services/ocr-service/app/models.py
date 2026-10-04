@@ -52,25 +52,84 @@ STAGE_PROGRESS = {
 }
 
 
+class RegionType(str, Enum):
+    HEADER = "header"
+    FOOTER = "footer"
+    PAGE_NUMBER = "page_number"
+    QUESTION = "question"
+    QUESTION_NUMBER = "question_number"
+    STEM = "stem"
+    INSTRUCTION = "instruction"
+    TEXT_BLOCK = "text_block"
+    MATH_BLOCK = "math_block"
+    FIGURE = "figure"
+    TABLE = "table"
+    DIAGRAM = "diagram"
+    FORMULA = "formula"
+    ANSWER_CHOICES = "answer_choices"
+    ANSWER_CHOICE = "answer_choice"
+    WORKING_AREA = "working_area"
+    HANDWRITING = "handwriting"
+    PAPER_ARTIFACT = "paper_artifact"
+    UNKNOWN = "unknown"
+
+
+class ChoiceLayout(str, Enum):
+    INLINE = "inline"
+    TWO_COLUMN = "2_column"
+    VERTICAL = "vertical"
+    GRID = "grid"
+
+
+class PageRegion(BaseModel):
+    id: str
+    type: RegionType
+    bbox: list[int] = Field(default_factory=list)  # [x, y, w, h] or [(x1,y1), (x2,y2)...]
+    confidence: float = 1.0
+    text: Optional[str] = None
+    question_number: Optional[str] = None
+    page_number: int = 1
+
+
+class FigureAsset(BaseModel):
+    id: str
+    key: str
+    url: str
+    figure_type: str = "diagram"  # "geometry_diagram", "photo", "line_diagram", "chart"
+    bbox: list[int] = Field(default_factory=list)  # [x, y, w, h]
+    question_number: Optional[str] = None
+    page_number: int = 1
+    confidence: float = 0.95
+
+
 class QuestionOption(BaseModel):
     id: str
     text: str
     is_correct: bool = False
+    latex: Optional[str] = None
 
 
 class ExtractedQuestion(BaseModel):
     id: str
+    question_number: Optional[str] = None
     text: str
+    stem: Optional[str] = None
     options: list[QuestionOption] = []
+    choices_layout: str = "vertical"  # inline, 2_column, vertical, grid
     correct_answer: Optional[str] = None
-    question_type: str = "structured"
+    question_type: str = "mcq"  # mcq, true_false, fill_blank, structured
     confidence: float = 0.7
+    confidence_breakdown: dict = Field(default_factory=dict)
     page_number: int = 1
     bounding_box: Optional[dict] = None
     math_latex: Optional[str] = None
+    math_tokens: list[dict] = Field(default_factory=list)
     diagram_reference: bool = False
     diagram_description: Optional[str] = None
+    figures: list[dict] = Field(default_factory=list)
     imageUrls: list[str] = Field(default_factory=list)
+    source_provenance: Optional[dict] = None
+    cbc_tags: Optional[dict] = None
     needs_review: bool = False
     review_reason: Optional[str] = None
 
@@ -80,8 +139,10 @@ class PageResult(BaseModel):
     raw_text: str
     ocr_confidence: float = 0.0
     blocks: list[dict] = []
+    regions: list[PageRegion] = Field(default_factory=list)
     questions: list[ExtractedQuestion] = []
     image_path: Optional[str] = None
+    color_master_path: Optional[str] = None
     has_math: bool = False
 
 
@@ -90,6 +151,7 @@ class OCRJobResult(BaseModel):
     pages: int = 0
     confidence: float = 0.0
     questions: list[ExtractedQuestion] = []
+    figures: list[FigureAsset] = Field(default_factory=list)
     processing_time: int = 0
     page_results: list[PageResult] = []
     is_duplicate: bool = False

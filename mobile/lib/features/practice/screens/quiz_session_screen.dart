@@ -107,11 +107,15 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
       final response = await _apiClient.dio.get('${AppConstants.practice}/session/${widget.sessionId}/current-question');
       if (response.statusCode == 200) {
         final data = response.data;
+        final question = data['question'];
+        final String type = question?['type']?.toString().toUpperCase() ?? '';
+        if (type == 'DRAWING_CANVAS') {
+          _nextQuestion();
+          return;
+        }
         setState(() {
-          _currentQuestion = data['question'];
+          _currentQuestion = question;
           _isLoading = false;
-          // In real API, we don't know total questions exactly here without fetching session details,
-          // but let's assume we can keep going until a 400 'No more questions' error.
         });
       }
     } catch (e) {
@@ -132,7 +136,6 @@ class _QuizSessionScreenState extends State<QuizSessionScreen> {
     final bool isDrawing = type == 'DRAWING_CANVAS';
 
     if (!isDrawing && _selectedOptionId == null) return;
-    if (isDrawing && _signatureController.isEmpty) return;
     
     setState(() {
       _hasSubmitted = true;

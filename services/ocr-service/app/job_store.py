@@ -79,6 +79,7 @@ class JobStore:
         data["page_count"] = result.get("pages", 0)
         data["total_confidence"] = result.get("confidence", 0.0)
         data["questions_json"] = json.dumps(result.get("questions", []))
+        data["figures_json"] = json.dumps(result.get("figures", []))
         data["page_results_json"] = json.dumps(result.get("page_results", []))
         data["processing_time"] = result.get("processing_time", 0)
         self.redis.set(self._key(job_id), json.dumps(data))

@@ -21,8 +21,12 @@ class Settings(BaseSettings):
 
     # OpenRouter (AI Structuring)
     OPENROUTER_API_KEY: Optional[str] = None
-    OPENROUTER_MODEL: str = "google/gemini-2.0-flash-001"
+    OPENROUTER_MODEL: str = "google/gemini-2.5-flash"
     AI_SERVICE_URL: str = "http://ai-service:8002"
+
+    # Layout & Recognition
+    LAYOUT_ENGINE: str = "hybrid"  # "hybrid" (vision primary, local escalation), "vision", or "local"
+    TESSERACT_CONFIDENCE_THRESHOLD: float = 0.80
 
     # Processing
     MAX_PAGES: int = 30
@@ -34,5 +38,26 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         extra = "ignore"
 
+    def model_post_init(self, __context):
+        # Fallback if OPENROUTER_API_KEY was passed as empty string from environment override
+        if not self.OPENROUTER_API_KEY:
+            import os
+            for env_path in ["/app/.env", ".env", "../backend/.env", "backend/.env"]:
+                if os.path.exists(env_path):
+                    try:
+                        from dotenv import dotenv_values
+                        vals = dotenv_values(env_path)
+                        key = vals.get("OPENROUTER_API_KEY")
+                        if key:
+                            self.OPENROUTER_API_KEY = key
+                            break
+                    except Exception:
+                        pass
+
+        # Upgrade deprecated Gemini 2.0 Flash 001 model ID to Gemini 2.5 Flash
+        if self.OPENROUTER_MODEL in ("google/gemini-2.0-flash-001", "google/gemini-2.0-flash"):
+            self.OPENROUTER_MODEL = "google/gemini-2.5-flash"
+
 
 settings = Settings()
+

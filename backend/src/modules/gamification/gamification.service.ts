@@ -3,9 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
 import { Tournament, TournamentParticipant, UserBadge, Leaderboard, TournamentStatus, GameHistory } from './entities/gamification.entity';
 import { UsersService } from '../users/users.service';
-import { UserRole } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { AiService } from '../ai/ai.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class GamificationService {
@@ -22,6 +23,7 @@ export class GamificationService {
     private gameHistoryRepository: Repository<GameHistory>,
     private usersService: UsersService,
     private aiService: AiService,
+    private notificationsService: NotificationsService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -278,5 +280,68 @@ export class GamificationService {
     const tournament = await this.findOneTournament(tournamentId);
     tournament.status = status;
     return this.tournamentRepository.save(tournament);
+  }
+
+  async getStreakStatus(userId: string): Promise<{
+    currentStreak: number;
+    lastActiveDate: string | null;
+    isAtRisk: boolean;
+    isBroken: boolean;
+    daysSinceLastActive: number;
+  }> {
+    const user = await this.usersService.findOne(userId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let daysSinceLastActive = 0;
+    let isAtRisk = false;
+    let isBroken = false;
+
+    if (user.lastActiveDate) {
+      const lastActive = new Date(user.lastActiveDate);
+      lastActive.setHours(0, 0, 0, 0);
+      daysSinceLastActive = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysSinceLastActive === 1) {
+        isAtRisk = true;
+      } else if (daysSinceLastActive > 1) {
+        isBroken = true;
+      }
+    }
+
+    return {
+      currentStreak: user.streakDays || 0,
+      lastActiveDate: user.lastActiveDate ? user.lastActiveDate.toISOString() : null,
+      isAtRisk,
+      isBroken,
+      daysSinceLastActive,
+    };
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_NOON)
+  async sendStreakReminders() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Find users with streak > 0 who were last active yesterday (at risk of breaking)
+    const users = await this.usersService.findAll();
+    const atRiskUsers = users.filter((u: User) => {
+      if (!u.lastActiveDate || u.streakDays <= 0) return false;
+      const lastActive = new Date(u.lastActiveDate);
+      lastActive.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays === 1;
+    });
+
+    for (const user of atRiskUsers) {
+      await this.notificationsService.createReminderNotification(
+        user.id,
+        'Keep Your Streak Alive!',
+        `You haven't studied today! Log in and complete a practice session to keep your ${user.streakDays}-day streak going.`,
+        '/progress',
+      );
+    }
   }
 }

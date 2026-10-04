@@ -140,4 +140,12 @@ export class GamificationController {
   async getGameHistory(@Request() req) {
     return this.gamificationService.getUserGameHistory(req.user.id);
   }
+
+  @Get('streak')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get current streak status with risk assessment' })
+  async getStreakStatus(@Request() req) {
+    return this.gamificationService.getStreakStatus(req.user.id);
+  }
 }

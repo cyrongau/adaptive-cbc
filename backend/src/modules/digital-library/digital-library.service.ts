@@ -13,6 +13,8 @@ import { UsersService } from '../users/users.service';
 import { QuotaEnforcerService } from '../governance/services/quota-enforcer.service';
 import { UsageTrackerService } from '../governance/services/usage-tracker.service';
 import { GovernanceTier, GovernanceServiceType } from '../governance/entities/usage-log.entity';
+import { CreditLedgerService } from '../governance/services/credit-ledger.service';
+import { CreditType, CreditSource } from '../governance/entities/credit-balance.entity';
 
 @Injectable()
 export class DigitalLibraryService {
@@ -34,6 +36,7 @@ export class DigitalLibraryService {
     private usersService: UsersService,
     private quotaEnforcer: QuotaEnforcerService,
     private usageTracker: UsageTrackerService,
+    private creditLedger: CreditLedgerService,
   ) {}
 
   async findAllPastPapers(params: PastPaperSearchParams, userInstitutionId?: string): Promise<{ papers: PastPaper[]; total: number; page: number; limit: number }> {
@@ -147,7 +150,24 @@ export class DigitalLibraryService {
     paper.status = PastPaperStatus.PUBLISHED;
     paper.publishedAt = new Date();
     paper.verifiedBy = userId;
-    return this.pastPaperRepository.save(paper);
+    const saved = await this.pastPaperRepository.save(paper);
+
+    // Reward contributor if paper was created by a teacher/tutor/school admin
+    if (paper.createdBy) {
+      try {
+        const questionCount = await this.questionRepository.count({ where: { pastPaperId: paper.id } });
+        const creditsToAward = Math.max(10, questionCount * 5);
+        await this.creditLedger.allocateCredits({
+          userId: paper.createdBy,
+          type: CreditType.AI_CREDITS,
+          amount: creditsToAward,
+          source: CreditSource.REWARD,
+        });
+      } catch (err: any) {
+        console.warn('Failed to award contributor credits:', err?.message);
+      }
+    }
+    return saved;
   }
 
   async archivePastPaper(id: string): Promise<PastPaper> {
@@ -304,6 +324,7 @@ export class DigitalLibraryService {
       term: uploadDto.term,
       examSeries: uploadDto.examSeries,
       source: uploadDto.source,
+      visibility: uploadDto.visibility || ContentVisibility.PUBLIC,
     }, userId);
 
     paper.status = PastPaperStatus.PROCESSING;
@@ -634,8 +655,8 @@ export class DigitalLibraryService {
         pastPaperId: paper.id,
         pageNumber: q.pageNumber || idx + 1,
         questionNumber: q.questionNumber || idx + 1,
-        questionText: q.questionText || q.text || q.question || '',
-        extractedText: q.extractedText || q.text || q.question || '',
+        questionText: q.questionText || q.stem || q.text || q.question || '',
+        extractedText: q.extractedText || q.stem || q.text || q.question || '',
         options,
         correctAnswer: q.correctAnswer || q.answer || null,
         solution: q.solution || q.answerExplanation || q.explanation || null,
@@ -649,6 +670,8 @@ export class DigitalLibraryService {
           confidence: q.confidence || 0.8,
           model: 'ocr-review',
           extractedAt: new Date().toISOString(),
+          mathLatex: q.mathLatex || q.math_latex,
+          choicesLayout: q.choicesLayout || q.choices_layout,
         },
       });
     });
@@ -685,7 +708,42 @@ export class DigitalLibraryService {
     job.completedAt = job.completedAt || new Date();
     await this.ocrJobRepository.save(job);
 
+    // Reward contributor if paper was auto-approved and published
+    if (paperStatus === PastPaperStatus.PUBLISHED && paper.createdBy) {
+      try {
+        const creditsToAward = Math.max(10, normalizedQuestions.length * 5);
+        await this.creditLedger.allocateCredits({
+          userId: paper.createdBy,
+          type: CreditType.AI_CREDITS,
+          amount: creditsToAward,
+          source: CreditSource.REWARD,
+        });
+      } catch (err: any) {
+        console.warn('Failed to award contributor credits:', err?.message);
+      }
+    }
+
     return { saved: normalizedQuestions.length, paperId: paper.id };
+  }
+
+  async rewardContributorOnQuestionUsage(questionId: string, studentId: string): Promise<void> {
+    try {
+      const q = await this.questionRepository.findOne({
+        where: { id: questionId },
+        relations: ['pastPaper'],
+      });
+      if (q && q.pastPaper && q.pastPaper.createdBy && q.pastPaper.createdBy !== studentId) {
+        // Award 1 compute credit to the teacher/school contributor whenever a learner practices their question
+        await this.creditLedger.allocateCredits({
+          userId: q.pastPaper.createdBy,
+          type: CreditType.COMPUTE_CREDITS,
+          amount: 1,
+          source: CreditSource.REWARD,
+        });
+      }
+    } catch (err: any) {
+      console.warn('Could not reward question contributor:', err?.message);
+    }
   }
 
   private async evaluateContentSuitability(paper: PastPaper, questions: any[]): Promise<{ approved: boolean; reason?: string }> {

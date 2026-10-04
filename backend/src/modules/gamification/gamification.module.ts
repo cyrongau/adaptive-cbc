@@ -6,6 +6,7 @@ import { GamificationController } from './gamification.controller';
 import { Tournament, TournamentParticipant, UserBadge, Leaderboard, GameHistory } from './entities/gamification.entity';
 import { UsersModule } from '../users/users.module';
 import { AiModule } from '../ai/ai.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { AiModule } from '../ai/ai.module';
     UsersModule,
     HttpModule,
     AiModule,
+    NotificationsModule,
   ],
   controllers: [GamificationController],
   providers: [GamificationService],

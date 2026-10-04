@@ -407,6 +407,9 @@ function CreateQuestionWizardContent() {
             });
             setForm(prev => ({ ...prev, options: newOptions }));
           }
+          if (parsed.imageUrls && Array.isArray(parsed.imageUrls) && parsed.imageUrls.length > 0) {
+            updateForm('questionMedia', parsed.imageUrls.map((url: string) => ({ url, type: 'image' })));
+          }
         } catch {
           console.error('Failed to parse draft');
         }

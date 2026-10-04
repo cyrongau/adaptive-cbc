@@ -81,15 +81,15 @@ async def _call_openrouter(batch: list[dict], full_text: str) -> list[ExtractedQ
     prompt = f"""You are an expert educational content parser. Extract and structure questions from OCR text.
 
 Rules:
-1. Detect question numbering and preserve it
-2. Extract MCQ options (A, B, C, D, E, F format) and preserve all choices
-3. Identify the correct answer if marked
-4. Classify question type: mcq, true_false, fill_blank, structured, short_answer
-5. If the question refers to a diagram or figure, include "diagram_reference": true and a short "diagram_description"
-6. Ignore headers, instructions, and non-question text
-7. Preserve mathematical notation as-is
-8. If no options are found but the question is clearly an MCQ, auto-generate 4 plausible options (A, B, C, D) based on the question context.
-9. If no options are found and it's not an MCQ, classify as "structured"
+1. Detect question numbering (e.g. "20", "21") and preserve it in "question_number".
+2. Extract MCQ options (A, B, C, D, E, F format) and preserve all printed choices.
+3. Identify the correct answer if marked.
+4. Classify question type: mcq, true_false, fill_blank, structured, short_answer.
+5. If the question refers to a diagram or figure, include "diagram_reference": true and a short "diagram_description".
+6. Ignore headers, instructions, working area, and non-question text.
+7. Preserve mathematical notation and convert fractions/formulas to LaTeX (e.g. 6\\frac{{1}}{{4}}).
+8. NEVER invent, hallucinate, or fabricate options or text. If options are missing, leave options empty.
+9. If no options are present, classify as "structured".
 10. If a question is unreadable, garbled, or seems incomplete, set "needs_review": true and provide a brief "review_reason". Otherwise, set it to false.
 
 OCR Text context:
@@ -101,10 +101,13 @@ Questions to structure:
 Return ONLY a valid JSON array with this structure:
 [
   {{
+    "question_number": "20",
     "question_text": "the full question text",
     "options": [{{"id": "a", "text": "option text", "is_correct": false}}],
+    "choices_layout": "2_column",
     "correct_answer": "a",
     "question_type": "mcq",
+    "math_latex": "6\\\\frac{1}{4}",
     "confidence": 0.9,
     "topic": "optional topic guess",
     "needs_review": false,
@@ -125,7 +128,7 @@ Return ONLY a valid JSON array with this structure:
                 "model": settings.OPENROUTER_MODEL,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
-                "max_tokens": 4000,
+                "max_tokens": 1500,
             },
         )
         response.raise_for_status()
@@ -154,14 +157,19 @@ Return ONLY a valid JSON array with this structure:
         ]
 
         question_text = item.get("question_text", item.get("text", ""))
+        q_num = str(item.get("question_number") or len(results) + 1)
         question_kwargs = {
             "id": f"q_ai_{len(results)+1}",
+            "question_number": q_num,
             "text": question_text,
+            "stem": question_text,
             "options": options,
+            "choices_layout": item.get("choices_layout", "vertical"),
             "correct_answer": item.get("correct_answer"),
-            "question_type": item.get("question_type", "structured"),
+            "question_type": item.get("question_type", "mcq" if options else "structured"),
             "confidence": min(item.get("confidence", 0.7), 1.0),
             "page_number": 1,
+            "math_latex": item.get("math_latex"),
             "needs_review": item.get("needs_review", False),
             "review_reason": item.get("review_reason", None),
         }
@@ -181,27 +189,30 @@ async def _extract_all_from_text_ai(full_text: str) -> list[ExtractedQuestion]:
 Extract and structure ALL questions found in the text.
 
 Rules:
-1. Detect question numbering and preserve it.
+1. Detect question numbering and preserve it in "question_number".
 2. Extract MCQ options (A, B, C, D, E, F format) and preserve all choices.
 3. Identify the correct answer if marked.
 4. Classify question type: mcq, true_false, fill_blank, structured, short_answer.
 5. If the question refers to a diagram or figure, include "diagram_reference": true and a short "diagram_description".
-6. Ignore headers, instructions, and non-question text.
-7. Preserve mathematical notation as-is.
-8. If no options are found but the question is clearly an MCQ, auto-generate 4 plausible options (A, B, C, D) based on the question context.
-9. If no options are found and it's not an MCQ, classify as "structured".
+6. Ignore headers, instructions, WORKING AREA, and non-question text.
+7. Preserve mathematical notation and convert fractions/formulas to LaTeX.
+8. NEVER invent, hallucinate, or auto-generate options. If options are missing, leave options empty.
+9. If no options are found, classify as "structured".
 10. If a question is unreadable, garbled, or seems incomplete, set "needs_review": true and provide a brief "review_reason". Otherwise, set it to false.
 
 OCR Text:
-{full_text[:6000]}
+{full_text[:4000]}
 
 Return ONLY a valid JSON array with this structure:
 [
   {{
+    "question_number": "20",
     "question_text": "the full question text",
     "options": [{{"id": "a", "text": "option text", "is_correct": false}}],
+    "choices_layout": "2_column",
     "correct_answer": "a",
     "question_type": "mcq",
+    "math_latex": "6\\\\frac{1}{4}",
     "confidence": 0.9,
     "topic": "optional topic guess",
     "needs_review": false,

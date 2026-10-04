@@ -11,38 +11,21 @@ def preprocess_image(job_id: str, page_key: str, page_number: int) -> dict:
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
     if img is None:
-        return {"preprocessed_key": page_key, "operations": []}
+        return {
+            "preprocessed_key": page_key,
+            "color_master_key": page_key,
+            "original_key": page_key,
+            "operations": [],
+            "width": 0,
+            "height": 0
+        }
 
-    operations = []
+    operations = ["preserve_master_fidelity"]
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    operations.append("gaussian_blur")
-
-    adaptive = cv2.adaptiveThreshold(
-        blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-    operations.append("adaptive_threshold")
-
-    kernel = np.ones((2, 2), np.uint8)
-    cleaned = cv2.morphologyEx(adaptive, cv2.MORPH_CLOSE, kernel)
-    operations.append("morphology_close")
-
-    _, buf = cv2.imencode(".png", cleaned)
-    processed_data = buf.tobytes()
-
-    filename = f"page_{page_number:03d}_processed.png"
-    processed_key = storage.upload_bytes(
-        job_id,
-        "pages",
-        filename,
-        processed_data,
-        content_type="image/png",
-    )
-
+    # Use pristine master image for OCR to avoid destroying small punctuation and anti-aliased font edges
     return {
-        "preprocessed_key": processed_key,
+        "preprocessed_key": page_key,
+        "color_master_key": page_key,
         "original_key": page_key,
         "operations": operations,
         "width": img.shape[1],

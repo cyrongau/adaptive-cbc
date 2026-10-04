@@ -9,6 +9,10 @@ class BottomNavShell extends StatelessWidget {
 
   const BottomNavShell({super.key, required this.child});
 
+  bool _isTeacherRole(String role) {
+    return role == 'teacher' || role == 'tutor' || role == 'super_admin' || role == 'institution_admin';
+  }
+
   int _calculateSelectedIndex(BuildContext context, String role) {
     final String location = GoRouterState.of(context).uri.toString();
     
@@ -17,8 +21,14 @@ class BottomNavShell extends StatelessWidget {
       if (location.startsWith('/chat')) return 1;
       if (location.startsWith('/profile')) return 2;
       return 0;
+    } else if (_isTeacherRole(role)) {
+      if (location.startsWith('/tutor/dashboard')) return 0;
+      if (location.startsWith('/live') || location.startsWith('/tutor/sessions')) return 1;
+      if (location.startsWith('/chat')) return 2;
+      if (location.startsWith('/profile')) return 3;
+      return 0;
     } else {
-      // Default: Student / Staff
+      // Default: Student
       if (location.startsWith('/home')) return 0;
       if (location.startsWith('/subjects')) return 1;
       if (location.startsWith('/courses')) return 2;
@@ -33,39 +43,26 @@ class BottomNavShell extends StatelessWidget {
   void _onItemTapped(int index, BuildContext context, String role) {
     if (role == 'parent') {
       switch (index) {
-        case 0:
-          context.go('/parent');
-          break;
-        case 1:
-          context.go('/chat');
-          break;
-        case 2:
-          context.go('/profile');
-          break;
+        case 0: context.go('/parent'); break;
+        case 1: context.go('/chat'); break;
+        case 2: context.go('/profile'); break;
+      }
+    } else if (_isTeacherRole(role)) {
+      switch (index) {
+        case 0: context.go('/tutor/dashboard'); break;
+        case 1: context.go('/live'); break;
+        case 2: context.go('/chat'); break;
+        case 3: context.go('/profile'); break;
       }
     } else {
       switch (index) {
-        case 0:
-          context.go('/home');
-          break;
-        case 1:
-          context.go('/subjects');
-          break;
-        case 2:
-          context.go('/courses');
-          break;
-        case 3:
-          context.go('/live');
-          break;
-        case 4:
-          context.go('/analytics');
-          break;
-        case 5:
-          context.go('/chat');
-          break;
-        case 6:
-          context.go('/profile');
-          break;
+        case 0: context.go('/home'); break;
+        case 1: context.go('/subjects'); break;
+        case 2: context.go('/courses'); break;
+        case 3: context.go('/live'); break;
+        case 4: context.go('/analytics'); break;
+        case 5: context.go('/chat'); break;
+        case 6: context.go('/profile'); break;
       }
     }
   }
@@ -81,59 +78,26 @@ class BottomNavShell extends StatelessWidget {
     List<BottomNavigationBarItem> navItems = [];
     if (role == 'parent') {
       navItems = const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.family_restroom_outlined),
-          activeIcon: Icon(Icons.family_restroom),
-          label: 'Portal',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.chat_bubble_outline_rounded),
-          activeIcon: Icon(Icons.chat_bubble_rounded),
-          label: 'Chat',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline_rounded),
-          activeIcon: Icon(Icons.person_rounded),
-          label: 'Profile',
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.family_restroom_outlined), activeIcon: Icon(Icons.family_restroom), label: 'Portal'),
+        BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline_rounded), activeIcon: Icon(Icons.chat_bubble_rounded), label: 'Chat'),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), activeIcon: Icon(Icons.person_rounded), label: 'Profile'),
+      ];
+    } else if (_isTeacherRole(role)) {
+      navItems = const [
+        BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
+        BottomNavigationBarItem(icon: Icon(Icons.videocam_outlined), activeIcon: Icon(Icons.videocam_rounded), label: 'Live'),
+        BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline_rounded), activeIcon: Icon(Icons.chat_bubble_rounded), label: 'Chat'),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), activeIcon: Icon(Icons.person_rounded), label: 'Profile'),
       ];
     } else {
       navItems = const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home_rounded),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.menu_book_outlined),
-          activeIcon: Icon(Icons.menu_book_rounded),
-          label: 'Subjects',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.play_lesson_outlined),
-          activeIcon: Icon(Icons.play_lesson_rounded),
-          label: 'Courses',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.videocam_outlined),
-          activeIcon: Icon(Icons.videocam_rounded),
-          label: 'Live',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart_outlined),
-          activeIcon: Icon(Icons.bar_chart_rounded),
-          label: 'Analytics',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.chat_bubble_outline_rounded),
-          activeIcon: Icon(Icons.chat_bubble_rounded),
-          label: 'Chat',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline_rounded),
-          activeIcon: Icon(Icons.person_rounded),
-          label: 'Profile',
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home_rounded), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book_rounded), label: 'Subjects'),
+        BottomNavigationBarItem(icon: Icon(Icons.play_lesson_outlined), activeIcon: Icon(Icons.play_lesson_rounded), label: 'Courses'),
+        BottomNavigationBarItem(icon: Icon(Icons.videocam_outlined), activeIcon: Icon(Icons.videocam_rounded), label: 'Live'),
+        BottomNavigationBarItem(icon: Icon(Icons.bar_chart_outlined), activeIcon: Icon(Icons.bar_chart_rounded), label: 'Analytics'),
+        BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline_rounded), activeIcon: Icon(Icons.chat_bubble_rounded), label: 'Chat'),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), activeIcon: Icon(Icons.person_rounded), label: 'Profile'),
       ];
     }
 

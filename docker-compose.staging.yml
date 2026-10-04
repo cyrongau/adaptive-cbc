@@ -1,0 +1,185 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: adaptive-learning-postgres-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cbc_user
+      POSTGRES_PASSWORD: cbc_secure_pass_2024
+      POSTGRES_DB: adaptive_cbc_staging
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cbc_user"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - adaptive-network-staging
+
+  redis:
+    image: redis:7-alpine
+    container_name: adaptive-learning-redis-staging
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6383:6379"
+    volumes:
+      - redis_data_staging:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - adaptive-network-staging
+
+  minio:
+    image: minio/minio:latest
+    container_name: adaptive-learning-minio-staging
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9005:9000"
+      - "9006:9001"
+    volumes:
+      - minio_data_staging:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - adaptive-network-staging
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: adaptive-learning-backend-staging
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env.staging
+    environment:
+      - NODE_ENV=staging
+      - PORT=3002
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=cbc_user
+      - DATABASE_PASSWORD=cbc_secure_pass_2024
+      - DATABASE_NAME=adaptive_cbc_staging
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=adaptive-cbc-files-staging
+      - MINIO_PUBLIC_ENDPOINT=157.173.123.156:9005
+      - AI_SERVICE_URL=http://ai-service:8002
+      - OCR_SERVICE_URL=http://ocr-service:8003
+      - FRONTEND_URL=https://staging.adaptivecbc.co.ke
+      - CORS_ORIGIN=https://staging.adaptivecbc.co.ke
+    ports:
+      - "3004:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./backend/credentials:/app/credentials:ro
+    networks:
+      - adaptive-network-staging
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: adaptive-learning-frontend-staging
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=staging
+      - NEXT_PUBLIC_API_URL=https://staging.adaptivecbc.co.ke
+      - NEXT_PUBLIC_WS_URL=wss://staging.adaptivecbc.co.ke
+    ports:
+      - "3005:3000"
+    depends_on:
+      - backend
+    networks:
+      - adaptive-network-staging
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile.prod
+    container_name: adaptive-learning-ai-service-staging
+    restart: unless-stopped
+    env_file:
+      - ./ai-service/.env.production
+    environment:
+      - PORT=8002
+      - NODE_ENV=staging
+    ports:
+      - "8004:8002"
+    networks:
+      - adaptive-network-staging
+
+  ocr-service:
+    build:
+      context: ./services/ocr-service
+      dockerfile: Dockerfile
+    container_name: adaptive-learning-ocr-service-staging
+    restart: unless-stopped
+    env_file:
+      - ./services/ocr-service/.env.production
+    environment:
+      - PORT=8003
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=ocr-documents-staging
+      - MINIO_SECURE=false
+    ports:
+      - "8005:8003"
+    volumes:
+      - ./backend/credentials:/app/credentials:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - adaptive-network-staging
+
+  nginx:
+    image: nginx:alpine
+    container_name: adaptive-learning-nginx-staging
+    restart: unless-stopped
+    ports:
+      - "8200:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - adaptive-network-staging
+
+volumes:
+  postgres_data_staging:
+  redis_data_staging:
+  minio_data_staging:
+
+networks:
+  adaptive-network-staging:
+    driver: bridge

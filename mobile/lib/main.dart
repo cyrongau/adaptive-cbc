@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'core/network/api_client.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/chat/providers/chat_provider.dart';
+import 'features/tutor/providers/tutor_provider.dart';
 import 'core/services/sync_service.dart';
 import 'core/services/notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -33,6 +34,9 @@ void main() async {
         ),
         ChangeNotifierProvider<ChatProvider>(
           create: (_) => ChatProvider(),
+        ),
+        ChangeNotifierProvider<TutorProvider>(
+          create: (_) => TutorProvider(),
         ),
       ],
       child: const AdaptiveCBCApp(),

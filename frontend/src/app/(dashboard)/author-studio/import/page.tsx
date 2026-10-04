@@ -37,7 +37,15 @@ export default function AuthorStudioImport() {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrExtractedQuestions, setOcrExtractedQuestions] = useState<any[]>([]);
   const [ocrErrorMessage, setOcrErrorMessage] = useState('');
-  const [ocrMetadata, setOcrMetadata] = useState({ title: '', subjectId: '', grade: 7, paperType: 'past_paper', year: new Date().getFullYear(), term: 1 });
+  const [ocrMetadata, setOcrMetadata] = useState({
+    title: '',
+    subjectId: '',
+    grade: 7,
+    paperType: 'past_paper',
+    year: new Date().getFullYear(),
+    term: 1,
+    visibility: 'public',
+  });
 
   useEffect(() => {
     fetchSubjects();
@@ -95,6 +103,7 @@ export default function AuthorStudioImport() {
       formData.append('paperType', ocrMetadata.paperType);
       formData.append('year', ocrMetadata.year.toString());
       formData.append('term', ocrMetadata.term.toString());
+      formData.append('visibility', ocrMetadata.visibility);
       if (ocrMetadata.title) {
         formData.append('title', ocrMetadata.title);
       }
@@ -187,15 +196,20 @@ export default function AuthorStudioImport() {
         : [];
 
       const correctAnswer = q.correctAnswer || q.answer || options.find((opt: any) => opt.isCorrect)?.id || '';
+      const questionText = q.questionText || q.stem || q.text || q.question || '';
 
       return {
         pageNumber: q.pageNumber || 1,
         questionNumber: q.questionNumber || idx + 1,
-        questionText: q.questionText || q.text || q.question || '',
-        extractedText: q.extractedText || q.text || q.question || '',
+        questionText,
+        extractedText: q.extractedText || questionText,
         options,
         correctAnswer,
         confidence: q.confidence || 0,
+        imageUrls: q.imageUrls || (q.figures ? q.figures.map((f: any) => f.url) : []),
+        figures: q.figures || [],
+        mathLatex: q.mathLatex || q.math_latex || '',
+        choicesLayout: q.choicesLayout || q.choices_layout || 'vertical',
       };
     });
 
@@ -261,6 +275,21 @@ export default function AuthorStudioImport() {
                   {GRADES.map(g => <option key={g} value={g}>Grade {g}</option>)}
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Visibility & Sharing</label>
+              <select
+                value={ocrMetadata.visibility}
+                onChange={(e) => setOcrMetadata({ ...ocrMetadata, visibility: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+              >
+                <option value="public">Public (Shared with CBC Library - Default)</option>
+                <option value="institution_only">Private / Institution Only</option>
+              </select>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Public questions earn contributor credits whenever practiced by learners across the platform.
+              </p>
             </div>
 
             <div

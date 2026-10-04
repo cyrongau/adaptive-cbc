@@ -39,6 +39,7 @@ def split_pdf_to_pages(job_id: str, original_key: str, max_pages: int = None) ->
             page_keys.append({
                 "page_number": page_num,
                 "storage_key": key,
+                "color_master_key": key,
                 "width": img.width,
                 "height": img.height,
             })
@@ -62,6 +63,7 @@ def split_image_to_page(job_id: str, original_key: str) -> list[dict]:
     return [{
         "page_number": 1,
         "storage_key": key,
+        "color_master_key": key,
         "width": img.width,
         "height": img.height,
     }]

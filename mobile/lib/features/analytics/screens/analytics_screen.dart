@@ -437,7 +437,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             separatorBuilder: (context, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final ins = _insights[index];
-              final String type = ins['type'] ?? 'info';
               final String content = ins['insightText'] ?? 'Recommendation details';
 
               return Card(

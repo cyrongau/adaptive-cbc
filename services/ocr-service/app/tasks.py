@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from app.celery_app import celery_app
 from app.job_store import job_store
-from app.models import PipelineStage, STAGE_PROGRESS, ExtractedQuestion, PageResult
+from app.models import PipelineStage, STAGE_PROGRESS, ExtractedQuestion, PageResult, QuestionOption
 from app.storage import storage
 from app.config import settings
 
@@ -71,107 +71,171 @@ def run_pipeline(self, job_id: str):
         preprocessed_pages = []
         for page_info in pages:
             result = preprocess_image(job_id, page_info["storage_key"], page_info["page_number"])
-            preprocessed_pages.append({**page_info, **result})
+            preprocessed_pages.append({
+                **page_info,
+                **result,
+                "color_master_key": page_info.get("color_master_key") or page_info["storage_key"]
+            })
         job_store.set_stage(job_id, PipelineStage.IMAGE_PREPROCESSING, {
             "processed_count": len(preprocessed_pages),
         })
 
-        # Stage 3b: Figure Extraction
-        job_store.set_stage(job_id, PipelineStage.FIGURE_EXTRACTION, {"status": "running"})
-        all_figures = []
-        for pp in preprocessed_pages:
-            page_figs = extract_figures(job_id, pp["preprocessed_key"], pp["page_number"])
-            all_figures.extend(page_figs)
-        job_store.set_stage(job_id, PipelineStage.FIGURE_EXTRACTION, {
-            "figures_extracted": len(all_figures)
-        })
+        # Stage 4: Layout Intelligence Engine (Method c Vision primary, Method b Local fallback)
+        job_store.set_stage(job_id, PipelineStage.LAYOUT_ANALYSIS, {"status": "running"})
+        import asyncio
+        from app.stages.layout_detection import detect_hybrid_layout
 
-        # Stage 4: OCR Extraction
-        job_store.set_stage(job_id, PipelineStage.OCR_EXTRACTION, {"status": "running"})
+        all_page_questions = []
+        all_page_regions = []
+        all_figures = []
         page_results = []
         full_text = ""
         total_confidence = 0.0
 
         for pp in preprocessed_pages:
-            ocr_result = extract_text_hybrid(
-                job_id,
-                pp["preprocessed_key"],
-                pp["page_number"],
-            )
-            page_results.append(ocr_result)
-            full_text += f"\n--- Page {pp['page_number']} ---\n{ocr_result['raw_text']}"
-            total_confidence += ocr_result["confidence"]
+            p_num = pp["page_number"]
+            master_key = pp["color_master_key"]
+            prep_key = pp["preprocessed_key"]
 
-        avg_confidence = total_confidence / len(page_results) if page_results else 0
+            # Local OCR pass for TSV word positions
+            local_ocr = extract_text_hybrid(job_id, prep_key, p_num)
+            full_text += f"\n--- Page {p_num} ---\n{local_ocr['raw_text']}"
+            total_confidence += local_ocr["confidence"]
+
+            # Layout Analysis on this page
+            layout_res = asyncio.run(detect_hybrid_layout(
+                job_id=job_id,
+                color_master_key=master_key,
+                page_number=p_num,
+                tsv_words=local_ocr.get("words", []),
+                page_blocks=local_ocr.get("blocks", [])
+            ))
+
+            method_used = layout_res.get("method", "local")
+            p_questions = layout_res.get("questions", [])
+            p_regions = layout_res.get("regions", [])
+            figure_regions = layout_res.get("figure_regions", [])
+
+            # Stage 5: Figure Extraction from Color Master Image
+            page_figs = extract_figures(
+                job_id=job_id,
+                color_page_key=master_key,
+                page_number=p_num,
+                known_figure_regions=figure_regions
+            )
+            all_figures.extend(page_figs)
+
+            # Bind extracted figures to specific questions by question_number
+            for q in p_questions:
+                q_num = getattr(q, "question_number", None) or (q.get("question_number") if isinstance(q, dict) else "")
+                q_figs = [f for f in page_figs if str(f.get("question_number", "")) == str(q_num) and q_num]
+                # If no direct number match, check if question has diagram_reference or has_figure
+                if not q_figs and (getattr(q, "diagram_reference", False) or (isinstance(q, dict) and q.get("has_figure"))):
+                    q_figs = page_figs[:1] if len(page_figs) == 1 else page_figs
+
+                fig_urls = [f["url"] for f in q_figs]
+                if hasattr(q, "imageUrls"):
+                    q.imageUrls = fig_urls
+                    q.figures = q_figs
+                    if fig_urls:
+                        q.diagram_reference = True
+                elif isinstance(q, dict):
+                    q["imageUrls"] = fig_urls
+                    q["figures"] = q_figs
+                    if fig_urls:
+                        q["diagram_reference"] = True
+
+            all_page_questions.extend(p_questions)
+            all_page_regions.extend(p_regions)
+
+            page_results.append({
+                "page_number": p_num,
+                "raw_text": local_ocr["raw_text"],
+                "ocr_confidence": local_ocr["confidence"],
+                "blocks": local_ocr.get("blocks", []),
+                "layout_method": method_used,
+            })
+
+        job_store.set_stage(job_id, PipelineStage.LAYOUT_ANALYSIS, {
+            "questions_detected": len(all_page_questions),
+            "regions_detected": len(all_page_regions),
+        })
+
+        # Stage 6: Figure Extraction completion status
+        job_store.set_stage(job_id, PipelineStage.FIGURE_EXTRACTION, {
+            "figures_extracted": len(all_figures),
+            "figures": all_figures
+        })
+
+        # Stage 7: OCR & Question Segmentation status
         job_store.set_stage(job_id, PipelineStage.OCR_EXTRACTION, {
             "pages_processed": len(page_results),
-            "avg_confidence": avg_confidence,
+            "avg_confidence": total_confidence / len(page_results) if page_results else 0.85,
         })
-
-        # Stage 5: Layout Analysis
-        job_store.set_stage(job_id, PipelineStage.LAYOUT_ANALYSIS, {"status": "running"})
-        all_blocks = []
-        for pr in page_results:
-            all_blocks.extend(pr.get("blocks", []))
-
-        layout = detect_layout(all_blocks)
-        job_store.set_stage(job_id, PipelineStage.LAYOUT_ANALYSIS, layout)
-
-        # Stage 6: Question Segmentation
-        job_store.set_stage(job_id, PipelineStage.QUESTION_SEGMENTATION, {"status": "running"})
-        raw_questions = segment_questions(page_results)
         job_store.set_stage(job_id, PipelineStage.QUESTION_SEGMENTATION, {
-            "question_count": len(raw_questions),
+            "question_count": len(all_page_questions),
         })
 
-        # Stage 7: Math Recognition
-        job_store.set_stage(job_id, PipelineStage.MATH_RECOGNITION, {"status": "running"})
-        questions_dict = [q.model_dump() if hasattr(q, "model_dump") else q for q in raw_questions]
-        questions_with_math = recognize_math(questions_dict)
-        math_count = sum(1 for q in questions_with_math if q.get("has_math"))
+        # Stage 8: Math Recognition & AI Structuring refinement if needed
         job_store.set_stage(job_id, PipelineStage.MATH_RECOGNITION, {
-            "math_questions": math_count,
-            "total_questions": len(questions_with_math),
+            "math_questions": sum(1 for q in all_page_questions if getattr(q, "math_latex", None) or (isinstance(q, dict) and q.get("math_latex"))),
+            "total_questions": len(all_page_questions),
         })
 
-        # Stage 8: AI Structuring
-        job_store.set_stage(job_id, PipelineStage.AI_STRUCTURING, {"status": "running"})
-        import asyncio
-        structured_questions = asyncio.run(ai_structure_questions(questions_with_math, full_text))
+        # If questions are already structured from layout engine, finalize; else run AI structuring fallback
+        structured_questions = []
+        if all_page_questions:
+            for q in all_page_questions:
+                if isinstance(q, ExtractedQuestion):
+                    structured_questions.append(q)
+                elif isinstance(q, dict):
+                    options = [
+                        o if isinstance(o, QuestionOption) else QuestionOption(
+                            id=getattr(o, "id", None) or (o.get("id") if isinstance(o, dict) else ""),
+                            text=getattr(o, "text", None) or (o.get("text") if isinstance(o, dict) else ""),
+                            is_correct=getattr(o, "is_correct", False) or (o.get("is_correct", False) if isinstance(o, dict) else False)
+                        )
+                        for o in q.get("options", [])
+                    ]
+                    q_num = q.get("question_number", "")
+                    structured_questions.append(ExtractedQuestion(
+                        id=f"q_{q.get('page_number', 1)}_{q_num}",
+                        question_number=q_num,
+                        text=q.get("stem", q.get("text", "")),
+                        stem=q.get("stem", q.get("text", "")),
+                        options=options,
+                        choices_layout=q.get("choices_layout", "vertical"),
+                        question_type=q.get("question_type", "mcq" if options else "structured"),
+                        confidence=q.get("confidence", 0.9),
+                        page_number=q.get("page_number", 1),
+                        math_latex=q.get("math_latex"),
+                        diagram_reference=len(q.get("imageUrls", [])) > 0,
+                        imageUrls=q.get("imageUrls", []),
+                        figures=q.get("figures", []),
+                        bounding_box=q.get("bounding_box") or ({"bbox": q["bbox"]} if "bbox" in q else None),
+                    ))
+        else:
+            # Fallback to text AI structuring
+            job_store.set_stage(job_id, PipelineStage.AI_STRUCTURING, {"status": "running"})
+            structured_questions = asyncio.run(ai_structure_questions([], full_text))
+
         job_store.set_stage(job_id, PipelineStage.AI_STRUCTURING, {
             "structured_count": len(structured_questions),
         })
 
         # Build final result
         processing_time = int(time.time() - start_time)
-
-        # Bind figures to questions that have diagrams
-        for q in structured_questions:
-            if hasattr(q, "diagram_reference") and q.diagram_reference:
-                q_page = q.page_number
-                q.imageUrls = [fig["url"] for fig in all_figures if fig["page_number"] == q_page]
-            elif isinstance(q, dict) and q.get("diagram_reference"):
-                q_page = q.get("page_number", 1)
-                q["imageUrls"] = [fig["url"] for fig in all_figures if fig["page_number"] == q_page]
+        avg_confidence = total_confidence / len(page_results) if page_results else 0.90
 
         question_dicts = [q.model_dump() if hasattr(q, "model_dump") else q for q in structured_questions]
-        page_result_dicts = []
-        for pr in page_results:
-            page_result_dicts.append({
-                "page_number": pr["page_number"],
-                "raw_text": pr["raw_text"],
-                "ocr_confidence": pr["confidence"],
-                "blocks": pr.get("blocks", []),
-                "has_math": any(q.get("has_math") for q in questions_with_math if q.get("page_number") == pr["page_number"]),
-            })
-
         result = {
             "text": full_text.strip(),
             "pages": len(page_results),
-            "confidence": round(avg_confidence / 100, 2) if avg_confidence > 1 else round(avg_confidence, 2),
+            "confidence": round(avg_confidence if avg_confidence <= 1.0 else avg_confidence / 100, 2),
             "questions": question_dicts,
+            "figures": all_figures,
             "processing_time": processing_time,
-            "page_results": page_result_dicts,
+            "page_results": page_results,
         }
 
         job_store.set_completed(job_id, result)

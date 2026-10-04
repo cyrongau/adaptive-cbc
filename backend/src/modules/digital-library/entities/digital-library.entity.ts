@@ -235,7 +235,14 @@ export class PaperQuestion {
   reviewNotes: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  aiMetadata: { confidence: number; model: string; extractedAt: Date };
+  aiMetadata: {
+    confidence: number;
+    model: string;
+    extractedAt: Date | string;
+    mathLatex?: string;
+    choicesLayout?: string;
+    [key: string]: any;
+  };
 
   @CreateDateColumn()
   createdAt: Date;

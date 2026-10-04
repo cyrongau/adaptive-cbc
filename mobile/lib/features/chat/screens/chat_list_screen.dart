@@ -280,7 +280,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Widget _buildConversationTile(BuildContext context, dynamic conv, String currentUserId) {
     // Resolve Title / Other User Details
     String displayTitle = conv['title'] ?? '';
-    String sub = '';
     
     final participants = conv['participants'] as List? ?? [];
     final otherParticipants = participants.where((p) => p['id'].toString() != currentUserId).toList();
@@ -291,8 +290,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
       if (displayTitle.isEmpty) {
         displayTitle = other['email'] ?? 'Unknown User';
       }
-      sub = other['role']?.toString().toUpperCase() ?? 'USER';
-    } else if (displayTitle.isEmpty) {
       displayTitle = 'Group Conversation';
     }
 

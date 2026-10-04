@@ -62,7 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
 
     final String firstName = user?['firstName'] ?? 'Student';
-    final String lastName = user?['lastName'] ?? '';
     final String grade = user?['grade'] != null ? 'Grade ${user!['grade']}' : 'CBC Learner';
     final String initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'S';
 
@@ -542,11 +541,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   onTap: () {
                     if (type == 'assignment') {
-                      context.push('/subjects');
-                    } else if (type == 'live') {
-                      context.push('/live');
+                      context.push('/assignments');
                     } else {
-                      context.push('/subjects');
+                      context.push('/schedule');
                     }
                   },
                   child: ListTile(
@@ -641,7 +638,6 @@ class _HomeScreenState extends State<HomeScreen> {
               final int score = act['score'] ?? 0;
               final int attempted = act['questionsAttempted'] ?? 0;
               final int correct = act['correctAnswers'] ?? 0;
-              final String type = act['type'] ?? 'practice';
 
               return Card(
                 elevation: 0,

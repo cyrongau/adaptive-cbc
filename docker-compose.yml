@@ -146,8 +146,7 @@ services:
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=ocr-documents
       - MINIO_SECURE=false
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - OPENROUTER_MODEL=google/gemini-2.0-flash-001
+      - OPENROUTER_MODEL=google/gemini-2.5-flash
       - AI_SERVICE_URL=http://ai-service:8002
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/adaptive-cbc-ocr-vision-service-key-8cfdf75b4653.json
       - MAX_PAGES=30

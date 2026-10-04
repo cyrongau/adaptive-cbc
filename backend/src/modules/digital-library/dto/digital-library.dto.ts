@@ -204,6 +204,11 @@ export class UploadOcrDto {
   @IsOptional()
   @IsString()
   source?: string;
+
+  @ApiPropertyOptional({ enum: ContentVisibility, default: ContentVisibility.PUBLIC })
+  @IsOptional()
+  @IsEnum(ContentVisibility)
+  visibility?: ContentVisibility;
 }
 
 export class ReviewQuestionDto {

@@ -188,48 +188,40 @@ export default function HomePage() {
   };
 
   const fetchSearchResults = async (query: string) => {
-    if (!query.trim() || query.trim().length < 2) {
+    if (!query.trim() || query.trim().length < 3) {
       setSearchResults([]);
       return;
     }
 
-    if (!token) {
-      const q = query.toLowerCase();
-      const filtered = mockSearchDatabase.filter(item => 
-        item.name.toLowerCase().includes(q) || 
-        item.type.toLowerCase().includes(q)
-      );
-      setSearchResults(filtered);
-      return;
-    }
-
     setSearchLoading(true);
+
+    // Try API first; fall back to mock database on any error
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/api/v1/search?q=${encodeURIComponent(query)}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/api/v1/search?q=${encodeURIComponent(query)}`, { headers });
       if (res.ok) {
         const data = await res.json();
         const combined: any[] = [];
-        if (data.questions) combined.push(...data.questions.map((q: any) => ({ type: 'Question', name: q.title, link: '#', meta: q })));
-        if (data.subjects) combined.push(...data.subjects.map((s: any) => ({ type: 'Subject', name: s.title, link: '#', meta: s })));
-        if (data.topics) combined.push(...data.topics.map((t: any) => ({ type: 'Topic', name: t.title, link: '#', meta: t })));
-        if (data.materials) combined.push(...data.materials.map((m: any) => ({ type: 'Material', name: m.title, link: '#', meta: m })));
-        if (data.tutors) combined.push(...data.tutors.map((t: any) => ({ type: 'Tutor', name: t.title, link: '#', meta: t })));
-        if (data.schools) combined.push(...data.schools.map((s: any) => ({ type: 'School', name: s.title, link: '#', meta: s })));
+        if (data.questions) combined.push(...data.questions.map((q: any) => ({ type: 'Question', name: q.title, link: '#', desc: '', image: '', meta: q })));
+        if (data.subjects) combined.push(...data.subjects.map((s: any) => ({ type: 'Subject', name: s.title, link: '#', desc: s.description || '', image: '', meta: s })));
+        if (data.topics) combined.push(...data.topics.map((t: any) => ({ type: 'Topic', name: t.title, link: '#', desc: t.description || '', image: '', meta: t })));
+        if (data.materials) combined.push(...data.materials.map((m: any) => ({ type: 'Past Paper', name: m.title, link: '#', desc: m.description || '', image: '', meta: m })));
+        if (data.tutors) combined.push(...data.tutors.map((t: any) => ({ type: 'Tutor', name: t.title, link: '#', desc: t.description || '', image: '', meta: t })));
+        if (data.schools) combined.push(...data.schools.map((s: any) => ({ type: 'School', name: s.title, link: '#', desc: `${s.county || ''} ${s.schoolType || ''}`.trim(), image: '', meta: s })));
+        if (data.courses) combined.push(...data.courses.map((c: any) => ({ type: 'Course', name: c.title, link: `/courses/${c.id}`, desc: c.description || '', image: c.thumbnail || c.featuredImage || '', meta: c })));
+        if (data.products) combined.push(...data.products.map((p: any) => ({ type: 'Product', name: p.title, link: '/store', desc: p.description || '', image: p.thumbnailUrl || (p.images && p.images[0]) || '', meta: p })));
+        if (data.assignments) combined.push(...data.assignments.map((a: any) => ({ type: 'Assignment', name: a.title, link: '#', desc: a.description || '', image: '', meta: a })));
         setSearchResults(combined);
-      } else {
-        const q = query.toLowerCase();
-        setSearchResults(mockSearchDatabase.filter(item => item.name.toLowerCase().includes(q) || item.type.toLowerCase().includes(q)));
+        setSearchLoading(false);
+        return;
       }
-    } catch {
-      const q = query.toLowerCase();
-      setSearchResults(mockSearchDatabase.filter(item => item.name.toLowerCase().includes(q) || item.type.toLowerCase().includes(q)));
-    } finally {
-      setSearchLoading(false);
-    }
+    } catch {}
+
+    // Fallback: local mock database
+    const q = query.toLowerCase();
+    setSearchResults(mockSearchDatabase.filter(item => item.name.toLowerCase().includes(q) || item.type.toLowerCase().includes(q)));
+    setSearchLoading(false);
   };
 
   const triggerSearch = (val: string) => {
@@ -400,8 +392,8 @@ export default function HomePage() {
 
               {/* Dynamic search results popup */}
               {isSearchFocused && (
-                <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-outline/10 py-3 z-50 animate-fade-in max-h-80 overflow-y-auto">
-                  {!searchQuery.trim() ? (
+                <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-outline/10 py-3 z-50 search-dropdown-enter max-h-96 overflow-y-auto">
+                  {!searchQuery.trim() || searchQuery.trim().length < 3 ? (
                     <>
                       <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-outline/5 flex items-center space-x-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-primary" />
@@ -413,13 +405,13 @@ export default function HomePage() {
                             key={idx}
                             type="button"
                             onClick={() => triggerSearch(item.name)}
-                            className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-primary/5 transition-colors text-left"
+                            className="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-primary/5 transition-all text-left group"
                           >
-                            <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center text-sm shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center text-sm shrink-0 group-hover:bg-primary/5 group-hover:border-primary/20 transition-colors">
                               {item.icon}
                             </div>
                             <div>
-                              <div className="text-xs font-bold text-gray-800">{item.name}</div>
+                              <div className="text-xs font-bold text-gray-800 group-hover:text-primary transition-colors">{item.name}</div>
                               <div className="text-[10px] text-gray-400 font-semibold">{item.desc}</div>
                             </div>
                           </button>
@@ -434,40 +426,88 @@ export default function HomePage() {
                   ) : (
                     <>
                       <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-outline/5 flex justify-between items-center">
-                        <span>Search Results ({searchResults.length})</span>
+                        <span>Results ({searchResults.length})</span>
                         {searchResults.length > 0 && (
                           <span className="text-[10px] text-primary font-bold normal-case">Live Results</span>
                         )}
                       </div>
-                      {searchResults.length > 0 ? (
-                        <div className="divide-y divide-gray-50">
-                          {searchResults.map((item, idx) => (
-                            <Link 
-                              key={idx} 
-                              href={item.link}
-                              onClick={() => {
-                                setSearchQuery(item.name);
-                                setIsSearchFocused(false);
-                              }}
-                              className="flex items-center justify-between px-5 py-3.5 hover:bg-primary/5 transition-colors text-sm font-semibold text-gray-700"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <div className="w-6 h-6 rounded-md bg-gray-50 border border-gray-100 flex items-center justify-center text-xs shrink-0 text-gray-400">
-                                  {item.type === 'Subject' ? '📚' : item.type === 'Tutor' ? '👨‍🏫' : item.type === 'Book' ? '📖' : item.type === 'Past Paper' ? '📝' : item.type === 'Question' ? '❓' : item.type === 'Topic' ? '🏷️' : item.type === 'Material' ? '📄' : item.type === 'School' ? '🏫' : '🔍'}
+                      {searchResults.length > 0 ? (() => {
+                        const grouped: Record<string, any[]> = {};
+                        const groupOrder = ['Course', 'Tutor', 'Subject', 'Past Paper', 'Product', 'Assignment', 'Question', 'Topic', 'School', 'Material'];
+                        searchResults.forEach(item => {
+                          const g = item.type || 'Other';
+                          if (!grouped[g]) grouped[g] = [];
+                          grouped[g].push(item);
+                        });
+                        const typeIcons: Record<string, string> = {
+                          Course: '📚', Tutor: '👨‍🏫', Subject: '📖', 'Past Paper': '📝',
+                          Product: '🛍️', Assignment: '📋', Question: '❓', Topic: '🏷️',
+                          School: '🏫', Material: '📄',
+                        };
+                        const typeColors: Record<string, string> = {
+                          Course: 'bg-emerald-100 text-emerald-700', Tutor: 'bg-blue-100 text-blue-700',
+                          Subject: 'bg-violet-100 text-violet-700', 'Past Paper': 'bg-amber-100 text-amber-700',
+                          Product: 'bg-pink-100 text-pink-700', Assignment: 'bg-cyan-100 text-cyan-700',
+                          Question: 'bg-orange-100 text-orange-700', Topic: 'bg-indigo-100 text-indigo-700',
+                          School: 'bg-teal-100 text-teal-700', Material: 'bg-gray-100 text-gray-700',
+                        };
+                        return (
+                          <div className="divide-y divide-gray-50">
+                            {groupOrder.filter(g => grouped[g]).map(group => (
+                              <div key={group}>
+                                <div className="px-5 py-2 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest flex items-center space-x-1.5 bg-gray-50/50">
+                                  <span>{typeIcons[group] || '🔍'}</span>
+                                  <span>{group}s</span>
                                 </div>
-                                <span>{item.name}</span>
+                                {grouped[group].map((item: any, idx: number) => (
+                                  <Link
+                                    key={`${group}-${idx}`}
+                                    href={item.link}
+                                    onClick={() => {
+                                      setSearchQuery(item.name);
+                                      setIsSearchFocused(false);
+                                    }}
+                                    className="flex items-center gap-4 px-5 py-3 hover:bg-primary/[0.03] transition-all text-sm group border-b border-outline/5 last:border-0"
+                                  >
+                                    {/* Image / Icon */}
+                                    {item.image ? (
+                                      <img
+                                        src={item.image}
+                                        alt=""
+                                        className="w-10 h-10 rounded-lg object-cover shrink-0 border border-outline/10"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).style.display = 'none';
+                                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center text-sm shrink-0 text-gray-400 group-hover:bg-primary/5 group-hover:border-primary/20 transition-all">
+                                      {typeIcons[item.type] || '🔍'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-sm font-bold text-gray-800 group-hover:text-primary transition-colors truncate">
+                                        {item.name}
+                                      </div>
+                                      {item.desc && (
+                                        <div className="text-[11px] text-gray-400 font-medium mt-0.5 line-clamp-1">
+                                          {item.desc}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-extrabold shrink-0 ${typeColors[item.type] || 'bg-gray-100 text-gray-500'}`}>
+                                      {item.type}
+                                    </span>
+                                  </Link>
+                                ))}
                               </div>
-                              <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 font-extrabold font-mono shrink-0">
-                                {item.type}
-                              </span>
-                            </Link>
-                          ))}
-                        </div>
-                      ) : (
+                            ))}
+                          </div>
+                        );
+                      })() : (
                         <div className="px-6 py-8 text-center text-gray-400">
                           <HelpCircle className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-                          <p className="text-xs font-bold">No exact matches found for "{searchQuery}"</p>
-                          <p className="text-[10px] text-gray-400 mt-1">Try searching for 'Science', 'Math', 'Tutor', or 'KPSEA'.</p>
+                          <p className="text-xs font-bold">No results for "{searchQuery}"</p>
+                          <p className="text-[10px] text-gray-400 mt-1">Try 'Science', 'Math', 'Tutor', or 'KPSEA'</p>
                         </div>
                       )}
                     </>

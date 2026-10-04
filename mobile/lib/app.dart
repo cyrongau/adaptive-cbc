@@ -27,10 +27,31 @@ import 'features/parent/screens/parent_report_detail_screen.dart';
 import 'features/gamification/screens/achievements_screen.dart';
 import 'features/library/screens/library_screen.dart';
 import 'features/questions/screens/questions_screen.dart';
+import 'features/assignments/screens/assignments_screen.dart';
+import 'features/assignments/screens/assignment_detail_screen.dart';
+import 'features/history/screens/attempt_history_screen.dart';
+import 'features/teacher/screens/reviews_screen.dart';
+import 'features/teacher/screens/author_studio_screen.dart';
 import 'features/materials/screens/materials_screen.dart';
 import 'features/school/screens/school_screen.dart';
 import 'features/teachers/screens/teachers_screen.dart';
+import 'features/tutor/screens/tutor_dashboard_screen.dart';
+import 'features/tutor/screens/tutor_sessions_screen.dart';
+import 'features/tutor/screens/tutor_session_screen.dart';
+import 'features/tutor/screens/tutor_session_detail_screen.dart';
+import 'features/tutor/screens/tutor_bookings_screen.dart';
+import 'features/tutor/screens/tutor_availability_screen.dart';
+import 'features/tutor/screens/tutor_earnings_screen.dart';
+import 'features/tutor/screens/tutor_profile_screen.dart';
+import 'features/tutor/screens/tutor_students_screen.dart';
+import 'features/tutor/screens/tutor_browse_screen.dart';
+import 'features/tutor/screens/tutor_detail_screen.dart';
+import 'features/tutor/screens/tutor_booking_screen.dart';
+import 'features/tutor/screens/tutor_withdrawal_screen.dart';
+import 'features/tutor/screens/tutor_wallet_settings_screen.dart';
+import 'shared/widgets/tutor_nav_shell.dart';
 import 'features/store/screens/store_screen.dart';
+import 'features/store/screens/cart_screen.dart';
 import 'features/schedule/screens/schedule_screen.dart';
 import 'features/progress/screens/progress_screen.dart';
 import 'features/leaderboard/screens/leaderboard_screen.dart';
@@ -80,21 +101,43 @@ class _AdaptiveCBCAppState extends State<AdaptiveCBCApp> {
         // 2. If authenticated and trying to go to auth or onboarding screens, redirect to correct landing
         if (goingToLogin || goingToOtp || goingToOnboarding) {
           final role = authProvider.currentUser?['role'] ?? 'student';
-          return role == 'parent' ? '/parent' : '/home';
+          if (role == 'parent') return '/parent';
+          if (role == 'teacher' || role == 'tutor' || role == 'super_admin' || role == 'institution_admin') return '/tutor/dashboard';
+          return '/home';
         }
 
-        // 3. If parent but not on a parent route, redirect to parent dashboard
         final role = authProvider.currentUser?['role'] ?? 'student';
+        final path = state.uri.toString();
+
+        // 3. If parent but not on a parent route, redirect to parent dashboard
         if (role == 'parent' && 
-            !state.uri.toString().startsWith('/parent') && 
-            !state.uri.toString().startsWith('/chat') && 
-            !state.uri.toString().startsWith('/profile')) {
+            !path.startsWith('/parent') && 
+            !path.startsWith('/chat') && 
+            !path.startsWith('/profile')) {
           return '/parent';
         }
 
         // 4. If student but on parent route, redirect to home
-        if (role != 'parent' && state.uri.toString().startsWith('/parent')) {
+        if (role != 'parent' && path.startsWith('/parent')) {
           return '/home';
+        }
+
+        // 5. Block non-tutors from accessing tutor-only routes
+        final isTutorRole = role == 'teacher' || role == 'tutor' || role == 'super_admin' || role == 'institution_admin';
+        if (!isTutorRole && path.startsWith('/tutor/') && !path.startsWith('/tutors') && path != '/tutors') {
+          return '/home';
+        }
+
+        // 6. Redirect teachers from student-only routes
+        if (isTutorRole) {
+          final studentOnly = path == '/home' || path == '/subjects' || path.startsWith('/subjects?') ||
+              path.startsWith('/achievements') || path.startsWith('/analytics') ||
+              path.startsWith('/attempt-history') || path.startsWith('/questions') ||
+              path.startsWith('/store') || path.startsWith('/schedule') ||
+              path.startsWith('/progress') || path.startsWith('/leaderboard') ||
+              path.startsWith('/courses') || path.startsWith('/practice/') ||
+              path.startsWith('/assignments');
+          if (studentOnly) return '/tutor/dashboard';
         }
 
         return null;
@@ -210,9 +253,113 @@ class _AdaptiveCBCAppState extends State<AdaptiveCBCApp> {
           path: '/teachers',
           builder: (context, state) => const TeachersScreen(),
         ),
+        // Student-facing tutor browsing (no bottom nav needed)
+        GoRoute(
+          path: '/tutors',
+          builder: (context, state) => const TutorBrowseScreen(),
+        ),
+        GoRoute(
+          path: '/tutors/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return TutorDetailScreen(tutorId: id);
+          },
+          routes: [
+            GoRoute(
+              path: 'book',
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                final data = state.extra as Map<String, dynamic>? ?? {};
+                return TutorBookingScreen(tutorId: id, tutorData: data);
+              },
+            ),
+          ],
+        ),
+        // Live session room (fullscreen, no bottom nav)
+        GoRoute(
+          path: '/tutor/session/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final extra = state.extra is Map ? state.extra as Map<String, dynamic> : <String, dynamic>{};
+            return TutorSessionScreen(
+              sessionId: id,
+              role: extra['role'] as String? ?? 'tutor',
+            );
+          },
+        ),
+        // Tutor main screens with bottom nav shell
+        ShellRoute(
+          builder: (context, state, child) => TutorNavShell(child: child),
+          routes: [
+            GoRoute(
+              path: '/tutor/dashboard',
+              builder: (context, state) => const TutorDashboardScreen(),
+            ),
+            GoRoute(
+              path: '/tutor/sessions',
+              builder: (context, state) => const TutorSessionsScreen(),
+              routes: [
+                GoRoute(
+                  path: ':id',
+                  builder: (context, state) {
+                    final id = state.pathParameters['id']!;
+                    return TutorSessionDetailScreen(sessionId: id);
+                  },
+                ),
+              ],
+            ),
+            GoRoute(
+              path: '/tutor/bookings',
+              builder: (context, state) => const TutorBookingsScreen(),
+            ),
+            GoRoute(
+              path: '/tutor/availability',
+              builder: (context, state) => const TutorAvailabilityScreen(),
+            ),
+            GoRoute(
+              path: '/tutor/earnings',
+              builder: (context, state) => const TutorEarningsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'withdraw',
+                  builder: (context, state) => const TutorWithdrawalScreen(),
+                ),
+                GoRoute(
+                  path: 'wallet-settings',
+                  builder: (context, state) => const TutorWalletSettingsScreen(),
+                ),
+              ],
+            ),
+            GoRoute(
+              path: '/tutor/profile',
+              builder: (context, state) => const TutorProfileScreen(),
+            ),
+            GoRoute(
+              path: '/tutor/students',
+              builder: (context, state) => const TutorStudentsScreen(),
+            ),
+          ],
+        ),
         GoRoute(
           path: '/store',
           builder: (context, state) => const StoreScreen(),
+        ),
+        GoRoute(
+          path: '/cart',
+          builder: (context, state) {
+            final extra = state.extra is Map ? state.extra as Map<String, dynamic> : <String, dynamic>{};
+            Map<String, int> cart;
+            final rawCart = extra['cart'];
+            if (rawCart is Map) {
+              cart = rawCart.map((k, v) => MapEntry(k.toString(), (v is int) ? v : int.tryParse(v.toString()) ?? 0));
+            } else {
+              cart = <String, int>{};
+            }
+            return CartScreen(
+              cart: cart,
+              allProducts: extra['products'] is List ? extra['products'] as List<dynamic> : <dynamic>[],
+            );
+          },
         ),
         GoRoute(
           path: '/schedule',
@@ -226,6 +373,31 @@ class _AdaptiveCBCAppState extends State<AdaptiveCBCApp> {
           path: '/leaderboard',
           builder: (context, state) => const LeaderboardScreen(),
         ),
+        GoRoute(
+          path: '/assignments',
+          builder: (context, state) => const AssignmentsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                return AssignmentDetailScreen(assignmentId: id);
+              },
+            ),
+          ],
+        ),
+        GoRoute(
+          path: '/attempt-history',
+          builder: (context, state) => const AttemptHistoryScreen(),
+        ),
+        GoRoute(
+          path: '/reviews',
+          builder: (context, state) => const ReviewsScreen(),
+        ),
+        GoRoute(
+          path: '/author-studio',
+          builder: (context, state) => const AuthorStudioScreen(),
+        ),
         ShellRoute(
           builder: (context, state, child) {
             return BottomNavShell(child: child);
@@ -237,7 +409,7 @@ class _AdaptiveCBCAppState extends State<AdaptiveCBCApp> {
             ),
             GoRoute(
               path: '/subjects',
-              builder: (context, state) => const SubjectsScreen(),
+              builder: (context, state) => SubjectsScreen(mode: state.uri.queryParameters['mode']),
             ),
             GoRoute(
               path: '/courses',

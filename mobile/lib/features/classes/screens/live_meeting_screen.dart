@@ -99,8 +99,15 @@ class _LiveMeetingScreenState extends State<LiveMeetingScreen> {
       final serverUrl = data['serverUrl'] as String;
       final token = data['token'] as String;
 
+      if (serverUrl.isEmpty || token.isEmpty) {
+        throw Exception('Invalid server response: missing connection details.');
+      }
+
       _room.addListener(_onRoomDidUpdate);
-      await _room.connect(serverUrl, token);
+      await _room.connect(serverUrl, token).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException('Connection timed out. The live session server may be offline.'),
+      );
 
       _roomListener = _room.createListener();
       _roomListener?.on<DataReceivedEvent>((event) {
@@ -118,12 +125,21 @@ class _LiveMeetingScreenState extends State<LiveMeetingScreen> {
           _isConnecting = false;
         });
       }
+    } on TimeoutException {
+      if (mounted) {
+        setState(() {
+          _isConnecting = false;
+          _isServerOffline = true;
+          _statusMessage = 'Connection timed out. The live session server may be offline.';
+        });
+        _room.disconnect();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isConnecting = false;
           _isServerOffline = true;
-          _statusMessage = 'Failed to connect to the live session or server is offline.';
+          _statusMessage = 'Failed to connect to the live session. ${e.toString()}';
         });
       }
     }
@@ -345,6 +361,29 @@ class _LiveMeetingScreenState extends State<LiveMeetingScreen> {
                 style: const TextStyle(color: Colors.white70, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _isConnecting = true;
+                  _isServerOffline = false;
+                  _statusMessage = 'Reconnecting...';
+                });
+                _connectToRoom();
+              },
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry Connection'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black87,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () { _room.disconnect(); context.pop(); },
+              child: const Text('Leave', style: TextStyle(color: Colors.white54)),
             ),
           ],
         ),

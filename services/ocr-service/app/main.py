@@ -83,12 +83,14 @@ def get_job_status(job_id: str):
     if job["status"] == "completed":
         import json
         questions = json.loads(job.get("questions_json", "[]"))
+        figures = json.loads(job.get("figures_json", "[]"))
         page_results = json.loads(job.get("page_results_json", "[]"))
         result = OCRJobResult(
             text=job.get("full_text", ""),
             pages=job.get("page_count", 0),
             confidence=job.get("total_confidence", 0.0),
             questions=questions,
+            figures=figures,
             processing_time=job.get("processing_time", 0),
             page_results=page_results,
             is_duplicate=job.get("is_duplicate", False)

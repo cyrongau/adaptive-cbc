@@ -8,7 +8,8 @@ import '../../../core/constants.dart';
 import '../../../core/theme/app_colors.dart';
 
 class SubjectsScreen extends StatefulWidget {
-  const SubjectsScreen({super.key});
+  final String? mode;
+  const SubjectsScreen({super.key, this.mode});
 
   @override
   State<SubjectsScreen> createState() => _SubjectsScreenState();
@@ -123,7 +124,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('CBC Curriculum Subjects'),
+        title: Text(widget.mode == 'practice' ? 'Adaptive Practice' : 'CBC Curriculum Subjects'),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primary,
         elevation: 0,

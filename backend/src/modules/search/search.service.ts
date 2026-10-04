@@ -8,6 +8,9 @@ import { User } from '../users/entities/user.entity';
 import { Institution } from '../institutions/entities/institution.entity';
 import { PastPaper } from '../digital-library/entities/digital-library.entity';
 import { TutorProfile } from '../tutors/entities/tutor.entity';
+import { Course, CourseStatus } from '../courses/entities/course.entity';
+import { Product, ProductStatus } from '../store/entities/store.entity';
+import { Assignment } from '../assignments/entities/assignment.entity';
 
 @Injectable()
 export class SearchService {
@@ -26,12 +29,18 @@ export class SearchService {
     private pastPaperRepository: Repository<PastPaper>,
     @InjectRepository(TutorProfile)
     private tutorProfileRepository: Repository<TutorProfile>,
+    @InjectRepository(Course)
+    private courseRepository: Repository<Course>,
+    @InjectRepository(Product)
+    private productRepository: Repository<Product>,
+    @InjectRepository(Assignment)
+    private assignmentRepository: Repository<Assignment>,
   ) {}
 
   async searchAll(query: string, limit: number = 20): Promise<any> {
     const searchTerm = `%${query}%`;
 
-    const [questions, subjects, topics, institutions, pastPapers, tutors] = await Promise.all([
+    const [questions, subjects, topics, institutions, pastPapers, tutors, courses, products, assignments] = await Promise.all([
       this.questionRepository.find({
         where: [{ content: ILike(searchTerm) }],
         take: Math.min(limit, 10),
@@ -57,6 +66,28 @@ export class SearchService {
         where: [{ bio: ILike(searchTerm) }, { headline: ILike(searchTerm) }, { qualifications: ILike(searchTerm) }],
         take: Math.min(limit, 10),
         relations: ['user'],
+      }),
+      this.courseRepository.find({
+        where: [
+          { title: ILike(searchTerm), status: CourseStatus.PUBLISHED },
+          { description: ILike(searchTerm), status: CourseStatus.PUBLISHED },
+          { subtitle: ILike(searchTerm), status: CourseStatus.PUBLISHED },
+        ],
+        take: Math.min(limit, 10),
+      }),
+      this.productRepository.find({
+        where: [
+          { title: ILike(searchTerm), status: ProductStatus.PUBLISHED },
+          { description: ILike(searchTerm), status: ProductStatus.PUBLISHED },
+        ],
+        take: Math.min(limit, 10),
+      }),
+      this.assignmentRepository.find({
+        where: [
+          { title: ILike(searchTerm), status: 'published' },
+          { description: ILike(searchTerm), status: 'published' },
+        ],
+        take: Math.min(limit, 10),
       }),
     ]);
 
@@ -109,7 +140,44 @@ export class SearchService {
         experienceYears: t.experienceYears,
         status: t.status,
       })),
-      total: questions.length + subjects.length + topics.length + institutions.length + pastPapers.length + tutors.length,
+      courses: courses.map(c => ({
+        id: c.id,
+        type: 'course',
+        title: c.title,
+        description: c.description?.slice(0, 150),
+        subject: c.subject,
+        grade: c.grade,
+        thumbnail: c.thumbnail,
+        featuredImage: c.featuredImage,
+        price: c.price,
+        averageRating: c.averageRating,
+        totalLessons: c.totalLessons,
+        level: c.level,
+      })),
+      products: products.map(p => ({
+        id: p.id,
+        type: 'product',
+        title: p.title,
+        description: p.description?.slice(0, 150),
+        productType: p.productType,
+        category: p.category,
+        price: p.price,
+        originalPrice: p.originalPrice,
+        thumbnailUrl: p.thumbnailUrl,
+        images: p.images,
+      })),
+      assignments: assignments.map(a => ({
+        id: a.id,
+        type: 'assignment',
+        title: a.title,
+        description: a.description?.slice(0, 150),
+        subject: a.subject,
+        topic: a.topic,
+        grade: a.grade,
+        dueDate: a.dueDate,
+        totalPoints: a.totalPoints,
+      })),
+      total: questions.length + subjects.length + topics.length + institutions.length + pastPapers.length + tutors.length + courses.length + products.length + assignments.length,
     };
   }
 
@@ -148,6 +216,30 @@ export class SearchService {
           where: [{ bio: ILike(searchTerm) }, { headline: ILike(searchTerm) }],
           take: limit,
           relations: ['user'],
+        });
+      case 'courses':
+        return this.courseRepository.find({
+          where: [
+            { title: ILike(searchTerm), status: CourseStatus.PUBLISHED },
+            { description: ILike(searchTerm), status: CourseStatus.PUBLISHED },
+          ],
+          take: limit,
+        });
+      case 'products':
+        return this.productRepository.find({
+          where: [
+            { title: ILike(searchTerm), status: ProductStatus.PUBLISHED },
+            { description: ILike(searchTerm), status: ProductStatus.PUBLISHED },
+          ],
+          take: limit,
+        });
+      case 'assignments':
+        return this.assignmentRepository.find({
+          where: [
+            { title: ILike(searchTerm), status: 'published' },
+            { description: ILike(searchTerm), status: 'published' },
+          ],
+          take: limit,
         });
       default:
         return [];

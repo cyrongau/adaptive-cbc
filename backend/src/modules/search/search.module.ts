@@ -9,10 +9,13 @@ import { User } from '../users/entities/user.entity';
 import { Institution } from '../institutions/entities/institution.entity';
 import { PastPaper } from '../digital-library/entities/digital-library.entity';
 import { TutorProfile } from '../tutors/entities/tutor.entity';
+import { Course } from '../courses/entities/course.entity';
+import { Product } from '../store/entities/store.entity';
+import { Assignment } from '../assignments/entities/assignment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Question, Subject, Topic, User, Institution, PastPaper, TutorProfile]),
+    TypeOrmModule.forFeature([Question, Subject, Topic, User, Institution, PastPaper, TutorProfile, Course, Product, Assignment]),
   ],
   controllers: [SearchController],
   providers: [SearchService],

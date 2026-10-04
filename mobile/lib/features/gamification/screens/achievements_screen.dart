@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/constants.dart';
 
 class AchievementsScreen extends StatefulWidget {
   const AchievementsScreen({super.key});
@@ -29,7 +30,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     });
 
     try {
-      final response = await _apiClient.dio.get('/gamification/badges');
+      final response = await _apiClient.dio.get(AppConstants.badges);
       if (response.statusCode == 200) {
         setState(() {
           _badges = response.data;

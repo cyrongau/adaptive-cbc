@@ -34,7 +34,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     });
 
     try {
-      final response = await _apiClient.dio.get('${AppConstants.courses}/${widget.courseId}');
+      final response = await _apiClient.dio.get('${AppConstants.courseDetail}/${widget.courseId}');
       
       if (response.statusCode == 200) {
         setState(() {
