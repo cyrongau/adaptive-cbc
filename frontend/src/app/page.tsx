@@ -154,6 +154,197 @@ const quickSuggestions = [
   { name: 'CBC Mathematics Workbook', desc: 'Full textbook guide for Grade 5', icon: '📖' }
 ];
 
+function AdaptiveRecommendationBanner({ user, token }: { user: any; token: string | null }) {
+  const [studentWeakArea, setStudentWeakArea] = useState<{ topic?: string; subject?: string } | null>(null);
+
+  useEffect(() => {
+    const isStudent = !user?.role || user?.role === 'student';
+    if (isStudent && token) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+      fetch(`${apiUrl}/api/v1/recommendations/weak-areas`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0 && data[0]?.label) {
+            setStudentWeakArea({
+              topic: data[0].label,
+              subject: data[0].subjectId,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.role, token]);
+
+  if (!user) return null;
+
+  const role = (user?.role || 'student').toLowerCase();
+  const firstName = user?.firstName ? user.firstName.trim() : '';
+
+  // 1. Teacher / Educator
+  if (role === 'teacher') {
+    return (
+      <div className="bg-primary/5 rounded-2xl border border-primary/10 p-5 flex flex-col sm:flex-row items-center sm:justify-between gap-4 max-w-4xl mx-auto hover:bg-primary/10 transition-colors duration-300">
+        <div className="flex items-center space-x-4">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
+            <FileText className="w-5 h-5 text-primary" />
+          </div>
+          <p className="text-sm text-gray-700 font-medium leading-relaxed">
+            <span className="font-bold text-gray-900">Teacher Assistant:</span>{' '}
+            {firstName ? `Welcome back, ${firstName}! ` : ''}New CBC assessment rubrics and question paper templates are available. Would you like to review student submissions or author a new quiz?
+          </p>
+        </div>
+        <Link
+          href="/author-studio"
+          className="bg-primary text-white font-extrabold text-xs px-5 py-2.5 rounded-lg hover:bg-primary/95 transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95 inline-flex items-center gap-1.5"
+        >
+          <span>Open Author Studio</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+    );
+  }
+
+  // 2. Tutor
+  if (role === 'tutor') {
+    return (
+      <div className="bg-primary/5 rounded-2xl border border-primary/10 p-5 flex flex-col sm:flex-row items-center sm:justify-between gap-4 max-w-4xl mx-auto hover:bg-primary/10 transition-colors duration-300">
+        <div className="flex items-center space-x-4">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
+            <Users className="w-5 h-5 text-primary" />
+          </div>
+          <p className="text-sm text-gray-700 font-medium leading-relaxed">
+            <span className="font-bold text-gray-900">Tutor Cockpit:</span>{' '}
+            {firstName ? `Welcome back, ${firstName}! ` : ''}Learners are actively seeking 1-on-1 CBC guidance in your specialty subjects. Check your upcoming session schedule and update your availability.
+          </p>
+        </div>
+        <Link
+          href="/sessions"
+          className="bg-primary text-white font-extrabold text-xs px-5 py-2.5 rounded-lg hover:bg-primary/95 transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95 inline-flex items-center gap-1.5"
+        >
+          <span>Manage Sessions</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+    );
+  }
+
+  // 3. Parent
+  if (role === 'parent') {
+    return (
+      <div className="bg-primary/5 rounded-2xl border border-primary/10 p-5 flex flex-col sm:flex-row items-center sm:justify-between gap-4 max-w-4xl mx-auto hover:bg-primary/10 transition-colors duration-300">
+        <div className="flex items-center space-x-4">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
+            <GraduationCap className="w-5 h-5 text-primary" />
+          </div>
+          <p className="text-sm text-gray-700 font-medium leading-relaxed">
+            <span className="font-bold text-gray-900">Parent Guide:</span>{' '}
+            {firstName ? `Welcome back, ${firstName}! ` : ''}Keep track of your linked children's daily learning milestones, CBC competency progress, and practice streaks.
+          </p>
+        </div>
+        <Link
+          href="/children"
+          className="bg-primary text-white font-extrabold text-xs px-5 py-2.5 rounded-lg hover:bg-primary/95 transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95 inline-flex items-center gap-1.5"
+        >
+          <span>View Child Progress</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+    );
+  }
+
+  // 4. Institution Admin / Super Admin
+  if (role === 'institution_admin' || role === 'super_admin') {
+    return (
+      <div className="bg-primary/5 rounded-2xl border border-primary/10 p-5 flex flex-col sm:flex-row items-center sm:justify-between gap-4 max-w-4xl mx-auto hover:bg-primary/10 transition-colors duration-300">
+        <div className="flex items-center space-x-4">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
+            <Building2 className="w-5 h-5 text-primary" />
+          </div>
+          <p className="text-sm text-gray-700 font-medium leading-relaxed">
+            <span className="font-bold text-gray-900">
+              {role === 'super_admin' ? 'System Operations:' : 'Institution Hub:'}
+            </span>{' '}
+            {firstName ? `Welcome back, ${firstName}! ` : ''}School curriculum coverage, teacher authoring submissions, and student analytics are ready for your review.
+          </p>
+        </div>
+        <Link
+          href="/admin/dashboard"
+          className="bg-primary text-white font-extrabold text-xs px-5 py-2.5 rounded-lg hover:bg-primary/95 transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95 inline-flex items-center gap-1.5"
+        >
+          <span>Admin Dashboard</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+    );
+  }
+
+  // 5. Student (default)
+  let gradeNumber = 4;
+  let gradeLabel = 'Grade 4';
+  if (user?.grade) {
+    const raw = String(user.grade).trim();
+    const match = raw.match(/\d+/);
+    if (match) {
+      gradeNumber = parseInt(match[0], 10);
+      gradeLabel = `Grade ${gradeNumber}`;
+    } else {
+      gradeLabel = raw.toLowerCase().startsWith('grade') ? raw : `Grade ${raw}`;
+    }
+  }
+
+  // Grade-appropriate CBC curriculum defaults:
+  let defaultTopic = 'Energy Transfer';
+  let defaultSubject = 'Science';
+
+  if (gradeNumber <= 3) {
+    defaultTopic = 'Number Patterns & Basic Addition';
+    defaultSubject = 'Mathematical Activities';
+  } else if (gradeNumber >= 7 && gradeNumber <= 9) {
+    defaultTopic = 'Cells and Living Organisms';
+    defaultSubject = 'Integrated Science';
+  } else if (gradeNumber >= 10) {
+    defaultTopic = 'Algebraic Expressions & Relations';
+    defaultSubject = 'Mathematics';
+  } else {
+    // Grade 4-6
+    defaultTopic = 'Energy Transfer';
+    defaultSubject = 'Science';
+  }
+
+  return (
+    <div className="bg-primary/5 rounded-2xl border border-primary/10 p-5 flex flex-col sm:flex-row items-center sm:justify-between gap-4 max-w-4xl mx-auto hover:bg-primary/10 transition-colors duration-300">
+      <div className="flex items-center space-x-4">
+        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
+          <Sparkles className="w-5 h-5 fill-primary" />
+        </div>
+        <p className="text-sm text-gray-700 font-medium leading-relaxed">
+          <span className="font-bold text-gray-900">Adaptive CBC Suggests:</span>{' '}
+          {studentWeakArea?.topic ? (
+            <>
+              Based on your <span className="font-semibold underline decoration-primary/40">{gradeLabel} profile</span>, you can strengthen your mastery in{' '}
+              <strong className="text-primary font-bold">{studentWeakArea.topic}</strong>. Would you like to start a practice drill?
+            </>
+          ) : (
+            <>
+              Based on your <span className="font-semibold underline decoration-primary/40">{gradeLabel} profile</span>, most students are currently learning{' '}
+              <strong className="text-primary font-bold">{defaultTopic}</strong> in {defaultSubject}. Would you like to start a practice session?
+            </>
+          )}
+        </p>
+      </div>
+      <Link
+        href="/practice"
+        className="bg-primary text-white font-extrabold text-xs px-5 py-2.5 rounded-lg hover:bg-primary/95 transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95 inline-flex items-center gap-1.5"
+      >
+        <span>Start Practice</span>
+        <ArrowRight className="w-3.5 h-3.5" />
+      </Link>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { user, logout, initialize, token } = useAuthStore();
   const [mounted, setMounted] = useState(false);
@@ -712,20 +903,10 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Lumina Suggests Banner */}
-          <div className="bg-primary/5 rounded-2xl border border-primary/10 p-5 flex flex-col sm:flex-row items-center sm:justify-between gap-4 max-w-4xl mx-auto hover:bg-primary/10 transition-colors duration-300">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
-                <Sparkles className="w-5 h-5 fill-primary" />
-              </div>
-              <p className="text-sm text-gray-700 font-medium leading-relaxed">
-                <span className="font-bold text-gray-900">Adaptive CBC Suggests:</span> Based on your Grade 4 profile, most students are currently learning <strong className="text-primary">Energy Transfer</strong> in Science. Would you like to start a practice session?
-              </p>
-            </div>
-            <button className="bg-primary text-white font-extrabold text-xs px-5 py-2.5 rounded-lg hover:bg-primary/95 transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95">
-              Start Practice
-            </button>
-          </div>
+          {/* Lumina Suggests Banner - Only shown to authenticated users, adapted to role */}
+          {mounted && user && (
+            <AdaptiveRecommendationBanner user={user} token={token} />
+          )}
         </div>
       </section>
 
