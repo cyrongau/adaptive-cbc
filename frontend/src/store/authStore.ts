@@ -98,7 +98,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       return true;
     } catch (err: any) {
-      const errMsg = err.response?.data?.message || 'Invalid email or password';
+      const errMsg = err.response?.data?.message || (err.code === 'ERR_NETWORK' || !err.response ? 'Unable to connect to authentication server. Please try again.' : 'Invalid email or password');
       set({ error: errMsg, loading: false });
       return false;
     }
