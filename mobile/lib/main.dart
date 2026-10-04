@@ -14,17 +14,28 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize network API client and persistent session jar
-  final apiClient = ApiClient();
-  await apiClient.init();
+  try {
+    final apiClient = ApiClient();
+    await apiClient.init();
+  } catch (e) {
+    debugPrint('[Main] ApiClient init error: $e');
+  }
 
-  // Initialize Firebase
-  await Firebase.initializeApp();
+  // Initialize Firebase & background services without blocking initial frame render
+  try {
+    await Firebase.initializeApp();
+    NotificationService().initialize().catchError((e) {
+      debugPrint('[Main] NotificationService init error: $e');
+    });
+  } catch (e) {
+    debugPrint('[Main] Firebase init error: $e');
+  }
 
-  // Initialize Notifications
-  await NotificationService().initialize();
-
-  // Initialize Offline Sync Service
-  SyncService().initialize();
+  try {
+    SyncService().initialize();
+  } catch (e) {
+    debugPrint('[Main] SyncService init error: $e');
+  }
 
   runApp(
     MultiProvider(
