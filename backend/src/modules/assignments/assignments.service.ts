@@ -26,10 +26,17 @@ export class AssignmentsService {
   ) {}
 
   async create(createDto: CreateAssignmentDto, teacherId: string): Promise<Assignment> {
+    const user = await this.usersService.findOne(teacherId);
+    const isTutor = user?.role === 'tutor' || !user?.institutionId;
     const questionCount = createDto.questionIds?.length || createDto.questionCount || 5;
+
+    // Tutors creating assignments for public users/paid content do not need moderation; default to published
+    const status = createDto.status || (isTutor ? 'published' : 'draft');
+
     const assignment = this.assignmentsRepository.create({
       ...createDto as any,
       teacherId,
+      status,
       questionCount,
       questionIds: createDto.questionIds || undefined,
     } as Assignment);
@@ -152,6 +159,14 @@ export class AssignmentsService {
     if (assignment.teacherId !== teacherId) {
       throw new ForbiddenException('You can only submit your own assignments for approval');
     }
+
+    const user = await this.usersService.findOne(teacherId);
+    // Tutors creating assignments for public users or paid content do not need assignment moderation
+    if (user?.role === 'tutor' || !user?.institutionId) {
+      assignment.status = 'published';
+      return this.assignmentsRepository.save(assignment);
+    }
+
     if (assignment.status !== 'draft' && assignment.status !== 'rejected') {
       throw new BadRequestException('Only draft or rejected assignments can be submitted for approval');
     }
@@ -180,11 +195,17 @@ export class AssignmentsService {
   async findPendingApproval(institutionId: string, status?: string): Promise<Assignment[]> {
     try {
       const statusFilter = status || 'pending_approval';
-      return await this.assignmentsRepository.find({
-        where: { status: statusFilter },
-        order: { createdAt: 'DESC' },
-        relations: ['teacher'],
-      });
+      const qb = this.assignmentsRepository.createQueryBuilder('assignment')
+        .leftJoinAndSelect('assignment.teacher', 'teacher')
+        .where('assignment.status = :status', { status: statusFilter })
+        // Exclude tutors - tutors do not need assignment moderation; only institution teachers require review
+        .andWhere('teacher.role = :teacherRole', { teacherRole: 'teacher' });
+
+      if (institutionId) {
+        qb.andWhere('teacher.institutionId = :institutionId', { institutionId });
+      }
+
+      return await qb.orderBy('assignment.createdAt', 'DESC').getMany();
     } catch (error) {
       console.error('findPendingApproval error:', error);
       throw error;

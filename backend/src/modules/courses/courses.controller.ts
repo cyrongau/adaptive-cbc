@@ -37,6 +37,14 @@ export class CoursesController {
     return this.coursesService.findAllPublished({ subject, grade: grade ? Number(grade) : undefined, level, search });
   }
 
+  @Get('moderation/queue')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR)
+  @ApiOperation({ summary: 'Get courses pending moderation' })
+  async getPendingReview() {
+    return this.coursesService.findPendingReview();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get course by ID' })
   async findOne(@Param('id') id: string) {
@@ -59,9 +67,25 @@ export class CoursesController {
 
   @Patch(':id/publish')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Publish course' })
+  @ApiOperation({ summary: 'Publish or submit course for review' })
   async publish(@Param('id') id: string, @Request() req) {
     return this.coursesService.publish(id, req.user.id);
+  }
+
+  @Patch(':id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR)
+  @ApiOperation({ summary: 'Approve course as super admin or moderator' })
+  async approveCourse(@Param('id') id: string, @Request() req) {
+    return this.coursesService.approveCourse(id, req.user.id);
+  }
+
+  @Patch(':id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR)
+  @ApiOperation({ summary: 'Reject course as super admin or moderator' })
+  async rejectCourse(@Param('id') id: string, @Body() body: { reason?: string }, @Request() req) {
+    return this.coursesService.rejectCourse(id, req.user.id, body?.reason);
   }
 
   @Patch(':id/archive')

@@ -124,8 +124,34 @@ export class CoursesService {
     const hasPublishedLessons = modules.some((m) => m.lessons.some((l) => l.isPublished));
     if (!hasPublishedLessons) throw new BadRequestException('Course must have at least one published lesson');
 
+    const user = await this.usersService.findOne(userId);
+    // Tutors submitting courses require moderation by super admin / moderators
+    if (user.role === UserRole.TUTOR) {
+      course.status = CourseStatus.PENDING_REVIEW;
+    } else {
+      course.status = CourseStatus.PUBLISHED;
+    }
+    return this.coursesRepository.save(course);
+  }
+
+  async approveCourse(id: string, moderatorId: string): Promise<Course> {
+    const course = await this.findOne(id);
     course.status = CourseStatus.PUBLISHED;
     return this.coursesRepository.save(course);
+  }
+
+  async rejectCourse(id: string, moderatorId: string, reason?: string): Promise<Course> {
+    const course = await this.findOne(id);
+    course.status = CourseStatus.REJECTED;
+    return this.coursesRepository.save(course);
+  }
+
+  async findPendingReview(): Promise<Course[]> {
+    return this.coursesRepository.find({
+      where: { status: CourseStatus.PENDING_REVIEW },
+      relations: ['teacher', 'modules'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async archive(id: string, userId: string): Promise<Course> {

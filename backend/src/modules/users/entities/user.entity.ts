@@ -17,6 +17,7 @@ export enum UserRole {
   PARENT = 'parent',
   INSTITUTION_ADMIN = 'institution_admin',
   SUPER_ADMIN = 'super_admin',
+  MODERATOR = 'moderator',
 }
 
 export enum OnboardingStatus {

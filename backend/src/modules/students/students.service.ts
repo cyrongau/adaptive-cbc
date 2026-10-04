@@ -548,7 +548,8 @@ export class StudentsService {
       return { message: 'If the account exists, a recovery code has been sent' };
     }
 
-    const otp = process.env.NODE_ENV === 'development' ? '123456' : randomInt(100000, 999999).toString();
+    const otp = randomInt(100000, 999999).toString();
+    this.logger.log(`[STUDENTS] Generated dynamic PIN recovery OTP: ${otp}`);
     let savedRecoveryId = null;
 
     for (const profile of profiles) {

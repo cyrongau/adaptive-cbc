@@ -134,8 +134,9 @@ export default function AdminLoginPage() {
           <div className="space-y-1 text-xs text-slate-500">
             <div><span className="text-amber-400">Super Admin:</span> admin@adaptivecbc.co.ke</div>
             <div><span className="text-amber-400">Institution Admin:</span> institution@adaptivecbc.com</div>
-            <div><span className="text-slate-400">Password:</span> Password123!</div>
-            <div className="mt-2 pt-2 border-t border-slate-700/50"><span className="text-amber-400">OTP Code:</span> 123456</div>
+            <div className="mt-2 pt-2 border-t border-slate-700/50 text-[11px] text-slate-400">
+              <span className="text-amber-400 font-semibold">2FA Security:</span> Dynamic OTP sent to email on login
+            </div>
           </div>
         </motion.div>
       </div>

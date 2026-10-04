@@ -139,16 +139,16 @@ export class DigitalLibraryController {
 
   @Post('papers/:id/publish')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Publish past paper' })
+  @ApiOperation({ summary: 'Publish past paper (Moderator/Admin)' })
   async publishPaper(@Request() req, @Param('id') id: string) {
     return this.digitalLibraryService.publishPastPaper(id, req.user.id);
   }
 
   @Post('papers/:id/archive')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Archive past paper' })
   async archivePaper(@Param('id') id: string) {
@@ -157,7 +157,7 @@ export class DigitalLibraryController {
 
   @Post('papers/:id/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Reject past paper with structured reasons' })
   @ApiBody({ type: RejectPaperDto })
@@ -167,7 +167,7 @@ export class DigitalLibraryController {
 
   @Delete('papers/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR, UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete a past paper (owner or admin only)' })
   async deletePaper(@Request() req, @Param('id') id: string) {
@@ -176,18 +176,18 @@ export class DigitalLibraryController {
 
   @Get('admin/papers')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'List all papers for moderation (admin)' })
+  @ApiOperation({ summary: 'List all papers for moderation (admin/moderator)' })
   async getModerationPapers(@Query() params: { status?: string; page?: number; limit?: number; search?: string }) {
     return this.digitalLibraryService.findAllPapersForModeration(params);
   }
 
   @Get('admin/papers/:id/questions')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get all questions for a paper (admin moderation)' })
+  @ApiOperation({ summary: 'Get all questions for a paper (admin/moderator moderation)' })
   async getModerationQuestions(@Param('id') id: string) {
     return this.digitalLibraryService.getQuestionsForModeration(id);
   }

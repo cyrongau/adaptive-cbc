@@ -99,8 +99,45 @@ export class MaterialsController {
     return this.materialsService.create(
       { ...createDto, fileUrl, fileSize },
       req.user.id,
+      req.user.role,
       req.user.institutionId,
     );
+  }
+
+  @Get('moderation/queue')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get materials pending moderation review' })
+  async getPendingReview() {
+    return this.materialsService.findPendingReview();
+  }
+
+  @Post(':id/submit-for-review')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.TUTOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Submit material for super admin / moderator review' })
+  async submitForReview(@Param('id') id: string, @Request() req) {
+    return this.materialsService.submitForReview(id, req.user.id);
+  }
+
+  @Post(':id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Approve material as super admin or moderator' })
+  async approveMaterial(@Param('id') id: string, @Request() req) {
+    return this.materialsService.approveMaterial(id, req.user.id);
+  }
+
+  @Post(':id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Reject material as super admin or moderator' })
+  async rejectMaterial(@Param('id') id: string, @Body() body: { reason?: string }, @Request() req) {
+    return this.materialsService.rejectMaterial(id, req.user.id, body?.reason);
   }
 
   @Put(':id')

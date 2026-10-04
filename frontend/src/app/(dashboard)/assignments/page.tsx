@@ -7,7 +7,7 @@ import 'react-quill/dist/quill.snow.css';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { FileText, Plus, Clock, Users, CheckCircle, XCircle, ArrowRight, Edit2, Trash2, BookOpen, Star, Send, Sparkles } from 'lucide-react';
+import { FileText, Plus, Clock, Users, CheckCircle, CheckCircle2, XCircle, ArrowRight, Edit2, Trash2, BookOpen, Star, Send, Sparkles } from 'lucide-react';
 import HtmlContent from '@/components/ui/HtmlContent';
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
@@ -143,20 +143,22 @@ export default function AssignmentsPage() {
 
   const isStudent = user?.role === 'student';
   const isTeacher = user?.role === 'teacher';
+  const isTutor = user?.role === 'tutor';
+  const isInstructor = isTeacher || isTutor;
 
   useEffect(() => {
     if (isStudent) {
       fetchStudentAssignments();
-    } else if (isTeacher) {
+    } else if (isInstructor) {
       fetchTeacherAssignments();
       fetchSubjects();
     } else {
       setLoading(false);
     }
-  }, [isStudent, isTeacher]);
+  }, [isStudent, isInstructor]);
 
   useEffect(() => {
-    if (!isTeacher || !formData.subject || !formData.grade) {
+    if (!isInstructor || !formData.subject || !formData.grade) {
       setCurriculumTree([]);
       return;
     }
@@ -176,7 +178,7 @@ export default function AssignmentsPage() {
       })
       .catch(() => setCurriculumTree([]))
       .finally(() => setCurriculumLoading(false));
-  }, [isTeacher, formData.subject, formData.grade, subjects]);
+  }, [isInstructor, formData.subject, formData.grade, subjects]);
 
   const fetchStudentAssignments = async () => {
     try {
@@ -556,20 +558,32 @@ export default function AssignmentsPage() {
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  {(assignment.status === 'draft' || assignment.status === 'rejected') && (
+                  {/* For teachers: Submit for approval to school admin */}
+                  {isTeacher && (assignment.status === 'draft' || assignment.status === 'rejected') && (
                     <button
                       onClick={() => handleSubmitForApproval(assignment.id)}
                       className="flex items-center gap-1 px-3 py-2 bg-yellow-500 text-white rounded-xl text-sm font-medium hover:bg-yellow-600"
-                      title="Submit for admin approval"
+                      title="Submit for school admin approval"
                     >
                       <Send className="w-4 h-4" />
                       Submit for Approval
                     </button>
                   )}
-                  {assignment.status === 'pending_approval' && (
+                  {isTeacher && assignment.status === 'pending_approval' && (
                     <span className="px-3 py-2 text-xs font-medium text-yellow-700 bg-yellow-50 rounded-xl">
                       Awaiting Review
                     </span>
+                  )}
+                  {/* For tutors: Instant publish without moderation for public/paid content */}
+                  {isTutor && (assignment.status === 'draft' || assignment.status === 'rejected') && (
+                    <button
+                      onClick={() => handlePublishToggle(assignment)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 shadow-sm transition-all"
+                      title="Instant Publish (No moderation needed for tutors)"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Publish Now
+                    </button>
                   )}
                   {assignment.status === 'published' && (
                     <button

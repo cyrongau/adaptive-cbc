@@ -201,7 +201,7 @@ export class QuestionsController {
 
   @Put(':id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Change question moderation status' })
   async changeStatus(
@@ -214,7 +214,7 @@ export class QuestionsController {
 
   @Post(':id/clone')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
+  @Roles(UserRole.TEACHER, UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN, UserRole.TUTOR)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Clone question for variation' })
   async cloneQuestion(@Param('id') id: string, @Request() req: any) {
@@ -223,7 +223,7 @@ export class QuestionsController {
 
   @Get('moderation/queue')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.INSTITUTION_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.INSTITUTION_ADMIN)
   async getModerationQueue(
     @Query('search') search?: string,
     @Query('subjectId') subjectId?: string,

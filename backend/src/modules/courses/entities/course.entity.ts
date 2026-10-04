@@ -6,8 +6,10 @@ import { CourseReview } from './course-review.entity';
 
 export enum CourseStatus {
   DRAFT = 'draft',
+  PENDING_REVIEW = 'pending_review',
   PUBLISHED = 'published',
   ARCHIVED = 'archived',
+  REJECTED = 'rejected',
 }
 
 export enum CourseLevel {

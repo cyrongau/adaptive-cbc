@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { verifyOtp, loading, error, clearError, tempEmail, tempPhone, initialize } = useAuthStore();
+  const { verifyOtp, loading, error, clearError, tempEmail, tempPhone, devOtp, initialize } = useAuthStore();
   const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
   
@@ -264,13 +264,22 @@ function VerifyOtpForm() {
               ))}
             </div>
 
-            {/* Hint Badge for ease of developer demonstration / verification */}
-            <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 text-[11px] font-semibold text-primary leading-relaxed flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-primary shrink-0 animate-pulse" />
-              <span>
-                <strong>CBC Platform Guide:</strong> For verification testing, please enter code: <code className="bg-primary/10 px-1.5 py-0.5 rounded font-extrabold text-xs">123456</code>.
-              </span>
-            </div>
+            {/* Dynamic Security Information Notice */}
+            {devOtp && process.env.NODE_ENV === 'development' ? (
+              <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-[11px] font-semibold text-amber-700 leading-relaxed flex items-center space-x-2">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Dev Sandbox (Dynamic OTP):</strong> <code className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-extrabold text-xs">{devOtp}</code>
+                </span>
+              </div>
+            ) : (
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-[11px] font-medium text-emerald-800 leading-relaxed flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  A unique dynamic 6-digit code was sent to <strong>{tempEmail || 'your email'}</strong>. Codes expire in 5 minutes.
+                </span>
+              </div>
+            )}
 
             <button 
               type="submit" 

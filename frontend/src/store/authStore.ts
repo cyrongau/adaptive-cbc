@@ -30,6 +30,7 @@ interface AuthState {
   isTwoFactorPending: boolean;
   tempEmail: string | null;
   tempPhone: string | null;
+  devOtp: string | null;
   resetEmail: string | null;
   devResetToken: string | null;
 
@@ -67,6 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isTwoFactorPending: false,
   tempEmail: null,
   tempPhone: null,
+  devOtp: null,
   resetEmail: null,
   devResetToken: null,
 
@@ -93,7 +95,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isTwoFactorPending: true,
         tempEmail: response.data.tempEmail || email,
-        tempPhone: '0712345678', // mock for demo UI
+        tempPhone: response.data.tempPhone || null,
+        devOtp: response.data.devCode || null,
         loading: false,
       });
       return true;
@@ -138,6 +141,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isTwoFactorPending: true,
         tempEmail: response.data.tempEmail || payload.email,
         tempPhone: payload.phone,
+        devOtp: response.data.devCode || null,
         loading: false,
       });
       return true;
@@ -171,6 +175,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isTwoFactorPending: false,
         tempEmail: null,
         tempPhone: null,
+        devOtp: null,
         loading: false,
       });
       return true;

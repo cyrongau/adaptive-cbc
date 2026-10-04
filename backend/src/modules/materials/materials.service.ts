@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Material, MaterialStatus, MaterialVisibility } from './entities/material.entity';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class MaterialsService {
@@ -87,16 +88,63 @@ export class MaterialsService {
   async create(
     createDto: CreateMaterialDto,
     userId: string,
+    userRole?: string,
     institutionId?: string,
   ): Promise<Material> {
+    // Tutors submitting learning materials require moderation by super admin / moderators
+    const isTutor = userRole === UserRole.TUTOR;
+    const initialStatus = isTutor
+      ? MaterialStatus.PENDING_REVIEW
+      : ((createDto as any).status || MaterialStatus.PUBLISHED);
+
     const material = this.materialsRepository.create({
       ...createDto,
       createdBy: userId,
       institutionId: createDto.visibility === MaterialVisibility.INSTITUTION_ONLY ? institutionId : null,
-      status: MaterialStatus.PUBLISHED,
+      status: initialStatus,
     });
 
     return this.materialsRepository.save(material);
+  }
+
+  async submitForReview(id: string, userId: string): Promise<Material> {
+    const material = await this.findOne(id);
+    if (material.createdBy !== userId) {
+      throw new ForbiddenException('You can only submit your own materials for review');
+    }
+    material.status = MaterialStatus.PENDING_REVIEW;
+    return this.materialsRepository.save(material);
+  }
+
+  async approveMaterial(id: string, moderatorId: string): Promise<Material> {
+    const material = await this.findOne(id);
+    material.status = MaterialStatus.PUBLISHED;
+    material.metadata = {
+      ...(material.metadata || {}),
+      approvedBy: moderatorId,
+      approvedAt: new Date().toISOString(),
+    };
+    return this.materialsRepository.save(material);
+  }
+
+  async rejectMaterial(id: string, moderatorId: string, reason?: string): Promise<Material> {
+    const material = await this.findOne(id);
+    material.status = MaterialStatus.REJECTED;
+    material.metadata = {
+      ...(material.metadata || {}),
+      rejectedBy: moderatorId,
+      rejectionReason: reason || 'Does not meet curriculum criteria',
+      rejectedAt: new Date().toISOString(),
+    };
+    return this.materialsRepository.save(material);
+  }
+
+  async findPendingReview(): Promise<Material[]> {
+    return this.materialsRepository.find({
+      where: { status: MaterialStatus.PENDING_REVIEW },
+      relations: ['createdByUser'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async update(id: string, updateDto: UpdateMaterialDto): Promise<Material> {

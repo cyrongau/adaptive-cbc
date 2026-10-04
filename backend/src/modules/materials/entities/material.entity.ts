@@ -19,8 +19,10 @@ export enum MaterialVisibility {
 
 export enum MaterialStatus {
   DRAFT = 'draft',
+  PENDING_REVIEW = 'pending_review',
   PUBLISHED = 'published',
   ARCHIVED = 'archived',
+  REJECTED = 'rejected',
 }
 
 @Entity('materials')

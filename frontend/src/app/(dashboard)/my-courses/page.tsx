@@ -96,8 +96,10 @@ export default function MyCoursesPage() {
   const statusBadge = (status: string) => {
     const styles: Record<string, string> = {
       draft: 'bg-slate-100 text-slate-600',
+      pending_review: 'bg-yellow-100 text-yellow-700',
       published: 'bg-green-100 text-green-700',
       archived: 'bg-amber-100 text-amber-700',
+      rejected: 'bg-red-100 text-red-700',
     };
     return styles[status] || styles.draft;
   };
@@ -191,9 +193,14 @@ export default function MyCoursesPage() {
                     <Eye className="w-4 h-4" />
                   </Link>
                   {course.status === 'draft' && (
-                    <button onClick={() => handlePublish(course.id)} className="flex items-center justify-center p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Publish">
+                    <button onClick={() => handlePublish(course.id)} className="flex items-center justify-center p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Submit for Moderation Review">
                       <CheckCircle2 className="w-4 h-4" />
                     </button>
+                  )}
+                  {course.status === 'pending_review' && (
+                    <span className="text-[11px] font-semibold text-yellow-700 bg-yellow-50 px-2.5 py-1 rounded-lg border border-yellow-200/60">
+                      Awaiting Moderation
+                    </span>
                   )}
                   {course.status === 'published' && (
                     <button onClick={() => handleArchive(course.id)} className="flex items-center justify-center p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Archive">

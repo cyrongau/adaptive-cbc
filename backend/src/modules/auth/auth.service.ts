@@ -72,8 +72,12 @@ export class AuthService {
       throw new UnauthorizedException(`Account is suspended. Reason: ${user.suspensionReason || 'Contact support'}`);
     }
 
-    await this.sendOtp(user.email);
-    return { isTwoFactorPending: true, tempEmail: user.email };
+    const otpRes = await this.sendOtp(user.email);
+    return {
+      isTwoFactorPending: true,
+      tempEmail: user.email,
+      ...(otpRes.devCode ? { devCode: otpRes.devCode } : {}),
+    };
   }
 
   async register(registerDto: RegisterDto) {
@@ -88,12 +92,17 @@ export class AuthService {
       await this.relationshipsService.autoLinkParentByEmail(user.id);
     }
 
-    await this.sendOtp(user.email);
-    return { isTwoFactorPending: true, tempEmail: user.email };
+    const otpRes = await this.sendOtp(user.email);
+    return {
+      isTwoFactorPending: true,
+      tempEmail: user.email,
+      ...(otpRes.devCode ? { devCode: otpRes.devCode } : {}),
+    };
   }
 
   async sendOtp(email: string) {
-    const code = process.env.NODE_ENV === 'development' ? '123456' : randomInt(100000, 999999).toString();
+    // Generate a secure dynamic 6-digit OTP for all users
+    const code = randomInt(100000, 999999).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     const otp = this.otpRepository.create({
@@ -117,51 +126,45 @@ export class AuthService {
     if (!emailResult.success) {
       this.logger.warn(`Failed to send OTP to ${email}: ${emailResult.message}`);
     }
+    this.logger.log(`[AUTH] Generated dynamic OTP for ${email}: ${code} (expires in 5 min)`);
 
-    return { message: 'OTP sent successfully' };
+    return {
+      message: 'OTP sent successfully',
+      ...(process.env.NODE_ENV !== 'production' ? { devCode: code } : {}),
+    };
   }
 
   async verifyOtp(email: string, code: string) {
-    let isValidOtp = false;
+    // Strict dynamic OTP verification against database record
+    const otp = await this.otpRepository.findOne({
+      where: { email, code, isUsed: false },
+      order: { createdAt: 'DESC' },
+    });
 
-    if (process.env.NODE_ENV === 'development' && (code === '123456' || code === '000000')) {
-      isValidOtp = true;
-    } else {
-      const otp = await this.otpRepository.findOne({
-        where: { email, code, isUsed: false },
-        order: { createdAt: 'DESC' },
-      });
-
-      if (!otp) {
-        throw new BadRequestException('Invalid OTP');
-      }
-
-      if (otp.expiresAt < new Date()) {
-        throw new BadRequestException('OTP has expired');
-      }
-
-      otp.isUsed = true;
-      await this.otpRepository.save(otp);
-      isValidOtp = true;
+    if (!otp) {
+      throw new BadRequestException('Invalid verification code');
     }
 
-    if (isValidOtp) {
-      const user = await this.usersService.findByEmail(email);
-      if (!user) {
-        throw new BadRequestException('User not found');
-      }
-
-      // Auto-link parent to any students who have this parent's email in their student register record
-      if (user.role === 'parent') {
-        await this.relationshipsService.autoLinkParentByEmail(user.id);
-      }
-
-      const tokens = await this.generateTokens(user);
-      await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
-      return { user, tokens };
+    if (otp.expiresAt < new Date()) {
+      throw new BadRequestException('Verification code has expired. Please request a new one.');
     }
-    
-    throw new BadRequestException('Invalid OTP');
+
+    otp.isUsed = true;
+    await this.otpRepository.save(otp);
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Auto-link parent to any students who have this parent's email in their student register record
+    if (user.role === 'parent') {
+      await this.relationshipsService.autoLinkParentByEmail(user.id);
+    }
+
+    const tokens = await this.generateTokens(user);
+    await this.usersService.setRefreshToken(user.id, tokens.refreshToken);
+    return { user, tokens };
   }
 
   async refreshTokens(refreshTokenDto: RefreshTokenDto) {
