@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -29,11 +30,19 @@ const TABS = [
 ];
 
 export default function PendingAssignmentsPage() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const [assignments, setAssignments] = useState<PendingAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending_approval');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (user && user.role !== 'institution_admin') {
+      toast.error('Assignment review is strictly managed by school administrators.');
+      router.replace('/admin/dashboard');
+    }
+  }, [user, router]);
 
   const fetchPending = useCallback(async (status: string) => {
     setLoading(true);

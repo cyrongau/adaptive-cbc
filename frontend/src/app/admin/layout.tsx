@@ -51,7 +51,6 @@ const SUPER_ADMIN_SIDEBAR = [
   { label: 'Financial Oversight', icon: Wallet, href: '/admin/financial' },
   { label: 'Store Management', icon: ShoppingCart, href: '/admin/store' },
   { label: 'Question Moderation', icon: CheckCircle, href: '/author-studio/moderation' },
-  { label: 'Assignment Review', icon: FileText, href: '/admin/assignments/pending' },
   { label: 'Papers Moderation', icon: FileText, href: '/admin/content' },
   { label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
   { label: 'Reports', icon: FileText, href: '/admin/reports' },
@@ -227,19 +226,43 @@ export default function AdminLayout({
         <div className={`flex items-center py-6 px-4 border-b ${theme.sidebarBorder} ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3 min-w-0">
-              <img src={branding.logoUrl} alt={branding.platformName} className="w-10 h-10 shrink-0 object-contain" />
+              <div className="w-10 h-10 rounded-xl bg-white/10 p-1.5 flex items-center justify-center shrink-0 border border-white/10 shadow-sm">
+                <img
+                  src={branding.logoUrl || '/logo.svg'}
+                  alt={branding.platformName || 'Adaptive CBC'}
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (!target.src.endsWith('/logo.svg')) {
+                      target.src = '/logo.svg';
+                    }
+                  }}
+                  className="w-full h-full object-contain"
+                />
+              </div>
               <div className="min-w-0">
                 <h1 className={`font-bold text-sm ${theme.brandText} tracking-tight truncate`}>
                   {isSuperAdmin ? 'EduAdmin' : (institutionName || 'Institution Admin')}
                 </h1>
-                <p className={`text-[10px] ${theme.brandSubtitle} font-semibold uppercase tracking-wider truncate`}>
+                <p className={`text-[10px] ${isSuperAdmin ? 'text-amber-300 font-bold' : 'text-slate-300 font-semibold'} uppercase tracking-wider truncate`}>
                   {isSuperAdmin ? 'Platform Administration' : 'School Management'}
                 </p>
               </div>
             </div>
           )}
           {sidebarCollapsed && (
-            <img src={branding.logoUrl} alt={branding.platformName} className="w-10 h-10 shrink-0 object-contain" />
+            <div className="w-10 h-10 rounded-xl bg-white/10 p-1.5 flex items-center justify-center shrink-0 border border-white/10 shadow-sm">
+              <img
+                src={branding.logoUrl || '/logo.svg'}
+                alt={branding.platformName || 'Adaptive CBC'}
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.endsWith('/logo.svg')) {
+                    target.src = '/logo.svg';
+                  }
+                }}
+                className="w-full h-full object-contain"
+              />
+            </div>
           )}
           <button
             onClick={toggleSidebar}

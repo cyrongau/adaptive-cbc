@@ -19,8 +19,11 @@ const BrandingContext = createContext<BrandingContextType | undefined>(undefined
 const getFullUrl = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
-  return path.startsWith('/') ? `${baseUrl}${path}` : `${baseUrl}/${path}`;
+  if (path.startsWith('/uploads') || path.startsWith('/api')) {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+    return `${baseUrl}${path}`;
+  }
+  return path;
 };
 
 export function BrandingProvider({ children }: { children: React.ReactNode }) {

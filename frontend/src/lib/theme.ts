@@ -355,7 +355,7 @@ export const THEMES: Record<string, DashboardTheme> = {
     sidebarUserBg: 'bg-amber-900/30',
     brand: 'from-amber-500 to-amber-600',
     brandText: 'text-amber-300',
-    brandSubtitle: 'text-amber-400/70',
+    brandSubtitle: 'text-amber-300/80',
     navBg: 'bg-[#0f1729]',
     navText: 'text-[#becabd]',
     navHover: 'hover:bg-[#1a2540] hover:text-amber-300',
